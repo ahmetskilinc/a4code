@@ -600,7 +600,7 @@ const claudeQueryOptions = (model: Model, device = true, browser = true) => {
     nativeThreadId: "mcp-tool-use-eval",
     resume: false,
     cwd: null,
-    mcpServers: { "a4code": { type: "http", url: "http://127.0.0.1/mcp" } },
+    mcpServers: { a4code: { type: "http", url: "http://127.0.0.1/mcp" } },
     deviceToolsAvailable: device,
     browserToolsAvailable: browser,
   };
@@ -1195,7 +1195,9 @@ export const buildMessages = (sample: Sample) => {
           ? "withBackgroundWait"
           : undefined;
       if (call.result === "default" && builder && !sample.priorResults.has(call)) {
-        throw new Error(`${testCase.id}: prior ${call.tool} needs a4code's result; run ${builder}.`);
+        throw new Error(
+          `${testCase.id}: prior ${call.tool} needs a4code's result; run ${builder}.`,
+        );
       }
       return { ...call, id: `toolu_prior_${nextId++}`, name: tool.name, tool, prior: call };
     });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, it, vi } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -28,8 +28,12 @@ describe("IssueTrackerConnections", () => {
     let random = 0;
     const tracker = {
       kind: LINEAR,
-      standalone: { tracker: LINEAR, host: "linear.app" },
-      probeCredential: (token: string) =>
+      standalone: {
+        tracker: LINEAR,
+        host: "linear.app",
+        credential: { label: "API key", helpUrl: null },
+      },
+      probeCredential: vi.fn(({ token }: { readonly token: string }) =>
         token === "bad"
           ? Effect.fail(
               new IssueTrackerError({
@@ -45,6 +49,7 @@ describe("IssueTrackerConnections", () => {
                 : Effect.void,
               { account: `user-${token}`, scopes: [] },
             ),
+      ),
     } as unknown as StandaloneIssueTrackerApi;
     const layer = IssueTrackerConnections.layer.pipe(
       Layer.provideMerge(IssueTrackerBindings.layer),
@@ -75,6 +80,11 @@ describe("IssueTrackerConnections", () => {
     );
     return Effect.gen(function* () {
       const connections = yield* IssueTrackerConnections.IssueTrackerConnections;
+      secrets.set("issue-tracker-bGluZWFy-token", "legacy");
+      expect((yield* connections.list).trackers).toMatchObject([
+        { connected: true, account: null },
+      ]);
+      expect(tracker.probeCredential).not.toHaveBeenCalled();
       yield* connections.connect({ tracker: LINEAR, token: "work" });
       const { accountId } = yield* connections.connect({
         tracker: LINEAR,
@@ -83,7 +93,9 @@ describe("IssueTrackerConnections", () => {
       });
 
       // The first account keeps the name it was saved under before accounts existed.
-      expect(Object.fromEntries(secrets)).toEqual({
+      expect(
+        Object.fromEntries([...secrets].map(([name, value]) => [name, JSON.parse(value).token])),
+      ).toEqual({
         "issue-tracker-bGluZWFy-token": "work",
         [`issue-tracker-bGluZWFy-account-${accountId}-token`]: "home",
       });
@@ -101,6 +113,7 @@ describe("IssueTrackerConnections", () => {
         bindings: { work: { tracker: LINEAR, scope: "ENG" } },
         accountBindings: { home: { tracker: LINEAR, accountId, scope: "ENG" } },
       });
+      expect(tracker.probeCredential).toHaveBeenCalledTimes(2);
       // An older client offers the added account's project as unbound; its unbind leaves it.
       yield* connections.bindProject({ projectId: "home" as ProjectId, binding: null });
       expect((yield* connections.list).accountBindings).toHaveProperty("home");

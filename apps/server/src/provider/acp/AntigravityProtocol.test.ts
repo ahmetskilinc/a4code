@@ -22,6 +22,7 @@ import {
 } from "@a4code/provider-acp/server/runtimeModel";
 import { acpToolCallDiffPatch } from "@a4code/provider-acp/server/adapter";
 import { acpChangedPathsOfToolCall } from "@a4code/provider-acp/server/clientPolicy";
+import { MAX_TOOL_OUTPUT_IMAGE_BASE64_LENGTH, toolOutputImages } from "@a4code/shared/toolOutput";
 
 const isSessionNotification = Schema.is(AcpWireSchema.SessionNotification);
 
@@ -675,6 +676,40 @@ describe("Antigravity tool results", () => {
     );
   });
 
+  it("keeps bounded screenshot bytes from a4code MCP tool results", () => {
+    const png =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=";
+    const tooLarge = "A".repeat(MAX_TOOL_OUTPUT_IMAGE_BASE64_LENGTH + 4);
+    const notification = {
+      sessionId: "session-1",
+      update: {
+        sessionUpdate: "tool_call_update",
+        toolCallId: "shot-1",
+        status: "completed",
+        rawOutput: {
+          content: [
+            { type: "image", mimeType: "image/png", data: png },
+            { type: "image", mimeType: "image/png", data: tooLarge },
+            { type: "text", text: JSON.stringify({ url: "https://example.test/" }) },
+          ],
+        },
+        content: [
+          { type: "content", content: { type: "image", mimeType: "image/png", data: png } },
+        ],
+      },
+    } satisfies EffectAcpSchema.SessionNotification;
+    const normalized = normalizeAntigravitySessionUpdate(notification);
+    expect(isSessionNotification(normalized)).toBe(true);
+    const update = parseToolUpdate(normalized).toolCall.data;
+    expect(toolOutputImages(update.rawOutput)).toEqual([
+      { mimeType: "image/png", data: png },
+      { mimeType: "image/png" },
+    ]);
+    expect(normalized.update).toMatchObject({
+      content: [{ type: "content", content: { type: "image", mimeType: "image/png", data: png } }],
+    });
+  });
+
   const changesBeyondSizeLimits: ReadonlyArray<{
     readonly part: string;
     readonly update: Pick<EffectAcpSchema.ToolCallUpdate, "content" | "rawInput">;
@@ -876,6 +911,62 @@ describe("Antigravity served reads", () => {
       ).toolCall,
     );
     expect(a4Call.data.rawInput).toEqual({ message: "Hello" });
+
+    const proxiedA4Call = normalizeAntigravityToolCall(
+      parseToolUpdate(
+        normalizeAntigravitySessionUpdate({
+          sessionId: "session-1",
+          update: {
+            sessionUpdate: "tool_call",
+            toolCallId: "call_a4_proxy_send",
+            title: "Run mcp_a4code_tool_call",
+            kind: "other",
+            status: "in_progress",
+            rawInput: {
+              name: "send_to_user",
+              arguments: { message: "Hello", toolSummary: "Nested summary" },
+              toolSummary: "Outer summary",
+            },
+          },
+        }),
+      ).toolCall,
+    );
+    expect(proxiedA4Call.data.rawInput).toEqual({
+      name: "send_to_user",
+      arguments: { message: "Hello" },
+    });
+
+    const callMcpProxiedA4Call = normalizeAntigravityToolCall(
+      parseToolUpdate(
+        normalizeAntigravitySessionUpdate({
+          sessionId: "session-1",
+          update: {
+            sessionUpdate: "tool_call",
+            toolCallId: "call_a4_call_mcp_proxy_send",
+            title: "MCP Tool tool_call",
+            kind: "execute",
+            status: "in_progress",
+            rawInput: {
+              ServerName: "a4code",
+              ToolName: "tool_call",
+              Arguments: {
+                name: "send_to_user",
+                arguments: { message: "Hello", toolSummary: "Nested summary" },
+                toolSummary: "Outer summary",
+              },
+            },
+          },
+        }),
+      ).toolCall,
+    );
+    expect(callMcpProxiedA4Call.data.rawInput).toEqual({
+      ServerName: "a4code",
+      ToolName: "tool_call",
+      Arguments: {
+        name: "send_to_user",
+        arguments: { message: "Hello" },
+      },
+    });
 
     const foreignCall = normalizeAntigravityToolCall(
       parseToolUpdate({

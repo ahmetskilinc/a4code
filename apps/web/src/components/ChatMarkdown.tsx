@@ -106,6 +106,7 @@ import {
 import { ExpandedImageDialog } from "./chat/ExpandedImageDialog";
 import { markdownImageGallery } from "./chat/markdownImageGallery";
 import { type MediaActionSource } from "./media/MediaActions";
+import { useFileDownload } from "./files/useFileDownload";
 import { resolveProtocolRelativeMediaUrl } from "./media/mediaContent";
 import {
   revealInFileExplorerLabelForKind,
@@ -212,6 +213,7 @@ import { MarkdownMermaidCodeBlock } from "./chat/MarkdownMermaidCodeBlock";
 import { MarkdownTable } from "./chat/MarkdownTable";
 import { MarkdownDetails } from "./chat/MarkdownDetails";
 import {
+  ApprovedMarkdownMediaUrlContext,
   authoredImageSizeStyle,
   ChatMarkdownAssetImage,
   ChatMarkdownImage,
@@ -655,6 +657,7 @@ function useChatMarkdownState(
   const canOperatePreview = useEnvironmentScope(environmentId, AuthPreviewOperateScope);
   const isClientHost = useAtomValue(clientHostEnvironmentAtom(environmentId));
   const remoteOpen = useRemoteOpenResolution(environmentId);
+  const downloadFile = useFileDownload(environmentId);
   const canUseShellActions =
     canOperateHost &&
     canUseMarkdownFileShellActions(environmentId, remoteOpen.state.mode, remoteOpen.isResolved);
@@ -1073,6 +1076,15 @@ function useChatMarkdownState(
             : undefined
         }
         revealLabel={revealInFileManagerLabel}
+        onDownload={
+          downloadFile && cwd && !isAppBundle
+            ? () =>
+                downloadFile(
+                  cwd,
+                  resolveHostPath().then(({ absolutePath }) => absolutePath),
+                )
+            : undefined
+        }
         onOpenInBrowser={
           threadRef &&
           canOperatePreview &&
@@ -1660,6 +1672,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
       resolvedTheme,
     } = use(ChatMarkdownRendererContext);
     const gt = useGT();
+    const approvedAttachment = use(ApprovedMarkdownMediaUrlContext);
     const [approvedSource, setApprovedSource] = useState<string | null>(null);
     const imageExpand = use(MarkdownLinkContext) ? undefined : expandMedia;
     const contextReference = typeof src === "string" ? parseComposerContextHref(src) : null;
@@ -1681,7 +1694,11 @@ const CHAT_MARKDOWN_COMPONENTS = {
     const { className, style: _style, width, height, ...imageProps } = props;
     const authoredSizeStyle = authoredImageSizeStyle(width, height);
     const imageSource = classifyMarkdownImageSource(classifiedSrc, imageBaseDir ?? cwd);
-    if (markdownMediaRequiresConsent(imageSource) && approvedSource !== classifiedSrc) {
+    if (
+      markdownMediaRequiresConsent(imageSource) &&
+      approvedSource !== classifiedSrc &&
+      approvedAttachment !== classifiedSrc
+    ) {
       return (
         <Button
           size="xs"

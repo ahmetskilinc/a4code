@@ -468,6 +468,11 @@ describe("provider projection", () => {
     expect(projected).not.toContain("boom");
   });
 
+  it("sends a BOM-prefixed fenced context link example as written", () => {
+    const text = "\uFEFF```md\n[example](a4-context://v1/file/demo)\n```";
+    expect(projectComposerContextForProvider({ text, records: [] })).toBe(text);
+  });
+
   it("keeps fenced context link examples literal while projecting prose references", () => {
     const link = "[example](a4-context://v1/file/demo)";
     const fenced = `\`\`\`md\n${link}\n\`\`\``;
@@ -645,8 +650,7 @@ describe("threadLinkContextReferences", () => {
     );
     expect(pasted.records).toEqual([copied, threadContextRecord(thread("env-9", "t9"), "Here")]);
     expect(
-      threadLinkContextReferences("a4code://threads/env-9/t9", [], () => undefined)
-        .records,
+      threadLinkContextReferences("a4code://threads/env-9/t9", [], () => undefined).records,
     ).toEqual([threadContextRecord(thread("env-9", "t9"), "Thread")]);
   });
 

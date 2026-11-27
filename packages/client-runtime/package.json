@@ -657,7 +657,6 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@pierre/diffs": "catalog:",
     "@a4code/contracts": "workspace:*",
     "@a4code/issue-tracker-linear": "workspace:*",
     "@a4code/provider-acp-registry": "workspace:*",
@@ -673,6 +672,8 @@
     "@a4code/shared": "workspace:*",
     "@a4code/source-control-core": "workspace:*",
     "@a4code/source-control-definitions": "workspace:*",
+    "@pierre/diffs": "catalog:",
+    "@zip.js/zip.js": "2.25.0",
     "effect": "catalog:",
     "gt-i18n": "1.0.40",
     "jszip": "3.10.1",

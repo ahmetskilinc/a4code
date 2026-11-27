@@ -7,6 +7,7 @@ import { compactA4McpToolOutput } from "@a4code/shared/toolOutput";
 import {
   resolveViewedImageAsset,
   resolveWorkEntryToolPresentation,
+  summarizeToolGroup,
   toolItemForDisplay,
   type WorkLogPresentationEntry,
   workEntryIndicatesToolFailure,
@@ -119,7 +120,7 @@ describe("resolveWorkEntryToolPresentation", () => {
       id: "clone",
       createdAt: "2026-09-19T00:00:00.000Z",
       tone: "tool",
-      label: "a4code-code.a4_project_clone",
+      label: "a4code.a4_project_clone",
       toolLifecycleStatus: "inProgress",
       itemType: "dynamic_tool",
       toolData: { output: { isError: true } },
@@ -130,7 +131,7 @@ describe("resolveWorkEntryToolPresentation", () => {
     expect(workEntryDisplayIndicatesToolFailure(entry)).toBe(true);
     const childFailure = {
       ...entry,
-      label: "a4code-code.task_status",
+      label: "a4code.task_status",
       toolLifecycleStatus: "completed" as const,
       toolData: { output: { taskId: "child", status: "failed", summary: "command not found" } },
     };
@@ -140,7 +141,7 @@ describe("resolveWorkEntryToolPresentation", () => {
     "mcp__a4code__preview_click",
     "mcp__a4_code__preview_click",
     "mcp__a4code__preview_click",
-    "a4code-code.preview_click",
+    "a4code.preview_click",
     "a4code · preview_click completed",
     "a4_code/preview_click",
     "preview_click",
@@ -164,7 +165,7 @@ describe("resolveWorkEntryToolPresentation", () => {
   it("names the reported outcome when it contradicts the row's verb", () => {
     const row = (tool: string, output: unknown) =>
       resolveWorkEntryToolPresentation({
-        label: `a4code-code.${tool}`,
+        label: `a4code.${tool}`,
         toolLifecycleStatus: "completed",
         toolData: { output: compactA4McpToolOutput(`a4code.${tool}`, output) },
       })?.displayName;
@@ -184,7 +185,7 @@ describe("resolveWorkEntryToolPresentation", () => {
   });
 
   it("uses the summary's state only when the provider omitted a lifecycle status", () => {
-    const entry = { label: "a4code-code.preview_click" };
+    const entry = { label: "a4code.preview_click" };
     expect(resolveWorkEntryToolPresentation(entry, "inProgress")?.displayName).toBe(
       "Clicking in the preview browser",
     );
@@ -207,7 +208,7 @@ describe("resolveWorkEntryToolPresentation", () => {
   ])("names a linked change request with its host's term (%s)", (url, target) => {
     expect(
       resolveWorkEntryToolPresentation({
-        label: "a4code-code.link_pull_request",
+        label: "a4code.link_pull_request",
         toolLifecycleStatus: "completed",
         toolData: { arguments: { url } },
       })?.displayName,
@@ -313,5 +314,46 @@ describe("workEntriesViewedImages", () => {
         read("again", "/repo/a.png", "completed"),
       ]),
     ).toEqual(["/repo/a.png", "/repo/b.png"]);
+  });
+});
+
+describe("summarizeToolGroup read counts", () => {
+  const read = (id: string, filePath: string, offset?: number): WorkLogPresentationEntry => ({
+    id,
+    createdAt: "2026-11-27T00:00:00.000Z",
+    label: "Read",
+    tone: "tool",
+    itemType: "dynamic_tool",
+    toolTitle: "Read",
+    toolLifecycleStatus: "completed",
+    structuredPayload: {
+      id: TurnItemId.make(id),
+      threadId: ThreadId.make("thread"),
+      runId: null,
+      nodeId: null,
+      providerThreadId: null,
+      providerTurnId: null,
+      nativeItemRef: null,
+      parentItemId: null,
+      ordinal: 0,
+      status: "completed",
+      title: null,
+      startedAt: null,
+      completedAt: null,
+      updatedAt: DateTime.makeUnsafe("2026-11-27T00:00:00.000Z"),
+      type: "dynamic_tool",
+      toolName: "Read",
+      input: offset === undefined ? { file_path: filePath } : { file_path: filePath, offset },
+    },
+  });
+
+  it("counts a file read in several chunks once, as edits do", () => {
+    expect(
+      summarizeToolGroup([
+        read("a1", "/repo/src/a.ts"),
+        read("a2", "/repo/src/a.ts", 200),
+        read("b", "/repo/src/b.ts"),
+      ]).summary,
+    ).toBe("Read 2 files");
   });
 });

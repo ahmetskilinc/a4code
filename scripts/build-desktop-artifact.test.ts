@@ -503,20 +503,8 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
 
   it.effect("omits update feeds for pull request preview builds", () =>
     Effect.gen(function* () {
-      const preview = yield* createBuildConfig(
-        "mac",
-        "dmg",
-        "0.0.33-pr.8182.1",
-        false,
-        undefined,
-      );
-      const release = yield* createBuildConfig(
-        "mac",
-        "dmg",
-        "0.0.33",
-        false,
-        undefined,
-      );
+      const preview = yield* createBuildConfig("mac", "dmg", "0.0.33-pr.8182.1", false, undefined);
+      const release = yield* createBuildConfig("mac", "dmg", "0.0.33", false, undefined);
 
       const previewChannel = yield* createBuildConfig(
         "mac",
@@ -538,15 +526,31 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     ),
   );
 
+  it.effect("ships the original license and trademark policy on every desktop platform", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      for (const [platform, target] of [
+        ["mac", "dmg"],
+        ["win", "nsis"],
+        ["linux", "AppImage"],
+      ] as const) {
+        const config = yield* createBuildConfig(platform, target, "1.0.0", false, undefined);
+        for (const [file, destination] of [
+          ["LICENSE", "licenses/a4code-LICENSE.txt"],
+          ["TRADEMARK.md", "licenses/upstream-TRADEMARK.md"],
+        ] as const) {
+          assert.deepInclude(config.extraResources, {
+            from: path.resolve(import.meta.dirname, "..", file),
+            to: destination,
+          });
+        }
+      }
+    }),
+  );
+
   it.effect("names the Electron window class in the Linux desktop entry", () =>
     Effect.gen(function* () {
-      const linux = yield* createBuildConfig(
-        "linux",
-        "AppImage",
-        "0.0.33",
-        false,
-        undefined,
-      );
+      const linux = yield* createBuildConfig("linux", "AppImage", "0.0.33", false, undefined);
 
       assert.nestedPropertyVal(linux, "linux.desktop.entry.StartupWMClass", "dev.a4code.app");
     }),
@@ -584,13 +588,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     Effect.gen(function* () {
       for (const version of ["0.1.0", "0.1.1-nightly.20261019.1"]) {
         for (const signed of [false, true]) {
-          const config = yield* createBuildConfig(
-            "mac",
-            "dmg",
-            version,
-            signed,
-            undefined,
-          );
+          const config = yield* createBuildConfig("mac", "dmg", version, signed, undefined);
           const mac = config.mac as { extendInfo: Record<string, unknown> };
           for (const key of [
             "NSCalendarsUsageDescription",
@@ -1627,7 +1625,9 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
 
   it("parses Windows bsdtar member listings with CRLF line endings", () => {
     assert.deepStrictEqual(
-      parseWslRuntimeArchiveMembers("./a4-1.2.3-linux-x64/a4code\r\na4-1.2.3-linux-x64/client/\r\n"),
+      parseWslRuntimeArchiveMembers(
+        "./a4-1.2.3-linux-x64/a4code\r\na4-1.2.3-linux-x64/client/\r\n",
+      ),
       ["a4-1.2.3-linux-x64/a4code", "a4-1.2.3-linux-x64/client"],
     );
   });

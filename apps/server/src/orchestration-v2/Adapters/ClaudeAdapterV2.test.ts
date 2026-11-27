@@ -733,7 +733,7 @@ describe("ClaudeAdapterV2 runtime query policy", () => {
 
 describe("ClaudeAdapterV2 MCP query overrides", () => {
   const A4_MCP_SERVERS = {
-    "a4code": {
+    a4code: {
       type: "http",
       url: "http://127.0.0.1:43123/mcp",
       headers: {
@@ -898,7 +898,7 @@ describe("ClaudeAdapterV2 native protocol logging", () => {
     assert.deepEqual(overrides, {
       allowedTools: ["Read", "mcp__a4code__*"],
       mcpServers: {
-        "a4code": {
+        a4code: {
           type: "http",
           url: "http://127.0.0.1:43123/mcp",
           headers: {
@@ -952,10 +952,7 @@ describe("ClaudeAdapterV2 native protocol logging", () => {
 });
 
 describe("ClaudeAdapterV2 a4code tool instructions", () => {
-  const options = (input: {
-    readonly mcp: boolean;
-    readonly deviceToolsAvailable: boolean;
-  }) =>
+  const options = (input: { readonly mcp: boolean; readonly deviceToolsAvailable: boolean }) =>
     ClaudeAdapterV2.makeClaudeQueryOptions({
       modelSelection: {
         instanceId: ProviderInstanceId.make("claudeAgent"),
@@ -965,7 +962,7 @@ describe("ClaudeAdapterV2 a4code tool instructions", () => {
       resume: false,
       cwd: "/workspace",
       ...(input.mcp
-        ? { mcpServers: { "a4code": { type: "http" as const, url: "http://127.0.0.1/mcp" } } }
+        ? { mcpServers: { a4code: { type: "http" as const, url: "http://127.0.0.1/mcp" } } }
         : {}),
       deviceToolsAvailable: input.deviceToolsAvailable,
       environment: {},
@@ -3387,7 +3384,7 @@ describe("ClaudeAdapterV2 MCP credential channel", () => {
             resume: false,
             cwd: null,
             environment: { PATH: "/usr/bin" },
-            mcpServers: { "a4code": a4McpServer },
+            mcpServers: { a4code: a4McpServer },
           }),
           pathToClaudeCodeExecutable: "/opt/claude/cli.js",
           spawnClaudeCodeProcess: cli.spawn,
@@ -3436,7 +3433,7 @@ describe("ClaudeAdapterV2 MCP credential channel", () => {
 
       assert.deepInclude(cli.controlRequests, {
         subtype: "mcp_set_servers",
-        servers: { "a4code": a4McpServer },
+        servers: { a4code: a4McpServer },
       });
       assert.deepInclude(
         cli.controlRequests.find((request) => Reflect.get(request, "subtype") === "initialize"),
@@ -11060,6 +11057,15 @@ describe("ClaudeAdapterV2 background wake turns", () => {
       cooldown:
         " (last error: All credentials for model upstream are cooling down (reset after 1h)) (reset after 1m)",
       seconds: 60,
+    },
+    {
+      cooldown:
+        " via provider claude (last error: rate_limit_error: This request would exceed your account's rate limit. Please try again later.) (reset after 2h16m10s)",
+      seconds: 8170,
+    },
+    {
+      cooldown: " via provider claude (reset after 4m 6s) (last error: rate limited)",
+      seconds: 246,
     },
     {
       cooldown: " (last error: Request rejected (429) (reset after 1h) (last error: rate limited))",

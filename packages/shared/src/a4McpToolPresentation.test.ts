@@ -12,10 +12,10 @@ describe("resolveA4McpToolPresentation", () => {
     for (const tool of A4_MCP_TOOL_NAMES) {
       const presentation = resolveA4McpToolPresentation(tool);
       for (const prefix of [
-        "mcp__a4code__",
+        "mcp__a4-code__",
         "mcp__a4_code__",
         "mcp__a4code__",
-        "a4code-code.",
+        "A4-code.",
         "a4code.",
         "a4code-direct.",
         "mcp__a4_code_direct__",

@@ -1,12 +1,17 @@
 import type { ProviderInteractionMode } from "@a4code/contracts";
+import type { McpToolExposureMode } from "./mcpSession.ts";
 
 // Codex truncates entries over 4,000 bytes; keep each section self-contained and below that limit.
-export const A4_CODE_ORCHESTRATION_SECTIONS: ReadonlyArray<string> = [
+export const a4CodeOrchestrationSections = (nativeSubagents = true): ReadonlyArray<string> => [
   `## a4code orchestration
 
 Ordinary coding tasks need no a4code tools.
 
-- Subagents: use your native tool when the child uses your provider, a model it offers and no settings beyond yours (Claude \`Agent\`, \`run_in_background:false\`; Codex \`spawn_agent\`, then wait). Use \`delegate_task\` for another provider's model, user-asked settings, a separate checkout (\`isolation:"worktree"\`), or \`delegate_task\` by name. A native type on another provider's model counts too. Background agent: \`delegate_task\`, never a background \`Agent\`. Workflow only when asked.
+- ${
+    nativeSubagents
+      ? `Subagents: use your native tool when the child uses your provider, a model it offers and no settings beyond yours (Claude \`Agent\`, \`run_in_background:false\`; Codex \`spawn_agent\`, then wait). Use \`delegate_task\` for another provider's model, user-asked settings, a separate checkout (\`isolation:"worktree"\`), or \`delegate_task\` by name. A native type on another provider's model counts too. Background agent: \`delegate_task\`, never a background \`Agent\`.`
+      : `Use \`delegate_task\` for subagents, including when the child uses your provider and model. Set \`isolation:"worktree"\` for a separate checkout.`
+  } Workflow only when asked.
 - Call \`orchestrator_capabilities\` once per thread, before the first \`delegate_task\`. Again only after an error or a user-named provider change. Settings go in \`target.options\`. Provider or model unavailable: say so. Never switch unasked or fall back to native tools, Workflow or CLIs. Never make a child's checkout in the shell or in \`task\`.
 - Every new delegate review or re-check is a new \`delegate_task\` (brief, findings, objections), never a \`a4_thread_send\`. Fix small review findings yourself; start no delegate for them. When told to proceed without a delegate, or to run fewer, \`task_cancel\` the extras. Start no replacement.
 - Follow a running delegate's \`next\`. Don't poll it (\`task_status\`, \`sleep\`, watchers, Monitor, ScheduleWakeup). Stop a delegate run you replace or no longer need with \`task_cancel\`, never \`a4_thread_interrupt\` on a \`childThreadId\`.
@@ -26,7 +31,7 @@ Ordinary coding tasks need no a4code tools.
 
 export const A4_CODE_ORCHESTRATION_INSTRUCTIONS = `
 
-${A4_CODE_ORCHESTRATION_SECTIONS.join("\n\n")}
+${a4CodeOrchestrationSections().join("\n\n")}
 `;
 
 export const A4_CODE_BROWSER_TOOL_INSTRUCTIONS = `
@@ -55,6 +60,9 @@ export const A4_CODE_DEVICE_TOOL_INSTRUCTIONS_WITH_TOOL_SEARCH = deviceToolInstr
   ` Load them with ToolSearch \`select:${A4_CODE_DEVICE_TOOLS.map((tool) => `mcp__a4code__${tool}`).join(",")}\`.`,
 );
 
+const A4_CODE_ACP_DEFERRED_PROXY_INSTRUCTIONS =
+  "Deferred a4code tools: only core orchestration tools, `tool_search`, and `tool_call` are declared directly. For any a4code tool not declared directly (including `delegate_task` if omitted, or optional tools like `preview_*`, `device_*`, `html_preview`, `html_render`, `a4_thread_*`, `a4_project_*`, `a4_worktree_*`, pull requests, `schedule_task`, `request_secret`, etc.), call `tool_search` to get its schema and `tool_call({ name, arguments })` to run it.";
+
 // ACP only: some ACP agents accept the injected MCP server but never expose
 // its tools, so they need the terminal transport other harnesses never use.
 const A4_CODE_ACP_MCP_FALLBACK_INSTRUCTIONS = `ACP fallback: if the a4code tools are absent and \`A4_ACP_MCP_NODE\` is present, call them through the terminal: \`ELECTRON_RUN_AS_NODE=1 "$A4_ACP_MCP_NODE" \${A4_ACP_MCP_ENTRYPOINT:+"$A4_ACP_MCP_ENTRYPOINT"} acp-mcp-call orchestrator_capabilities '{}'\` (\`A4_ACP_MCP_ENTRYPOINT\` is unset for a standalone executable). Delegate with \`acp-mcp-call delegate_task '{"task":"...","target":{"providerInstanceId":"...","model":"..."},"mode":"async","clientRequestId":"..."}'\`. On Windows, run \`A4_ACP_MCP_CALL\` instead and pipe the JSON to stdin, as in PowerShell \`'{}' | & $env:A4_ACP_MCP_CALL orchestrator_capabilities -\`, writing non-ASCII characters as \`\\uXXXX\` escapes.`;
@@ -71,6 +79,7 @@ export interface A4AcpInstructionState {
   readonly interactionMode: ProviderInteractionMode;
   readonly hasA4Mcp: boolean;
   readonly hasDeviceTools: boolean;
+  readonly toolExposure?: McpToolExposureMode | undefined;
 }
 
 /** ACP lacks system/developer fields; inject context on first prompt and tool/mode changes. */
@@ -84,7 +93,8 @@ export function a4AcpPromptWithInstructions(input: {
   if (
     input.previousState?.interactionMode === input.state.interactionMode &&
     input.previousState.hasA4Mcp === input.state.hasA4Mcp &&
-    input.previousState.hasDeviceTools === input.state.hasDeviceTools
+    input.previousState.hasDeviceTools === input.state.hasDeviceTools &&
+    input.previousState.toolExposure === input.state.toolExposure
   ) {
     return input.prompt;
   }
@@ -97,6 +107,9 @@ export function a4AcpPromptWithInstructions(input: {
           A4_CODE_BROWSER_TOOL_INSTRUCTIONS.trim(),
           ...(input.state.hasDeviceTools ? [A4_CODE_DEVICE_TOOL_INSTRUCTIONS] : []),
           A4_CODE_ORCHESTRATION_INSTRUCTIONS.trim(),
+          ...(input.state.toolExposure === "deferred-proxy"
+            ? [A4_CODE_ACP_DEFERRED_PROXY_INSTRUCTIONS]
+            : []),
           A4_CODE_ACP_MCP_FALLBACK_INSTRUCTIONS,
         ]
       : []),

@@ -623,7 +623,10 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "speech-dictionary",
     title: msg("Dictionary"),
     to: "/settings/voice",
-    searchTerms: [msg("speech voice transcription vocabulary names glossary alias")],
+    searchTerms: [
+      msg("Your dictionary"),
+      msg("speech voice transcription vocabulary names glossary alias"),
+    ],
   },
   {
     id: "speech-project-dictionary",
@@ -1310,7 +1313,9 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "project-actions",
     title: msg("Actions"),
     to: "/settings/projects",
-    searchTerms: [msg("commands scripts setup run dev server checkout worktree a4code.json import")],
+    searchTerms: [
+      msg("commands scripts setup run dev server checkout worktree a4code.json import"),
+    ],
   },
   {
     id: "project-repositories",
@@ -1638,11 +1643,17 @@ export function searchSettings(
       const title = normalizeSearchText(decodeMsg(item.title));
       // The title as displayed, so search also works in the active language.
       const displayedTitle = normalizeSearchText(translate(item.title));
+      const navLabel = SETTINGS_NAV_LABELS[item.to];
+      const displayedNavLabel = translate(navLabel);
       const fields = [
         title,
         normalizeSearchText(SETTINGS_SECTION_LABELS[item.to]),
         displayedTitle,
         normalizeSearchText(translate(SETTINGS_SECTION_LABELS[item.to])),
+        // Decode only the untranslated label: decodeMsg truncates a translation at its first colon.
+        normalizeSearchText(
+          displayedNavLabel === navLabel ? decodeMsg(navLabel) : displayedNavLabel,
+        ),
         ...(item.searchTerms ?? []).map(normalizeSearchText),
         ...(item.searchTerms ?? []).map((term) => normalizeSearchText(translate(term))),
       ];

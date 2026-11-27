@@ -95,6 +95,7 @@ export const make = Effect.gen(function* () {
     yield* electronApp.setAboutPanelOptions({
       applicationName: environment.displayName,
       applicationVersion: environment.appVersion,
+      copyright: "Unofficial fork by Ahmet. Original software © 2026 T3 Tools Inc. (MIT).",
       version: Option.getOrElse(commitHash, () => "unknown"),
     });
 

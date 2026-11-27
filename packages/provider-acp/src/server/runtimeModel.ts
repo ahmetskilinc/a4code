@@ -6,10 +6,7 @@ import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as EffectAcpSchema from "effect-acp/compat";
 import * as EffectAcpSchemaV1 from "effect-acp/schema-v1";
-import {
-  deriveToolActivityPresentation,
-  mergeToolActivityData,
-} from "@a4code/shared/toolActivity";
+import { deriveToolActivityPresentation, mergeToolActivityData } from "@a4code/shared/toolActivity";
 import { A4_MCP_TOOL_NAMES } from "@a4code/shared/a4McpToolPresentation";
 import {
   acpChangedPathsOfToolCall,
@@ -1132,10 +1129,10 @@ function acpMcpFallbackInput(value: string | undefined): Record<string, unknown>
 
 // Known a4code inventory gates matches, so server-name separators can stay loose. Kiro titles "@a4code/<tool>".
 const A4_MCP_TITLE_CALL =
-  /^(?:@|mcp[-_]{1,2})?a4code[-_ ]?code[-_.:/ ]{1,3}(?<tool>[A-Za-z0-9][A-Za-z0-9_.-]*)(?::.*)?$/i;
+  /^(?:@|mcp[-_]{1,2})?a4[-_ ]?code[-_.:/ ]{1,3}(?<tool>[A-Za-z0-9][A-Za-z0-9_.-]*)(?::.*)?$/i;
 
 const A4_MCP_TITLE_SUFFIX_CALL =
-  /^(?<tool>[A-Za-z0-9][A-Za-z0-9_.-]*?)(?: \(a4code[-_ ]?code MCP Server\)(?::|$)|[-_.]a4code[-_ ]?code$)/i;
+  /^(?<tool>[A-Za-z0-9][A-Za-z0-9_.-]*?)(?: \(a4[-_ ]?code MCP Server\)(?::|$)|[-_.]a4[-_ ]?code$)/i;
 
 /**
  * glm and Kimi use bare names. Kimi appends streamed JSON arguments. Require a
@@ -1146,6 +1143,38 @@ const A4_MCP_BARE_TITLE_CALL = /^(?<tool>[A-Za-z0-9_]+)(?::\s*\{|$)/;
 
 // Antigravity titles calls "Running <tool>" or, from agy 1.5.8, "Run mcp_<server>_<tool>"; prompts end in "?".
 const ANTIGRAVITY_TOOL_TITLE = /^Run(?:ning)? (?<name>[^\s?]+)\??$/;
+
+const A4_MCP_TOOL_CALL_PROXY = "tool_call";
+
+function unwrapA4ToolCallProxy(
+  identity: AcpMcpToolCallIdentity,
+  rawInput: Record<string, unknown> | undefined,
+): AcpMcpToolCallIdentity {
+  if (!/^a4[-_ ]?code$/i.test(identity.server) || identity.tool !== A4_MCP_TOOL_CALL_PROXY) {
+    return identity;
+  }
+  // Native MCP wrappers pass `{ name, arguments }` directly; `is_mcp_tool_call` nests them under `arguments`.
+  const innerRaw =
+    typeof rawInput?.name === "string"
+      ? rawInput
+      : isRecord(rawInput?.arguments)
+        ? rawInput.arguments
+        : undefined;
+  const delegated = typeof innerRaw?.name === "string" ? innerRaw.name.trim() : "";
+  if (
+    delegated.length === 0 ||
+    delegated === A4_MCP_TOOL_CALL_PROXY ||
+    delegated === "tool_search"
+  ) {
+    return identity;
+  }
+  const delegatedInput = isRecord(innerRaw?.arguments) ? innerRaw.arguments : {};
+  return {
+    server: "a4code",
+    tool: delegated,
+    input: delegatedInput,
+  };
+}
 
 /** ACP lacks typed MCP calls; recognize provider metadata and terminal fallback commands. */
 export function extractMcpToolCallIdentity(
@@ -1159,7 +1188,7 @@ export function extractMcpToolCallIdentity(
   const server = typeof rawInput?.server === "string" ? rawInput.server.trim() : "";
   const tool = typeof rawInput?.tool === "string" ? rawInput.tool.trim() : "";
   if (meta?.is_mcp_tool_call === true && server.length > 0 && tool.length > 0) {
-    return { server, tool };
+    return unwrapA4ToolCallProxy({ server, tool }, rawInput);
   }
   // Antigravity reaches MCP tools its context budget left out through call_mcp_tool, an execute
   // call titled "MCP Tool <tool>" whose rawInput names the server, tool, and arguments.
@@ -1167,7 +1196,10 @@ export function extractMcpToolCallIdentity(
   const proxiedTool = typeof rawInput?.ToolName === "string" ? rawInput.ToolName.trim() : "";
   if (proxiedServer.length > 0 && proxiedTool.length > 0) {
     const input = isRecord(rawInput?.Arguments) ? rawInput.Arguments : undefined;
-    return { server: proxiedServer, tool: proxiedTool, ...(input === undefined ? {} : { input }) };
+    return unwrapA4ToolCallProxy(
+      { server: proxiedServer, tool: proxiedTool, ...(input === undefined ? {} : { input }) },
+      input,
+    );
   }
   // Kiro names the server in `_meta.kiro.serverName` and the call in `rawInput.tool_id`
   // ("<server>::<tool>"), with the tool's own input under `rawInput.arguments`.
@@ -1189,7 +1221,14 @@ export function extractMcpToolCallIdentity(
     : undefined;
   const metaServerId = typeof meta?.serverId === "string" ? meta.serverId.trim() : "";
   const metaToolName = typeof meta?.toolName === "string" ? meta.toolName.trim() : "";
-  if (/^a4code[-_ ]?code$/i.test(metaServerId) && metaToolName.length > 0) {
+  if (/^a4[-_ ]?code$/i.test(metaServerId) && metaToolName.length > 0) {
+    if (
+      metaToolName === A4_MCP_TOOL_CALL_PROXY ||
+      metaToolName.endsWith(`_${A4_MCP_TOOL_CALL_PROXY}`) ||
+      metaToolName.endsWith(`.${A4_MCP_TOOL_CALL_PROXY}`)
+    ) {
+      return unwrapA4ToolCallProxy({ server: "a4code", tool: A4_MCP_TOOL_CALL_PROXY }, rawInput);
+    }
     for (const knownTool of A4_MCP_TOOL_NAMES) {
       const boundary = metaToolName.length - knownTool.length - 1;
       if (
@@ -1205,8 +1244,8 @@ export function extractMcpToolCallIdentity(
   const gooseExtension =
     typeof gooseToolCall?.extensionName === "string" ? gooseToolCall.extensionName.trim() : "";
   const assertsForeignOrigin =
-    (metaServerId.length > 0 && !/^a4code[-_ ]?code$/i.test(metaServerId)) ||
-    (gooseExtension.length > 0 && !/^a4code[-_ ]?code$/i.test(gooseExtension));
+    (metaServerId.length > 0 && !/^a4[-_ ]?code$/i.test(metaServerId)) ||
+    (gooseExtension.length > 0 && !/^a4[-_ ]?code$/i.test(gooseExtension));
   // goose metadata also tags built-ins; retain their command/file projections instead of classifying as MCP.
   if (assertsForeignOrigin) {
     if (metaServerId.length === 0 || metaToolName.length === 0) return undefined;
@@ -1244,13 +1283,14 @@ export function extractMcpToolCallIdentity(
     ) {
       return { server: "a4code", tool: qualified[2] };
     }
-    if (qualified?.[1] && qualified[2] && !/^a4code[-_ ]?code$/i.test(qualified[1]))
+    if (qualified?.[1] && qualified[2] && !/^a4[-_ ]?code$/i.test(qualified[1]))
       return { server: qualified[1], tool: qualified[2] };
     const name = ANTIGRAVITY_TOOL_TITLE.exec(trimmed)?.groups?.name ?? trimmed;
-    const match =
-      A4_MCP_TITLE_CALL.exec(name) ??
-      A4_MCP_TITLE_SUFFIX_CALL.exec(name) ??
-      A4_MCP_BARE_TITLE_CALL.exec(name);
+    const qualifiedMatch = A4_MCP_TITLE_CALL.exec(name) ?? A4_MCP_TITLE_SUFFIX_CALL.exec(name);
+    if (qualifiedMatch?.groups?.tool === A4_MCP_TOOL_CALL_PROXY) {
+      return unwrapA4ToolCallProxy({ server: "a4code", tool: A4_MCP_TOOL_CALL_PROXY }, rawInput);
+    }
+    const match = qualifiedMatch ?? A4_MCP_BARE_TITLE_CALL.exec(name);
     const candidateTool = match?.groups?.tool;
     if (candidateTool !== undefined && A4_MCP_TOOL_NAMES.has(candidateTool)) {
       return { server: "a4code", tool: candidateTool };
@@ -1266,7 +1306,10 @@ export function extractMcpToolCallIdentity(
     const match = ACP_MCP_FALLBACK_CALL.exec(command);
     if (match?.[1] !== undefined) {
       const input = acpMcpFallbackInput(match[2]);
-      return { server: "a4code", tool: match[1], ...(input === undefined ? {} : { input }) };
+      return unwrapA4ToolCallProxy(
+        { server: "a4code", tool: match[1], ...(input === undefined ? {} : { input }) },
+        input,
+      );
     }
   }
   return undefined;

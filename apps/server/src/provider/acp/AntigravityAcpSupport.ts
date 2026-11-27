@@ -32,6 +32,7 @@ import {
 import type { AcpSessionModeState } from "@a4code/provider-acp/server/runtimeModel";
 import { A4_MCP_TOOL_NAMES } from "@a4code/shared/a4McpToolPresentation";
 import packageJson from "../../../package.json" with { type: "json" };
+import { TOOL_CALL, TOOL_SEARCH } from "../../mcp/McpToolExposure.ts";
 import { normalizeAntigravitySessionUpdate } from "./AntigravityProtocol.ts";
 
 export interface AntigravityAcpRuntimeInput extends Omit<
@@ -188,6 +189,21 @@ const ANTIGRAVITY_A4_MCP_TITLE = /^Run mcp_a4code_(?<tool>[A-Za-z0-9_]+)\??$/;
 // rawInput is the tool's own arguments.
 const ANTIGRAVITY_PROXIED_MCP_TITLE = /^MCP Tool (?<tool>[A-Za-z0-9_]+)\??$/;
 
+const isAntigravityA4McpTool = (
+  tool: string,
+  toolArgs: Record<string, unknown> | undefined,
+): boolean => {
+  if (A4_MCP_TOOL_NAMES.has(tool) || tool === TOOL_SEARCH) return true;
+  if (tool !== TOOL_CALL) return false;
+  const target = typeof toolArgs?.name === "string" ? toolArgs.name.trim() : "";
+  return (
+    target.length > 0 &&
+    target !== TOOL_CALL &&
+    target !== TOOL_SEARCH &&
+    A4_MCP_TOOL_NAMES.has(target)
+  );
+};
+
 function isAntigravityA4McpRequest(request: EffectAcpSchema.RequestPermissionRequest): boolean {
   const title = request.toolCall.title?.trim() ?? "";
   const rawInput = unknownRecord(request.toolCall.rawInput);
@@ -196,12 +212,12 @@ function isAntigravityA4McpRequest(request: EffectAcpSchema.RequestPermissionReq
     return (
       rawInput?.ServerName === "a4code" &&
       rawInput.ToolName === proxiedTool &&
-      A4_MCP_TOOL_NAMES.has(proxiedTool)
+      isAntigravityA4McpTool(proxiedTool, unknownRecord(rawInput.Arguments))
     );
   }
   if (typeof rawInput?.CommandLine === "string") return false;
   const tool = ANTIGRAVITY_A4_MCP_TITLE.exec(title)?.groups?.tool;
-  return tool !== undefined && A4_MCP_TOOL_NAMES.has(tool);
+  return tool !== undefined && isAntigravityA4McpTool(tool, rawInput);
 }
 
 export function antigravityPermissionDisposition(

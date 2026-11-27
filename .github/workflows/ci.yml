@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - a4code
 
 permissions:
   contents: read
@@ -17,7 +17,7 @@ jobs:
   # Skips jobs a pull request cannot affect: a web change does not run the
   # server shards, and a server change does not run unrelated renderer tests.
   # .github/scripts/ci-changes.cjs maps changed files to workspace packages and
-  # their dependents. Pushes to main still run every Linux job. Detection fails
+  # their dependents. Pushes to a4code still run every Linux job. Detection fails
   # open: if the diff cannot be resolved, everything runs.
   changes:
     name: Changes
@@ -480,7 +480,7 @@ jobs:
 
       # Each server test file runs in its own Vitest process, and a fresh install starts
       # Vitest's content-keyed module cache empty, so every file re-transformed its imports.
-      # Only pushes to main save it, so pull requests never evict each other's entries.
+      # Only pushes to a4code save it, so pull requests never evict each other's entries.
       - name: Restore Vitest module cache
         if: steps.changes.outputs.test_server != 'false'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -586,16 +586,7 @@ jobs:
   check:
     name: Check
     if: ${{ always() }}
-    needs:
-      [
-        changes,
-        lint,
-        build,
-        test,
-        test_web,
-        test_server,
-        rust,
-      ]
+    needs: [changes, lint, build, test, test_web, test_server, rust]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

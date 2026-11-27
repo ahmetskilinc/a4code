@@ -146,10 +146,13 @@ export const layerObserver = Layer.effect(
       }),
       refresh: Effect.fn("RunFinalizationService.refresh")(
         function* ({ cwd }) {
-          yield* Effect.all([workspaceEntries.refresh(cwd), vcsStatus.refreshLocalStatus(cwd)], {
-            concurrency: "unbounded",
-            discard: true,
-          });
+          yield* Effect.all(
+            [workspaceEntries.refresh(cwd, "passive"), vcsStatus.refreshLocalStatus(cwd)],
+            {
+              concurrency: "unbounded",
+              discard: true,
+            },
+          );
         },
         (effect, { cwd }) =>
           effect.pipe(Effect.mapError((cause) => new RunFinalizationRefreshError({ cwd, cause }))),

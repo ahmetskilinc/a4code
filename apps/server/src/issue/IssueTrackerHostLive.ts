@@ -8,7 +8,12 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type { IssueTrackerAccountId, IssueTrackerKind } from "@a4code/contracts";
+import * as Schema from "effect/Schema";
+import {
+  IssueTrackerScope,
+  type IssueTrackerAccountId,
+  type IssueTrackerKind,
+} from "@a4code/contracts";
 import { IssueTrackerError } from "@a4code/source-control-core/server/IssueTracker";
 import * as IssueTrackerHost from "@a4code/source-control-core/server/IssueTrackerHost";
 
@@ -24,7 +29,33 @@ export function issueTrackerSecretName(
     : `issue-tracker-${kind}-account-${accountId}-token`;
 }
 
+const StoredCredential = Schema.fromJsonString(
+  Schema.Struct({
+    token: Schema.String,
+    fields: Schema.Record(Schema.String, Schema.String),
+    status: Schema.optional(
+      Schema.Struct({
+        account: Schema.String,
+        workspace: Schema.optional(Schema.String),
+        scopes: Schema.Array(IssueTrackerScope),
+      }),
+    ),
+  }),
+);
+const decodeStored = Schema.decodeUnknownOption(StoredCredential);
+const encodeStored = Schema.encodeSync(StoredCredential);
 const decoder = new TextDecoder();
+const encoder = new TextEncoder();
+
+export function encodeIssueTrackerCredential(credential: typeof StoredCredential.Type): Uint8Array {
+  return encoder.encode(encodeStored(credential));
+}
+
+export function decodeIssueTrackerCredential(bytes: Uint8Array): typeof StoredCredential.Type {
+  const text = decoder.decode(bytes);
+  // Original profiles stored a Linear API key directly, before credentials had fields.
+  return Option.getOrElse(decodeStored(text), () => ({ token: text, fields: {} }));
+}
 
 const make = Effect.gen(function* () {
   const secrets = yield* ServerSecretStore.ServerSecretStore;
@@ -34,7 +65,12 @@ const make = Effect.gen(function* () {
         Effect.flatMap(IssueTrackerHost.IssueTrackerAccount, (accountId) =>
           secrets.get(issueTrackerSecretName(tracker, accountId)),
         ).pipe(
-          Effect.map(Option.map((bytes) => decoder.decode(bytes))),
+          Effect.map(
+            Option.map((bytes) => {
+              const { token, fields } = decodeIssueTrackerCredential(bytes);
+              return { token, fields };
+            }),
+          ),
           Effect.mapError(
             (cause) =>
               new IssueTrackerError({

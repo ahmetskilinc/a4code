@@ -7,7 +7,7 @@
 // A dependency change also gets the unused-patch install check below. CI still
 // runs the full test suites and the jobs listed in the summary.
 //
-//   vp run check:changed                  compare against the closest merge base with any remote main
+//   vp run check:changed                  compare against the closest merge base with a remote default branch
 //   vp run check:changed <ref>            compare against the merge base with <ref>
 //   vp run check:changed --concurrency 1  run the steps one at a time
 //
@@ -197,10 +197,13 @@ export const comparisonBase = Effect.fn("checkChanged.comparisonBase")(function*
 ) {
   const candidates = Option.isSome(explicitRef)
     ? [{ ref: explicitRef.value, rev: explicitRef.value }]
-    : (yield* gitLines(root, ["remote"])).map((name) => ({
-        ref: name + "/main",
-        rev: "refs/remotes/" + name + "/main",
-      }));
+    : yield* Effect.forEach(yield* gitLines(root, ["remote"]), (name) =>
+        git(root, ["symbolic-ref", "refs/remotes/" + name + "/HEAD"]).pipe(
+          Effect.map((stdout) => stdout.toString().trim()),
+          Effect.orElseSucceed(() => "refs/remotes/" + name + "/main"),
+          Effect.map((rev) => ({ ref: rev.replace(/^refs\/remotes\//, ""), rev })),
+        ),
+      );
   let closest: { ref: string; base: string; ahead: number } | undefined;
   for (const { ref, rev } of candidates) {
     const base = yield* git(root, ["merge-base", "HEAD", rev]).pipe(
@@ -212,7 +215,7 @@ export const comparisonBase = Effect.fn("checkChanged.comparisonBase")(function*
     if (!closest || ahead < closest.ahead) closest = { ref, base, ahead };
   }
   if (!closest) {
-    const tried = candidates.map(({ ref }) => ref).join(", ") || "a remote main";
+    const tried = candidates.map(({ ref }) => ref).join(", ") || "a remote default branch";
     return yield* Effect.fail(
       "check:changed: no merge base with " + tried + ". Run git fetch or pass a ref.",
     );

@@ -34,6 +34,8 @@ const CHAT_MARKDOWN_IMAGE_SIZE_CLASS_NAME = cn(
   CHAT_MARKDOWN_MEDIA_BOUNDS_CLASS_NAME,
 );
 
+export const ApprovedMarkdownMediaUrlContext = createContext<string | null>(null);
+
 export function markdownImageCopy(alt: string, src: string, title: string | undefined): string {
   const escapedAlt = alt.replaceAll("\\", "\\\\").replaceAll("[", "\\[").replaceAll("]", "\\]");
   const titleSuffix =

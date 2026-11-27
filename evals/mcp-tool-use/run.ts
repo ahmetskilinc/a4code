@@ -450,7 +450,8 @@ const toolResult = (id: string, content: unknown): Block => ({
 });
 const texts = (content: typeof Content.Type) =>
   typeof content === "string" ? [content] : content.flatMap((block) => block.text ?? []);
-const isA4Name = (name: string) => name.startsWith(A4_PREFIX) || name.startsWith("mcp__a4_code__");
+const a4ToolPrefix = /^mcp__a4_?code__/;
+const isA4Name = (name: string) => a4ToolPrefix.test(name);
 const hasTool = (tools: ReadonlyArray<ApiTool>, name: string) =>
   tools.some((tool) => tool.name === name);
 
@@ -469,7 +470,7 @@ const CODEX_NAMES: Readonly<Record<string, string>> = {
 export const normalizeToolName = (name: string) => {
   const bare = name.slice(name.lastIndexOf(".") + 1);
   return isA4Name(bare)
-    ? bare.slice(A4_PREFIX.length)
+    ? bare.replace(a4ToolPrefix, "")
     : (CODEX_NAMES[bare] ?? bare.slice(bare.lastIndexOf("_") + 1));
 };
 export const normalizeToolInput = (name: string, input: unknown) => {

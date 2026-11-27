@@ -149,7 +149,14 @@ describe("Antigravity Auto", () => {
       });
       for (const a4Call of [
         request("Run mcp_a4code_a4_thread_list?"),
+        request("Run mcp_a4code_tool_search?"),
+        request("Run mcp_a4code_tool_call?", { name: "preview_status", arguments: {} }),
         request("MCP Tool delegate_task", { ServerName: "a4code", ToolName: "delegate_task" }),
+        request("MCP Tool tool_call", {
+          ServerName: "a4code",
+          ToolName: "tool_call",
+          Arguments: { name: "preview_status", arguments: {} },
+        }),
       ]) {
         expect(antigravityPermissionDisposition(policy, a4Call)).toBe("allow");
         expect(
@@ -165,8 +172,19 @@ describe("Antigravity Auto", () => {
       for (const otherCall of [
         // Names no server, so another MCP server's tool of the same name looks identical.
         request("Running preview_status"),
+        request("Running tool_call"),
+        request("Run mcp_a4code_tool_call?"),
+        request("Run mcp_a4code_tool_call?", { name: "tool_call", arguments: {} }),
+        request("Run mcp_a4code_tool_call?", { name: "tool_search", arguments: {} }),
+        request("Run mcp_a4code_tool_call?", { name: "unknown_tool", arguments: {} }),
+        request("MCP Tool tool_call", {
+          ServerName: "a4code",
+          ToolName: "tool_call",
+          Arguments: { name: "unknown_tool", arguments: {} },
+        }),
         request("Run mcp_github_create_issue"),
         request("MCP Tool preview_status", { ServerName: "other", ToolName: "preview_status" }),
+        request("MCP Tool tool_call", { ServerName: "other", ToolName: "tool_call" }),
         request("Run mcp_a4code_preview_status", {
           CommandLine: "Run mcp_a4code_preview_status",
         }),

@@ -397,9 +397,12 @@ export type RepositoryHooksPolicy =
   | { readonly _tag: "none" }
   | { readonly _tag: "approved-push"; readonly digest: string | null };
 
-export const RepositoryHooks = Context.Reference<RepositoryHooksPolicy>("a4code/vcs/RepositoryHooks", {
-  defaultValue: () => ({ _tag: "all" }),
-});
+export const RepositoryHooks = Context.Reference<RepositoryHooksPolicy>(
+  "a4code/vcs/RepositoryHooks",
+  {
+    defaultValue: () => ({ _tag: "all" }),
+  },
+);
 
 /** Set by background discovery so its Git commands run in their own small lane, not the user's. */
 export const BackgroundGitWork = Context.Reference<boolean>("a4code/vcs/BackgroundGitWork", {
@@ -411,6 +414,7 @@ export class GitVcsDriver extends Context.Service<
   {
     readonly execute: (input: ExecuteGitInput) => Effect.Effect<ExecuteGitResult, GitCommandError>;
     readonly status: (input: VcsStatusInput) => Effect.Effect<VcsStatusResult, GitCommandError>;
+    readonly readCurrentBranch: (cwd: string) => Effect.Effect<string | null, GitCommandError>;
     readonly statusDetails: (cwd: string) => Effect.Effect<GitStatusDetails, GitCommandError>;
     readonly statusDetailsLocal: (
       cwd: string,

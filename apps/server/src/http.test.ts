@@ -134,6 +134,25 @@ describe("workspace page preview responses", () => {
       expect(yield* read({ path: style, renderIntent: "file-preview" })).toBe("body{}");
     }).pipe(Effect.provide(layerFileResponse)),
   );
+
+  it.effect("make the browser revalidate the page and the files it loads on refresh", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "a4-file-preview-" });
+      const page = path.join(directory, "report.html");
+      const style = path.join(directory, "report.css");
+      yield* fs.writeFileString(page, "<!doctype html><html><body>☃</body></html>");
+      yield* fs.writeFileString(style, "body{}");
+      for (const file of [page, style]) {
+        const response = HttpServerResponse.toWeb(
+          yield* assetFileResponse({ path: file, renderIntent: "file-preview" }),
+        );
+        // A fresh max-age lets a plain reload reuse the old CSS/JS after the file changes on disk.
+        expect(response.headers.get("cache-control"), file).toMatch(/no-cache|no-store/);
+      }
+    }).pipe(Effect.provide(layerFileResponse)),
+  );
 });
 
 describe("browser API CORS", () => {
@@ -936,7 +955,8 @@ describe("assetResponseHeaders", () => {
     for (const name of ["page.html", "page.HTM", "page.shtml"]) {
       expect(assetResponseHeaders(`/workspace/${name}`)).toMatchObject({
         "Content-Type": "text/html; charset=utf-8",
-        "Content-Security-Policy": "default-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; form-action 'none'; base-uri 'none'; sandbox allow-scripts allow-popups allow-downloads",
+        "Content-Security-Policy":
+          "default-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; form-action 'none'; base-uri 'none'; sandbox allow-scripts allow-popups allow-downloads",
       });
     }
     expect(assetResponseHeaders("/workspace/page.xhtml")).toMatchObject({
@@ -962,7 +982,8 @@ describe("assetResponseHeaders", () => {
       assetResponseHeaders("/attachments/upload.bin", { mimeType: "text/html" }),
     ).toMatchObject({
       "Content-Type": "text/html; charset=utf-8",
-      "Content-Security-Policy": "default-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; form-action 'none'; base-uri 'none'; sandbox allow-scripts allow-popups allow-downloads",
+      "Content-Security-Policy":
+        "default-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; form-action 'none'; base-uri 'none'; sandbox allow-scripts allow-popups allow-downloads",
     });
   });
 

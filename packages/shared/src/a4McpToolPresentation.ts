@@ -110,7 +110,7 @@ function tool(
 const A4_MCP_SERVER_ALIASES = new Set([
   "a4code",
   "a4_code",
-  "a4code",
+  "a4-code",
   "a4code-direct",
   "a4_code_direct",
 ]);
@@ -396,7 +396,10 @@ const A4_MCP_TOOLS: Readonly<Record<string, A4McpToolDefinition>> = {
   a4_thread_search: tool(["Search", "Searching", "Searched", "thread content"], "thread-search"),
   a4_thread_transfers: tool(["Read", "Reading", "Read", "thread transfers"], "thread-transfers"),
   a4_thread_organize: tool(["Organize", "Organizing", "Organized", "a thread"], "thread-organize"),
-  a4_thread_update: tool(["Update", "Updating", "Updated", "a4code thread metadata"], "thread-update"),
+  a4_thread_update: tool(
+    ["Update", "Updating", "Updated", "a4code thread metadata"],
+    "thread-update",
+  ),
   a4_worktree_list: tool(["List", "Listing", "Listed", "workspace branches"], "worktree-list"),
   a4_preview_list: tool(["List", "Listing", "Listed", "preview tabs"], "browser", "browser"),
   a4_preview_close: tool(["Close", "Closing", "Closed", "a preview tab"], "browser", "browser"),
@@ -479,14 +482,12 @@ function parseA4McpToolName(value: string): string | null {
   }
 
   const namespaceMatch =
-    /^(?<server>a4code[-_]code[-_]direct|a4code|a4_code|a4code)(?:[.:/]|\s*·\s*)(?<tool>.+)$/i.exec(
-      label,
-    );
+    /^(?<server>a4[-_]?code(?:[-_]direct)?)(?:[.:/]|\s*·\s*)(?<tool>.+)$/i.exec(label);
   if (namespaceMatch?.groups) {
     return namespaceMatch.groups.tool ?? null;
   }
 
-  const prefixed = /^(?:mcp[-_]{1,2})?a4code[-_ ]?code(?:__|[-_.:/ ])(?<tool>.+)$/i.exec(label);
+  const prefixed = /^(?:mcp[-_]{1,2})?a4[-_ ]?code(?:__|[-_.:/ ])(?<tool>.+)$/i.exec(label);
   const candidate = prefixed?.groups?.tool ?? label;
   if (Object.hasOwn(A4_MCP_TOOLS, candidate)) return candidate;
   // OpenCode 2 thread prefixes can contain underscores; choose the longest known tool-name suffix.

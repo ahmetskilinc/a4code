@@ -596,6 +596,19 @@ export const StandaloneIssueTrackerDescriptor = Schema.Struct({
     label: TrimmedNonEmptyString,
     /** Where to mint one, or null when the tracker has no stable page for it. */
     helpUrl: Schema.NullOr(TrimmedNonEmptyString),
+    /**
+     * What the tracker must be told beside the secret, in the order a form asks: a Jira site, the
+     * account's email. None of it is secret. Absent for a tracker its key alone identifies.
+     */
+    fields: Schema.optional(
+      Schema.Array(
+        Schema.Struct({
+          key: TrimmedNonEmptyString,
+          label: TrimmedNonEmptyString,
+          placeholder: Schema.NullOr(TrimmedNonEmptyString),
+        }),
+      ),
+    ),
   }),
 });
 export type StandaloneIssueTrackerDescriptor = typeof StandaloneIssueTrackerDescriptor.Type;
@@ -632,22 +645,23 @@ export const IssueTrackerScope = Schema.Struct({
 export type IssueTrackerScope = typeof IssueTrackerScope.Type;
 
 /**
- * A standalone tracker as the settings page sees it: the descriptor, whether a credential is
- * stored and still works, and the scopes it can reach. `scopes` is empty until connected.
+ * Settings shows the stored credential and the account and scopes from the last explicit connection.
  */
 export const IssueTrackerConnection = Schema.Struct({
   ...StandaloneIssueTrackerDescriptor.fields,
   /** Which of the tracker's accounts this is; absent for its first. */
   accountId: Schema.optional(IssueTrackerAccountId),
-  /** A credential is stored. It may still be rejected, which `account` being null reports. */
+  /** Whether this environment holds a credential. */
   connected: Schema.Boolean,
-  /** Who the credential signs in as, or null when there is none or it was refused. */
+  /** The account reported at connection time, when known. */
   account: Schema.NullOr(TrimmedNonEmptyString),
-  /** Why a stored credential did not work, when it did not. */
+  /** Why account details are unavailable, when known. */
   detail: Schema.NullOr(TrimmedNonEmptyString),
   /** The workspace the credential reaches, as its issue URLs name it; links elsewhere are foreign. */
   workspace: Schema.optional(TrimmedNonEmptyString),
   scopes: Schema.Array(IssueTrackerScope),
+  /** What was saved for each of `credential.fields`, so a form can show and resend it. */
+  fields: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 });
 export type IssueTrackerConnection = typeof IssueTrackerConnection.Type;
 
@@ -676,6 +690,10 @@ export const IssueTrackerConnectInput = Schema.Struct({
   accountId: Schema.optional(IssueTrackerAccountId),
   addAccount: Schema.optional(Schema.Boolean),
   token: Schema.NullOr(TrimmedNonEmptyString.check(Schema.isMaxLength(4_096))),
+  /** A value for each of the tracker's `credential.fields`; ignored when disconnecting. */
+  fields: Schema.optional(
+    Schema.Record(Schema.String, TrimmedNonEmptyString.check(Schema.isMaxLength(512))),
+  ),
 });
 export type IssueTrackerConnectInput = typeof IssueTrackerConnectInput.Type;
 

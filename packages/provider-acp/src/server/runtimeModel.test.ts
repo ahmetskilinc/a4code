@@ -1760,6 +1760,62 @@ describe("extractMcpToolCallIdentity", () => {
     }
   });
 
+  it("unwraps a4code tool_call proxy invocations to the target tool and arguments", () => {
+    const htmlArgs = { title: "Chart", html: "<p>hi</p>", height: 320 };
+    expect(
+      extractMcpToolCallIdentity(
+        toolCallFromUpdate({
+          sessionUpdate: "tool_call",
+          toolCallId: "proxy-1",
+          kind: "other",
+          title: "Run mcp_a4code_tool_call",
+          status: "pending",
+          rawInput: { name: "html_render", arguments: htmlArgs },
+        }),
+      ),
+    ).toEqual({
+      server: "a4code",
+      tool: "html_render",
+      input: htmlArgs,
+    });
+
+    expect(
+      extractMcpToolCallIdentity(
+        toolCallFromUpdate({
+          sessionUpdate: "tool_call",
+          toolCallId: "proxy-2",
+          kind: "other",
+          title: "Running tool_call",
+          status: "pending",
+          rawInput: {
+            server: "a4code",
+            tool: "tool_call",
+            arguments: { name: "a4_thread_read", arguments: { threadId: "thread-1" } },
+          },
+          _meta: { is_mcp_tool_call: true },
+        }),
+      ),
+    ).toEqual({
+      server: "a4code",
+      tool: "a4_thread_read",
+      input: { threadId: "thread-1" },
+    });
+
+    // A bare non-a4code `tool_call` title must not be misclassified as a a4code proxy call.
+    expect(
+      extractMcpToolCallIdentity(
+        toolCallFromUpdate({
+          sessionUpdate: "tool_call",
+          toolCallId: "proxy-3",
+          kind: "other",
+          title: "tool_call",
+          status: "pending",
+          rawInput: { name: "html_render", arguments: htmlArgs },
+        }),
+      ),
+    ).toBeUndefined();
+  });
+
   it("recovers a4code identity from Hermes editor-renamed MCP tool titles", () => {
     const identityFor = (title: string) =>
       extractMcpToolCallIdentity(
@@ -2006,6 +2062,30 @@ describe("extractMcpToolCallIdentity", () => {
     });
 
     expect(extractMcpToolCallIdentity(toolCall)).toBeUndefined();
+  });
+
+  it("unwraps a4code tool_call when Antigravity routes it through call_mcp_tool", () => {
+    const toolCall = toolCallFromUpdate({
+      sessionUpdate: "tool_call",
+      toolCallId: "call-mcp-proxy-1",
+      kind: "execute",
+      title: "MCP Tool tool_call",
+      status: "completed",
+      rawInput: {
+        ServerName: "a4code",
+        ToolName: "tool_call",
+        Arguments: {
+          name: "html_render",
+          arguments: { title: "Chart", html: "<p>hi</p>", height: 240 },
+        },
+      },
+    });
+
+    expect(extractMcpToolCallIdentity(toolCall)).toEqual({
+      server: "a4code",
+      tool: "html_render",
+      input: { title: "Chart", html: "<p>hi</p>", height: 240 },
+    });
   });
 });
 

@@ -1,5 +1,7 @@
 # a4code
 
+a4code is an unofficial desktop fork of T3 Code, independently maintained by Ahmet. T3 Tools, Inc. has no affiliation with this project and does not endorse or maintain it. [Original project](https://github.com/pingdotgg/t3code)
+
 a4code is a desktop workspace for coding agents. Open a project on your machine, start a thread with an installed provider, review its diff, and run commands in the project terminal. The desktop app starts its own local server and stores project and conversation history on the host.
 
 ## Run the desktop app
@@ -25,7 +27,7 @@ Use `a4code import-history` before first launch to copy local projects and settl
 
 ## Bring in upstream features
 
-The fork’s default branch, `a4code`, contains the desktop app. Its `main` branch tracks the original project. For a fresh checkout, clone Ahmet’s fork as `origin` and add the original repository as `upstream`.
+The fork’s default branch, `a4code`, contains the desktop app. Its `main` branch mirrors the original project, including the upstream mobile app and its artwork. For a fresh checkout, clone Ahmet’s fork as `origin` and add the original repository as `upstream`.
 
 ```sh
 git clone https://github.com/ahmetskilinc/a4code.git
@@ -33,24 +35,19 @@ cd a4code
 git remote add upstream https://github.com/pingdotgg/t3code.git
 ```
 
-The desktop fork was built from upstream commit `e18c8fc2e5b778e6b435e0596cd785d580f54785`. Start the first review there. For later reviews, use the upstream SHA where the last review ended. This range lists upstream activity, including features you may already have ported.
+From the desktop branch, fetch the latest upstream commits and list what has landed since the last integration.
 
 ```sh
-git fetch origin
-git fetch --no-tags upstream
-git log --reverse --oneline e18c8fc2e5..upstream/main
+git switch a4code
+git fetch --no-tags upstream main
+git log --reverse --oneline HEAD..upstream/main
 ```
 
-To advance the fork’s `main` mirror after fetching, run `git push origin refs/remotes/upstream/main:refs/heads/main`. Git accepts the push when the mirror can fast-forward.
+To review a full update, start a branch with `git switch -c sync/upstream` and run `git merge --no-ff --no-commit upstream/main`. Keep the desktop branding, original notices and offline defaults when resolving conflicts. The merge records the upstream revision reviewed, so the next comparison starts there. To port a single independent feature ahead of a full review, use `git cherry-pick -x <sha>`.
 
-Inspect a feature with `git show <sha>`. On a clean checkout, create a topic branch from the desktop branch and apply the feature’s commits in dependency order.
+Run the affected tests and `vp run check:changed origin/a4code`. For startup or networking changes, exercise the packaged desktop app with a disposable profile and observe launch, idle, history and Settings for unsolicited public connections. Test direct pairing when environment access changes.
 
-```sh
-git switch --no-track -c port/feature-name origin/a4code
-git cherry-pick -x <sha>
-```
-
-Keep the upstream SHA in the commit message when adapting a change by hand. Run the affected tests and `vp run check:changed`. For changes to startup or networking, launch the packaged desktop app with a disposable profile and check launch, idle, history and Settings for unsolicited public connections. Exercise direct pairing if the change touches environment access.
+After testing, commit the merge, fast-forward `a4code` to the reviewed branch, and push it to `origin`. Update the source mirror with `git push origin refs/remotes/upstream/main:refs/heads/main`. These are maintainer operations. The desktop app can run offline.
 
 ## Source and notices
 

@@ -14,6 +14,7 @@ import * as Context from "effect/Context";
 import type * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import type { McpToolExposureMode } from "@a4code/provider-core/server/mcpSession";
 import { formatThreadLink, hostedThreadLink } from "@a4code/shared/threadLinks";
 
 const ALL_MCP_CAPABILITIES = [
@@ -165,6 +166,8 @@ export interface McpInvocationScope {
   readonly origin?: string | undefined;
   /** False when the calling thread's project is on no forge a4code reads; `/mcp` reads it per request. */
   readonly forge?: boolean;
+  /** Set from `a4-tool-exposure` when an ACP client defers optional a4code MCP tools. */
+  readonly toolExposure?: McpToolExposureMode | undefined;
 }
 
 /**

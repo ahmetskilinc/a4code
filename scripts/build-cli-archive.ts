@@ -621,7 +621,10 @@ const buildCliArchive = Effect.fn("buildCliArchive")(function* (input: {
     builtExecutable,
     `Run \`node apps/server/scripts/cli.ts build-exe${targetKey === hostKey ? "" : ` --target ${targetKey}`}\` first.`,
   );
-  yield* requireInput(path.join(webClient, "index.html"), "Run `vp run --filter a4code build` first.");
+  yield* requireInput(
+    path.join(webClient, "index.html"),
+    "Run `vp run --filter a4code build` first.",
+  );
   yield* requireInput(
     resourceMonitorDir,
     "Build the resource monitor or pass --resource-monitor-dir.",
@@ -634,6 +637,9 @@ const buildCliArchive = Effect.fn("buildCliArchive")(function* (input: {
 
   yield* Effect.log(`[cli-archive] Staging ${stem}...`);
   yield* fs.copyFile(builtExecutable, path.join(contentDir, executableName));
+  for (const notice of ["LICENSE", "TRADEMARK.md"]) {
+    yield* fs.copyFile(path.join(repoRoot, notice), path.join(contentDir, notice));
+  }
   yield* stageWebClient(webClient, path.join(contentDir, "client"));
   yield* fs.copy(resourceMonitorDir, path.join(contentDir, "resource-monitor"));
   yield* stageRuntimeExternals({

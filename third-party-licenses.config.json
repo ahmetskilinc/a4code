@@ -1,6 +1,13 @@
 {
   "customNotices": [
     {
+      "bundles": ["desktop", "server", "web"],
+      "license": "MIT",
+      "name": "T3 Code (upstream source)",
+      "sourceUrl": "https://github.com/pingdotgg/t3code",
+      "noticeFile": "LICENSE"
+    },
+    {
       "bundles": ["desktop", "mobile"],
       "license": "MIT",
       "name": "Apple Speech engine (adapted from @react-native-ai/apple)",
@@ -183,7 +190,7 @@
       "bundles": ["mobile"],
       "license": "MIT",
       "name": "react-native-uitextview",
-      "noticeFile": "apps/mobile/modules/t3-source-text/LICENSE",
+      "noticeFile": "third-party-licenses/react-native-uitextview/LICENSE",
       "sourceUrl": "https://github.com/bluesky-social/react-native-uitextview",
       "version": "2.2.0"
     },
@@ -191,7 +198,7 @@
       "bundles": ["mobile"],
       "license": "MIT",
       "name": "Expo text editor implementation",
-      "noticeFile": "apps/mobile/modules/t3-composer-editor/LICENSE",
+      "noticeFile": "third-party-licenses/expo/LICENSE",
       "sourceUrl": "https://github.com/expo/expo"
     },
     {
@@ -199,7 +206,7 @@
       "license": "Apache-2.0",
       "name": "wasm2c runtime (WABT)",
       "version": "1.0.42",
-      "noticeFile": "apps/mobile/modules/t3-highlights/Vendor/wasm2c/LICENSE",
+      "noticeFile": "third-party-licenses/wasm2c/LICENSE",
       "sourceUrl": "https://github.com/WebAssembly/wabt/tree/1.0.42/wasm2c"
     },
     {
@@ -207,7 +214,7 @@
       "license": "MIT",
       "name": "SIMD Everywhere",
       "version": "0.8.2",
-      "noticeFile": "apps/mobile/modules/t3-highlights/Vendor/simde/LICENSE",
+      "noticeFile": "third-party-licenses/simde/LICENSE",
       "sourceUrl": "https://github.com/simd-everywhere/simde/tree/v0.8.2"
     },
     {
@@ -287,33 +294,6 @@
       "sourceUrl": "https://github.com/NaturalIntelligence/fast-xml-parser"
     },
     {
-      "name": "@betteroffice/xlsx",
-      "version": "0.5.1",
-      "license": "Apache-2.0",
-      "sourceUrl": "https://github.com/openooxml/betteroffice",
-      "generatedNotice": {
-        "licenseId": "Apache-2.0"
-      }
-    },
-    {
-      "name": "@betteroffice/pptx",
-      "version": "0.5.1",
-      "license": "Apache-2.0",
-      "sourceUrl": "https://github.com/openooxml/betteroffice",
-      "generatedNotice": {
-        "licenseId": "Apache-2.0"
-      }
-    },
-    {
-      "name": "@betteroffice/docx",
-      "version": "0.5.1",
-      "license": "Apache-2.0",
-      "sourceUrl": "https://github.com/openooxml/betteroffice",
-      "generatedNotice": {
-        "licenseId": "Apache-2.0"
-      }
-    },
-    {
       "name": "character-entities",
       "version": "2.0.2",
       "license": "MIT",
@@ -342,35 +322,6 @@
       "version": "6.4.299",
       "license": "Apache-2.0",
       "sourceUrl": "https://github.com/mozilla/pdf.js"
-    },
-    {
-      "name": "@betteroffice/fonts",
-      "version": "0.4.0",
-      "license": "Apache-2.0 AND OFL-1.1",
-      "generatedNotices": [
-        { "licenseId": "Apache-2.0" },
-        {
-          "licenseId": "OFL-1.1",
-          "copyrights": [
-            "Copyright 2013 The Carlito Project Authors (https://github.com/googlefonts/carlito), with Reserved Font Name \"Carlito\""
-          ]
-        }
-      ]
-    },
-    {
-      "name": "@betteroffice/fonts-cjk",
-      "version": "0.4.0",
-      "license": "Apache-2.0 AND OFL-1.1",
-      "generatedNotices": [
-        { "licenseId": "Apache-2.0" },
-        {
-          "licenseId": "OFL-1.1",
-          "copyrights": [
-            "Copyright 2014-2021 Adobe (https://adobe.com/), with Reserved Font Name 'Source'",
-            "Copyright 2017-2024 Adobe (https://adobe.com/), with Reserved Font Name 'Source'"
-          ]
-        }
-      ]
     },
     {
       "name": "remark-math",
@@ -639,11 +590,11 @@
     },
     {
       "name": "@expo/sdk-runtime-versions",
-      "noticeFile": "apps/mobile/modules/t3-composer-editor/LICENSE"
+      "noticeFile": "third-party-licenses/expo/LICENSE"
     },
     {
       "name": "@expo/ws-tunnel",
-      "noticeFile": "apps/mobile/modules/t3-composer-editor/LICENSE"
+      "noticeFile": "third-party-licenses/expo/LICENSE"
     },
     {
       "name": "stream-buffers",

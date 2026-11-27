@@ -230,6 +230,7 @@ export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(funct
     readonly startupPresentation?: ServerConfig.StartupPresentation;
     readonly forceAutoBootstrapProjectFromCwd?: boolean;
     readonly rejectRunningServer?: boolean;
+    readonly prepareDirectories?: boolean;
     readonly selectAutomaticPort?: (
       preferred: number,
       host: string | undefined,
@@ -316,10 +317,12 @@ export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(funct
       });
     }
   }
-  yield* fs.makeDirectory(cwd, { recursive: true });
-  yield* ServerConfig.ensureServerDirectories(derivedPaths);
   const serverTracePath = env.traceFile ?? derivedPaths.serverTracePath;
-  yield* fs.makeDirectory(path.dirname(serverTracePath), { recursive: true });
+  if (options?.prepareDirectories !== false) {
+    yield* fs.makeDirectory(cwd, { recursive: true });
+    yield* ServerConfig.ensureServerDirectories(derivedPaths);
+    yield* fs.makeDirectory(path.dirname(serverTracePath), { recursive: true });
+  }
   const startupPresentation = options?.startupPresentation ?? "browser";
   const isHeadlessStartup = startupPresentation === "headless";
   const noBrowser = Option.getOrElse(
@@ -455,7 +458,7 @@ export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(funct
 export const resolveCliAuthConfig = (
   flags: CliAuthLocationFlags,
   cliLogLevel: Option.Option<LogLevel.LogLevel>,
-  options?: { readonly quietLogs?: boolean },
+  options?: { readonly quietLogs?: boolean; readonly prepareDirectories?: boolean },
 ) => {
   const resolved = resolveServerConfig(
     {
@@ -474,6 +477,7 @@ export const resolveCliAuthConfig = (
       lan: Option.none(),
     },
     cliLogLevel,
+    options,
   );
   // Logs go to stdout, where --json and --token-only print, and resolving can
   // log, for example when it sweeps abandoned attachment uploads.

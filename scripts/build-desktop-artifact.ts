@@ -213,7 +213,7 @@ export class MacPasskeySigningConfigurationResolutionError extends Schema.Tagged
   static fromCause(
     cause: unknown,
   ): InvalidAppleTeamIdError | MacPasskeySigningConfigurationResolutionError {
-    return Schema.is(InvalidAppleTeamIdError)(cause)
+    return isInvalidAppleTeamIdError(cause)
       ? cause
       : new MacPasskeySigningConfigurationResolutionError({ cause });
   }
@@ -1093,6 +1093,8 @@ export class InvalidAppleTeamIdError extends Schema.TaggedError<InvalidAppleTeam
   }
 }
 
+const isInvalidAppleTeamIdError = Schema.is(InvalidAppleTeamIdError);
+
 export function resolveMacPasskeySigningConfiguration(
   env: Readonly<Record<string, string | undefined>>,
 ): MacPasskeySigningConfiguration | undefined {
@@ -1441,10 +1443,7 @@ export const resolveBuildOptions = Effect.fn("resolveBuildOptions")(function* (
     });
   }
   const version = mergeOptions(input.buildVersion, env.version, undefined);
-  const outputDir = path.resolve(
-    repoRoot,
-    mergeOptions(input.outputDir, env.outputDir, "release"),
-  );
+  const outputDir = path.resolve(repoRoot, mergeOptions(input.outputDir, env.outputDir, "release"));
 
   const skipBuild = resolveBooleanFlag(input.skipBuild, env.skipBuild);
   const keepStage = resolveBooleanFlag(input.keepStage, env.keepStage);
@@ -2484,8 +2483,10 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   wslRuntimeBundled = false,
   arch?: typeof BuildArch.Type,
 ) {
+  const path = yield* Path.Path;
+  const repoRoot = yield* RepoRoot;
   const buildConfig: Record<string, unknown> = {
-    afterPack: (yield* Path.Path).join(yield* RepoRoot, "scripts/prepare-server-compile-cache.cjs"),
+    afterPack: path.join(repoRoot, "scripts/prepare-server-compile-cache.cjs"),
     appId: DESKTOP_APP_ID,
     productName: resolveDesktopProductName(version),
     artifactName: "a4code-${version}-${arch}.${ext}",
@@ -2513,6 +2514,8 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       ? { asar: { smartUnpack: false }, asarUnpack: [WINDOWS_NATIVE_ASAR_UNPACK_GLOB] }
       : { asarUnpack: ["**/node_modules/@transcribe-cpp/**/*.{dylib,so,so.*}"] }),
     extraResources: [
+      { from: path.join(repoRoot, "LICENSE"), to: "licenses/a4code-LICENSE.txt" },
+      { from: path.join(repoRoot, "TRADEMARK.md"), to: "licenses/upstream-TRADEMARK.md" },
       ...DESKTOP_EXTRA_RESOURCES,
       ...(platform === "linux" ? LINUX_CAPTURE_EXTRA_RESOURCES : []),
       ...(platform === "linux" ? LINUX_BROWSER_SECRET_EXTRA_RESOURCES : []),
@@ -2525,8 +2528,6 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   buildConfig.publish = null;
 
   if (platform === "mac") {
-    const path = yield* Path.Path;
-    const repoRoot = yield* RepoRoot;
     buildConfig.mac = {
       target: [target],
       icon: "icon.icns",
@@ -2607,8 +2608,6 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   if (platform === "linux") {
     // Pin the static AppImage runtime so hosts with only FUSE 3 do not need libfuse2.
     buildConfig.toolsets = { appimage: "1.0.3" };
-    const path = yield* Path.Path;
-    const repoRoot = yield* RepoRoot;
     buildConfig.afterPack = path.join(repoRoot, "scripts/linux-after-pack.ts");
     buildConfig.linux = {
       target: target === "AppImage" ? [target, "deb"] : [target],
@@ -2634,7 +2633,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       // FPM runs outside the staged app directory, so source paths must be absolute.
       fpm: [
         `${path.join(repoRoot, "apps/desktop/resources/linux/dev.a4code.app.metainfo.xml")}=/usr/share/metainfo/dev.a4code.app.metainfo.xml`,
-        `${path.join(repoRoot, "LICENSE")}=/usr/share/doc/t3code/copyright`,
+        `${path.join(repoRoot, "LICENSE")}=/usr/share/doc/a4code/copyright`,
       ],
       // Debian 13 and Ubuntu 24.04 use 64-bit-time names; retain old-name fallbacks.
       depends: [
@@ -2670,7 +2669,6 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     if (signed && (yield* HostProcess.Platform) === "win32") {
       winConfig.azureSignOptions = yield* AzureTrustedSigningOptionsConfig;
     } else if (signed) {
-      const path = yield* Path.Path;
       const { publisherName } = yield* AzureTrustedSigningOptionsConfig;
       winConfig.signtoolOptions = {
         sign: yield* path.fromFileUrl(new URL("./lib/windows-jsign.ts", import.meta.url)),

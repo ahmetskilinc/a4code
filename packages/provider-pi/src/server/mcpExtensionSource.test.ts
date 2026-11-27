@@ -39,7 +39,7 @@ async function loadHooks(
       "async function",
     ),
   );
-  await NodeVM.runInNewContext(`${source}\nt3McpExtension(pi)`, {
+  await NodeVM.runInNewContext(`${source}\na4McpExtension(pi)`, {
     process: { env: {}, argv },
     NodeFSP,
     NodePath,
@@ -334,6 +334,30 @@ describe("Pi MCP tool exposure", () => {
     );
   });
 
+  it("keeps a deferred tool's hidden alias active after tool_search loads its public tool", async () => {
+    const bridge = await loadMcpBridge({
+      modern: true,
+      toolSearchAvailable: true,
+      activatesOnRegistration: true,
+    });
+    const event = { systemPrompt: "" };
+    await bridge.handlers.get("session_start")!(event, discoveryContext);
+    assert.include(bridge.getActiveTools(), "mcp__a4_code__preview_snapshot");
+
+    // tool_search loads the deferred public tool during a run.
+    bridge.restoreActiveTools([...bridge.getActiveTools(), "mcp__a4code__preview_snapshot"]);
+    await bridge.handlers.get("before_agent_start")!(event, discoveryContext);
+
+    // Pi hides recorded declarations with the current hidden set, so dropping the alias
+    // re-declares it in the prompt head and the next request misses the prompt cache.
+    assert.include(
+      bridge.getActiveTools(),
+      "mcp__a4_code__preview_snapshot",
+      "the next run drops the alias recorded in the transcript",
+    );
+    assert.notInclude(bridge.declaredTools(), "mcp__a4_code__preview_snapshot");
+  });
+
   it.each(["legacy Pi", "disabled tool search"])(
     "keeps tool execution available with %s",
     async (mode) => {
@@ -468,8 +492,7 @@ describe("Pi tool discovery permissions", () => {
       assert.equal(confirmations.length, 4);
       bridge.setBridgeSourcePath("/user/extensions/replacement.ts");
       assert.equal(
-        (await hook({ toolName: "mcp__a4code__orchestrator_capabilities", input: {} }, ctx))
-          ?.block,
+        (await hook({ toolName: "mcp__a4code__orchestrator_capabilities", input: {} }, ctx))?.block,
         true,
       );
       assert.equal(
@@ -502,7 +525,7 @@ describe("Pi tool discovery permissions", () => {
         "async function",
       ),
     );
-    await NodeVM.runInNewContext(`${source}\nt3McpExtension(pi)`, {
+    await NodeVM.runInNewContext(`${source}\na4McpExtension(pi)`, {
       process: { env: { A4_PI_RUNTIME_MODE: "approval-required" } },
       pi: {
         on: (name: string, handler: ToolCallHook) => {
@@ -578,7 +601,7 @@ async function loadRequestHook() {
       "async function",
     ),
   );
-  await NodeVM.runInNewContext(`${source}\nt3McpExtension(pi)`, {
+  await NodeVM.runInNewContext(`${source}\na4McpExtension(pi)`, {
     process: { env: {} },
     pi: {
       on: (name: string, handler: RequestHook) => handlers.set(name, handler),

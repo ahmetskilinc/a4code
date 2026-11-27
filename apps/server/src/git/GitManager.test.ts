@@ -3030,9 +3030,7 @@ it.layer(layerGitManagerTest)("GitManager", (it) => {
           updatedAt: "2026-03-01T10:00:00.000Z",
         });
         expect(listedSelectors(providerCalls).includes("upstream/effect-atom")).toBe(false);
-        expect(listedSelectors(providerCalls).includes("a4code:upstream/effect-atom")).toBe(
-          false,
-        );
+        expect(listedSelectors(providerCalls).includes("a4code:upstream/effect-atom")).toBe(false);
         expect(
           listedSelectors(providerCalls).includes("my-org/upstream:upstream/effect-atom"),
         ).toBe(false);
@@ -4132,6 +4130,48 @@ it.layer(layerGitManagerTest)("GitManager", (it) => {
       expect(mergeBase).toBe(mainSha);
       expect(generatedCount).toBe(1);
     }),
+  );
+
+  it.effect.each([{ indexLocked: false }, { indexLocked: true }])(
+    "reports the branch after a failing post-checkout hook switches HEAD (index locked: $indexLocked)",
+    ({ indexLocked }) =>
+      Effect.gen(function* () {
+        const cwd = yield* makeTempDir("a4code-git-manager-");
+        yield* initRepo(cwd);
+        yield* runGit(cwd, ["config", "core.hooksPath", ".git/hooks"]);
+        NodeFS.mkdirSync(NodePath.join(cwd, ".git", "hooks"), { recursive: true });
+        NodeFS.writeFileSync(
+          NodePath.join(cwd, ".git", "hooks", "post-checkout"),
+          `#!/bin/sh\n${indexLocked ? ": > .git/index.lock\n" : ""}exit 1\n`,
+          { mode: 0o755 },
+        );
+        NodeFS.writeFileSync(NodePath.join(cwd, "README.md"), "pending change\n");
+        const { manager } = yield* makeManager();
+        const events: GitActionProgressEvent[] = [];
+        const error = yield* runStackedAction(
+          manager,
+          { cwd, action: "commit", featureBranch: true, commitMessage: "Retry checkout" },
+          {
+            progressReporter: {
+              publish: (event) =>
+                Effect.sync(() => {
+                  events.push(event);
+                }),
+            },
+          },
+        ).pipe(Effect.flip);
+
+        expect(error).toBeInstanceOf(GitCommandError);
+        expect(NodeFS.existsSync(NodePath.join(cwd, ".git", "index.lock"))).toBe(indexLocked);
+        expect((yield* runGit(cwd, ["branch", "--show-current"])).stdout.trim()).toBe(
+          "feature/retry-checkout",
+        );
+        expect(events.at(-1)).toMatchObject({
+          kind: "action_failed",
+          phase: "branch",
+          createdBranch: "feature/retry-checkout",
+        });
+      }),
   );
 
   it.effect.each([

@@ -1,9 +1,5 @@
 import * as Mime from "effect/http/Mime";
-import {
-  AuthOrchestrationOperateScope,
-  AuthOrchestrationReadScope,
-  EnvironmentHttpApi,
-} from "@a4code/contracts";
+import { EnvironmentHttpApi } from "@a4code/contracts";
 import { isDevProxiedPath } from "@a4code/shared/devProxy";
 import {
   injectMcpAppCookieBootstrap,
@@ -35,7 +31,6 @@ import {
   HttpRouter,
   HttpServerResponse,
   HttpServerRequest,
-  HttpServerRespondable,
 } from "effect/http";
 import * as HttpIncomingMessage from "effect/http/HttpIncomingMessage";
 import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
@@ -49,13 +44,7 @@ import {
   storeAttachmentUpload,
   validateAttachmentUploadToken,
 } from "./assets/AttachmentUpload.ts";
-import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
-import {
-  annotateEnvironmentRequest,
-  failEnvironmentScopeRequired,
-  failEnvironmentAuthInvalid,
-  failEnvironmentInternal,
-} from "./auth/http.ts";
+import { annotateEnvironmentRequest } from "./auth/http.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
 import {
   browserApiCorsAllowedHeaders,
@@ -181,6 +170,10 @@ export const assetFileResponse = Effect.fn("assetFileResponse")(function* (
   method: "GET" | "HEAD" = "GET",
 ) {
   const headers = assetResponseHeaders(asset.path, asset);
+  if (asset.renderIntent === "file-preview") {
+    // The signed URL stays the same while the workspace file changes, so a reload must revalidate.
+    headers["Cache-Control"] = "private, no-cache";
+  }
   if (
     asset.renderIntent === "mcp-app" &&
     !asset.download &&
@@ -360,29 +353,6 @@ function resolveDevRedirectUrl(devUrl: URL, requestUrl: URL): string {
   redirectUrl.hash = requestUrl.hash;
   return redirectUrl.toString();
 }
-
-const authenticateRawRouteWithScope =
-  /* Request instrumentation already owns the span; keep this helper in that context. */
-  Effect.fnUntraced(function* (
-    scope: typeof AuthOrchestrationReadScope | typeof AuthOrchestrationOperateScope,
-  ) {
-    const request = yield* HttpServerRequest.HttpServerRequest;
-    const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
-    const session = yield* serverAuth.authenticateHttpRequest(request).pipe(
-      Effect.catchIf(EnvironmentAuth.isServerAuthCredentialError, (error) =>
-        failEnvironmentAuthInvalid(
-          EnvironmentAuth.serverAuthCredentialReason(error),
-          EnvironmentAuth.serverAuthDpopFailureReason(error),
-        ),
-      ),
-      Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
-        failEnvironmentInternal("internal_error", error),
-      ),
-    );
-    if (!session.scopes.includes(scope)) {
-      return yield* failEnvironmentScopeRequired(scope);
-    }
-  });
 
 export const layerServerEnvironmentHttpApi = HttpApiBuilder.group(
   EnvironmentHttpApi,

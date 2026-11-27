@@ -7,11 +7,11 @@ const parse = (url: string) => definition.parseChangeRequestUrl(new URL(url));
 
 describe("GitHub change request URLs", () => {
   it("reads a pull request on any host, lower-casing host and repository", () => {
-    expect(parse("https://github.com/A4Code/A4Code/pull/123/files?w=1#diff")).toEqual({
+    expect(parse("https://github.com/Acme/Web/pull/123/files?w=1#diff")).toEqual({
       host: "github.com",
-      repository: "t3tools/a4code",
+      repository: "acme/web",
       number: 123,
-      repositoryUrl: "https://github.com/A4Code/A4Code",
+      repositoryUrl: "https://github.com/Acme/Web",
     });
     expect(parse("https://GHE.Example.com:8443/acme/web/pull/42/")).toEqual({
       host: "ghe.example.com",
@@ -23,12 +23,12 @@ describe("GitHub change request URLs", () => {
 
   it("claims only the two-segment pull route", () => {
     for (const url of [
-      "https://github.com/t3tools/a4code/issues/123",
-      "https://github.com/t3tools/a4code/pulls/123",
-      "https://github.com/t3tools/a4code/pull/abc",
-      "https://github.com/t3tools/a4code/pull/0",
+      "https://github.com/acme/web/issues/123",
+      "https://github.com/acme/web/pulls/123",
+      "https://github.com/acme/web/pull/abc",
+      "https://github.com/acme/web/pull/0",
       "https://github.com/group/sub/repo/pull/1",
-      "ftp://github.com/t3tools/a4code/pull/1",
+      "ftp://github.com/acme/web/pull/1",
     ]) {
       expect(parse(url), url).toBeNull();
     }
@@ -148,7 +148,7 @@ describe("GitHub media URLs", () => {
     ).toEqual({
       fetchUrl: "https://github.com/user-attachments/assets/1a1842fb-6383-492f-873c-57aa0033fa6c",
       fileName: "1a1842fb-6383-492f-873c-57aa0033fa6c",
-      kind: "video",
+      kind: "unknown",
       immutable: true,
     });
     expect(media("https://github.com/owner/repo/blob/main/docs/shot.png")).toEqual({

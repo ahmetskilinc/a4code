@@ -7,19 +7,19 @@ import {
 import wordsWasm from "@pierre/words/wasm";
 import { decodeHTML, decodeHTMLAttribute } from "entities";
 import { find, html as htmlSchema, svg as svgSchema } from "property-information";
-import { resolveCodexArtifactTemplate } from "@t3tools/shared/codexArtifactTemplates";
-import { resolveCodexFileCitationLink } from "@t3tools/shared/codexFileCitations";
-import type { ReferenceAutolink } from "@t3tools/client-runtime/source-control-clients";
-import { expandGithubEmojiAliases } from "@t3tools/client-runtime/pull-request-markdown";
-import { resolveChangeRequestMediaUrl } from "@t3tools/client-runtime/pull-request-references";
-import { expandIndentedCodeTabs } from "@t3tools/shared/markdownListIndentation";
-import { GITHUB_ALERT_MARKER } from "@t3tools/shared/markdownGithubAlerts";
-import { absoluteFilePathMatches } from "@t3tools/shared/markdownLinks";
+import { resolveCodexArtifactTemplate } from "@a4code/shared/codexArtifactTemplates";
+import { resolveCodexFileCitationLink } from "@a4code/shared/codexFileCitations";
+import type { ReferenceAutolink } from "@a4code/client-runtime/source-control-clients";
+import { expandGithubEmojiAliases } from "@a4code/client-runtime/pull-request-markdown";
+import { resolveChangeRequestMediaUrl } from "@a4code/client-runtime/pull-request-references";
+import { expandIndentedCodeTabs } from "@a4code/shared/markdownListIndentation";
+import { GITHUB_ALERT_MARKER } from "@a4code/shared/markdownGithubAlerts";
+import { absoluteFilePathMatches } from "@a4code/shared/markdownLinks";
 import {
   rehypeNormalizeLocalFileLinks,
   rehypePreserveImageSourceMeta,
   sanitizeChatHast,
-} from "@t3tools/shared/markdownHast";
+} from "@a4code/shared/markdownHast";
 
 import { rehypeChipPunctuation } from "../components/chat/markdownChipPunctuation";
 import { rehypeHeadingIds } from "../components/chat/markdownFragments";
@@ -483,7 +483,7 @@ function codexDirective(node: Element, walk: Walk, inLink: boolean): ElementCont
   };
 }
 
-const INLINE_PREFIX = "t3-markdown-inline-prefix ";
+const INLINE_PREFIX = "a4-markdown-inline-prefix ";
 
 function stripPositions(node: ElementContent) {
   delete node.position;
@@ -959,8 +959,8 @@ function insightSource(text: string, options: RenderOptions): InsightSource | nu
   };
   findCode(parse(text, options));
   const nonce = Math.random().toString(36).slice(2);
-  const marker = new RegExp(String.raw`^\[!T3-INSIGHT-${nonce}-(\d+)\](?:\r?\n)?`);
-  const anywhere = new RegExp(String.raw`\[!T3-INSIGHT-${nonce}-(\d+)\]`, "g");
+  const marker = new RegExp(String.raw`^\[!a4code-INSIGHT-${nonce}-(\d+)\](?:\r?\n)?`);
+  const anywhere = new RegExp(String.raw`\[!a4code-INSIGHT-${nonce}-(\d+)\]`, "g");
   const lines = text.split(/(?<=\n)|(?<=\r)(?!\n)/u);
   const skipped = new Set<number>();
   for (;;) {
@@ -981,7 +981,7 @@ function insightSource(text: string, options: RenderOptions): InsightSource | nu
           if (opening && !skipped.has(lineIndex)) {
             indent = opening[1] ?? "";
             opened++;
-            output = `> [!T3-INSIGHT-${nonce}-${lineIndex}]${ending}`;
+            output = `> [!a4code-INSIGHT-${nonce}-${lineIndex}]${ending}`;
           }
         } else {
           const closing = inCode ? null : INSIGHT_CLOSING.exec(value);
@@ -1208,7 +1208,7 @@ export function wordsHast(text: string, options: WordsHastOptions): Root {
     source,
     options,
     math: new Map(),
-    mathKey: `t3-math-${Math.random().toString(36).slice(2)}`,
+    mathKey: `a4-math-${Math.random().toString(36).slice(2)}`,
     insightMarker: insights?.marker ?? null,
   };
   transform(tree, walk, false, false);

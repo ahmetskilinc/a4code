@@ -1,4 +1,4 @@
-import { splitsSurrogatePair } from "@t3tools/shared/assistantCitations";
+import { splitsSurrogatePair } from "@a4code/shared/assistantCitations";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { readWorkflowPane } from "../components/workflows/workflowPane.logic";

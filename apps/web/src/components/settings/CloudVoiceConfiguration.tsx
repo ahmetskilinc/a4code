@@ -1,16 +1,16 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import { cloudSpeechDisclosure } from "@t3tools/shared/speechCopy";
-import type { PreparedConnection } from "@t3tools/client-runtime/connection";
-import { hasFeatureFlag } from "@t3tools/client-runtime/state/server";
+import { cloudSpeechDisclosure } from "@a4code/shared/speechCopy";
+import type { PreparedConnection } from "@a4code/client-runtime/connection";
+import { hasFeatureFlag } from "@a4code/client-runtime/state/server";
 import {
   configuredSecretSources,
   secretRequestReference,
-} from "@t3tools/client-runtime/secret-request";
+} from "@a4code/client-runtime/secret-request";
 import {
   getCloudSpeechKeys,
   getCloudSpeechModels,
   setCloudSpeechKey,
-} from "@t3tools/client-runtime/voice-input";
+} from "@a4code/client-runtime/voice-input";
 import {
   AuthOrchestrationOperateScope,
   AuthProvidersManageScope,
@@ -25,7 +25,7 @@ import {
   type SecretProviderId,
   type SettingsSecretValue,
   type VoiceTranscriptionDestination,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -179,8 +179,9 @@ export function CloudVoiceConfiguration({
   const canManage = useEnvironmentScope(id, AuthSettingsWriteScope);
   const canUseReferences = useEnvironmentScope(id, AuthProvidersManageScope);
   const [presence, refresh] = useCloudRead(canUse ? prepared : null, getCloudSpeechKeys);
+  const [loadModels, setLoadModels] = useState(false);
   const [models, refreshModels] = useCloudRead(
-    routed && canUse ? prepared : null,
+    routed && canUse && loadModels ? prepared : null,
     getCloudSpeechModels,
   );
   const choice = useAudioChoice();
@@ -225,7 +226,9 @@ export function CloudVoiceConfiguration({
   // Fixed providers edit the key only when nothing is saved or the device already uses them.
   const editingKey = canManage && saved !== undefined && (routed || active || !saved);
   const listedModels = AsyncResult.isSuccess(models) ? (models.value?.models ?? null) : null;
-  const modelChosen = isModelId(model) && (listedModels?.some((m) => m.id === model) ?? false);
+  const modelChosen =
+    isModelId(model) &&
+    (model === currentModel || listedModels?.some((m) => m.id === model) === true);
   const keyReady = draft.trim() ? credential !== undefined : Boolean(saved);
   const modelChanged = model !== (currentModel ?? "");
   const destination = (): CloudDestination =>
@@ -396,7 +399,17 @@ export function CloudVoiceConfiguration({
                   <Label htmlFor="voice-cloud-model">
                     <T>Model</T>
                   </Label>
-                  {listedModels ? (
+                  {!loadModels ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      disabled={!connected}
+                      onClick={() => setLoadModels(true)}
+                    >
+                      <T>Load models from OpenRouter</T>
+                    </Button>
+                  ) : listedModels ? (
                     <ModelPicker
                       models={listedModels}
                       value={model}

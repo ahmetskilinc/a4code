@@ -1,3 +1,5 @@
+import * as Layer from "effect/Layer";
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -5,8 +7,9 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as SqlClient from "effect/sql/SqlClient";
 
+import { importHistory } from "../src/cli/importHistory.ts";
 import { runMigrations } from "../src/persistence/Migrations.ts";
-import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
+import * as NodeSqliteClient from "@a4code/shared/nodeSqliteClient";
 import { dropResumableFamilies, runMigrateDevDb } from "./migrate-dev-db.ts";
 
 const withDatabase = <A, E, R>(
@@ -154,7 +157,107 @@ const createFixtureSource = Effect.fn("createMigrateDevDbFixtureSource")(functio
   return databasePath;
 });
 
-it.layer(NodeServices.layer)("migrate-dev-db", (it) => {
+it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("migrate-dev-db", (it) => {
+  it.effect(
+    "imports a live WAL snapshot into a new home without copying credentials, routes or active work",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const temp = yield* fs.makeTempDirectoryScoped();
+        const source = path.join(temp, "source");
+        const destination = path.join(temp, "destination");
+        const db = yield* createFixtureSource(source);
+        const data = path.join(source, "userdata");
+        yield* fs.writeFileString(path.join(data, "environment-id"), "old-env");
+        yield* fs.writeFileString(path.join(data, "settings.json"), '{"token":"do-not-copy"}');
+        yield* fs.makeDirectory(path.join(data, "attachments"));
+        yield* fs.writeFileString(path.join(data, "attachments", "thread-image.png"), "fixture");
+        yield* fs.writeFileString(path.join(data, "attachments", "pending-test.png"), "pending");
+        yield* withDatabase(
+          db,
+          Effect.gen(function* () {
+            const sql = yield* SqlClient.SqlClient;
+            yield* sql.unsafe("PRAGMA journal_mode=WAL").unprepared;
+            yield* sql.unsafe("PRAGMA wal_autocheckpoint=0").unprepared;
+            yield* sql`UPDATE orchestration_v2_projection_threads SET payload_json=json_set(payload_json,'$.title','[thread](t3-thread://v2/old-env/fork-thread) [remote](https://app.t3.codes/threads/another-env/other)') WHERE thread_id='stopped-thread'`;
+            yield* sql`UPDATE projection_projects SET title='Committed in WAL', auto_pull=1 WHERE project_id='project-kept'`;
+            yield* sql`INSERT INTO orchestration_events
+              (event_id, aggregate_kind, stream_id, stream_version, event_type, occurred_at, actor_kind, payload_json, metadata_json, application_event_version)
+              VALUES ('project-import-event','project','project-kept',1,'project.meta-updated','2026-08-01','user',
+                '{"autoPull":true,"scripts":[{"name":"run","runOnWorktreeCreate":true,"runOnSettle":true}]}','{}',2)`;
+            yield* sql`UPDATE orchestration_events SET payload_json='{"pullRequests":[{"number":42,"watch":{"enabled":true}}]}'
+              WHERE stream_id='stopped-thread'`;
+            const result = yield* importHistory(source, destination);
+            assert.equal(result.projects, 1);
+            const [original] = yield* sql<{
+              auto_pull: number;
+              tasks: number;
+            }>`SELECT auto_pull, (SELECT COUNT(*) FROM scheduled_tasks) AS tasks FROM projection_projects WHERE project_id='project-kept'`;
+            assert.deepEqual(original, { auto_pull: 1, tasks: 1 });
+            assert.isTrue(yield* Effect.isFailure(importHistory(source, destination)));
+            assert.isTrue(
+              yield* Effect.isFailure(importHistory(source, path.join(source, "nested"))),
+            );
+          }),
+        );
+        const copied = path.join(destination, "userdata");
+        const id = yield* fs.readFileString(path.join(copied, "environment-id"));
+        assert.notEqual(id, "old-env");
+        assert.isFalse(yield* fs.exists(path.join(copied, "settings.json")));
+        assert.deepEqual(yield* fs.readDirectory(path.join(copied, "attachments")), [
+          "thread-image.png",
+        ]);
+        yield* withDatabase(
+          path.join(copied, "statev2.sqlite"),
+          Effect.gen(function* () {
+            const sql = yield* SqlClient.SqlClient;
+            const [row] =
+              yield* sql`SELECT title,auto_pull,(SELECT COUNT(*) FROM auth_sessions) AS auth,
+          (SELECT COUNT(*) FROM peer_environment_links) AS routes,
+          (SELECT COUNT(*) FROM scheduled_tasks) AS tasks FROM projection_projects`;
+            assert.deepEqual(row, {
+              title: "Committed in WAL",
+              auto_pull: 0,
+              auth: 0,
+              routes: 0,
+              tasks: 0,
+            });
+            const [projectEvent] = yield* sql<{
+              payload_json: string;
+            }>`SELECT payload_json FROM orchestration_events WHERE event_id='project-import-event'`;
+            assert.deepEqual(JSON.parse(projectEvent!.payload_json), {
+              autoPull: false,
+              scripts: [{ name: "run", runOnWorktreeCreate: false }],
+            });
+            const [threadEvent] = yield* sql<{
+              payload_json: string;
+            }>`SELECT payload_json FROM orchestration_events WHERE stream_id='stopped-thread'`;
+            assert.deepEqual(JSON.parse(threadEvent!.payload_json), {
+              pullRequests: [{ number: 42 }],
+            });
+            const [message] = yield* sql<{
+              title: string;
+            }>`SELECT json_extract(payload_json,'$.title') AS title FROM orchestration_v2_projection_threads WHERE thread_id='stopped-thread'`;
+            assert.equal(
+              message?.title,
+              `[thread](a4-thread://v2/${id}/fork-thread) [remote](a4code://threads/another-env/other)`,
+            );
+            const threads = yield* sql<{
+              thread_id: string;
+            }>`SELECT thread_id FROM orchestration_v2_projection_threads`;
+            assert.include(
+              threads.map((row) => row.thread_id),
+              "archived-thread",
+            );
+            assert.notInclude(
+              threads.map((row) => row.thread_id),
+              "running-thread",
+            );
+          }),
+        );
+      }),
+  );
   it.effect("keeps stopped and settled thread families and clears pending work", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -535,7 +638,7 @@ it.layer(NodeServices.layer)("migrate-dev-db", (it) => {
       const sourceDir = yield* fs.makeTempDirectoryScoped({ prefix: "migrate-dev-db-peer-" });
       const destDir = yield* fs.makeTempDirectoryScoped({ prefix: "migrate-dev-db-peer-dest-" });
       const source = yield* createFixtureSource(sourceDir, 67);
-      // Mirrors a real ~/.t3 seed written by a build whose 68-70 differ from main's.
+      // Mirrors a real ~/.a4code seed written by a build whose 68-70 differ from main's.
       yield* withDatabase(
         source,
         Effect.gen(function* () {

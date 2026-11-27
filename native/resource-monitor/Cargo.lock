@@ -212,7 +212,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "t3-resource-monitor"
+name = "a4-resource-monitor"
 version = "0.1.0"
 dependencies = [
  "cc",

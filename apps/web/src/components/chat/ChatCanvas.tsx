@@ -9,7 +9,7 @@ import {
 } from "./canvasStore";
 import { selectThreadPanelOpen, useRightPanelStore } from "../../rightPanelStore";
 import { observeResize } from "../../lib/observeResize";
-import type { ScopedThreadRef } from "@t3tools/contracts";
+import type { ScopedThreadRef } from "@a4code/contracts";
 
 function panelWidthTransitions(element: HTMLElement) {
   const panels = element
@@ -72,7 +72,7 @@ export function ChatCanvas({
   const [timelineElement, registerTimeline] = useState<HTMLElement | null>(null);
   const measurements = useStore(store, (state) => selectCanvasMeasurements(state, rightPanelOpen));
   const detailsCardMeasurement = useStore(store, (state) => state.detailsCardMeasurement);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- observes canvas, find bar and timeline resizes and writes the measurements to the canvas store
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- observes canvas, find bar and timeline resizes and writes the measurements to the canvas store
   useLayoutEffect(() => {
     const element = elementRef.current;
     const probe = widthProbeRef.current;

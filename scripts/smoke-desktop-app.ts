@@ -1,5 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off globalConsole:off globalTimers:off
-// Launches a packaged desktop app against a seeded T3 home, opens a thread, and checks its
+// Launches a packaged desktop app against a seeded a4code home, opens a thread, and checks its
 // messages render. Release jobs run it so a build whose backend or bundle cannot start fails
 // before it is published.
 import * as NodeChildProcess from "node:child_process";
@@ -32,10 +32,11 @@ if (!executable)
   );
 const artifactsDir = NodePath.resolve(values["artifacts-dir"] ?? "desktop-launch-check");
 
-const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-desktop-launch-"));
-const t3Home = NodePath.join(home, "t3");
-NodeFS.mkdirSync(NodePath.join(t3Home, "userdata"), { recursive: true });
-NodeFS.copyFileSync(FIXTURE_DB, NodePath.join(t3Home, "userdata/statev2.sqlite"));
+const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "a4-desktop-launch-"));
+const a4Home = NodePath.join(home, "a4code");
+NodeFS.mkdirSync(NodePath.join(a4Home, "userdata"), { recursive: true });
+NodeFS.writeFileSync(NodePath.join(a4Home, "userdata/cli-command-first-launch"), "");
+NodeFS.copyFileSync(FIXTURE_DB, NodePath.join(a4Home, "userdata/statev2.sqlite"));
 
 // Packaged builds turn off Electron's Node inspector fuse, so Playwright's `_electron.launch`
 // (which attaches through `--inspect`) never connects. Chromium's DevTools port still works.
@@ -78,15 +79,11 @@ try {
     ],
     {
       stdio: ["ignore", "inherit", "pipe"],
-      // HOME stays real: on macOS a fake HOME has no login keychain, and safeStorage blocks the
-      // main process on a keychain dialog. macOS keeps its Electron profile in the runner's HOME.
       env: {
         ...process.env,
         XDG_CONFIG_HOME: NodePath.join(home, ".config"),
         XDG_DATA_HOME: NodePath.join(home, ".local/share"),
-        T3CODE_HOME: t3Home,
-        T3CODE_TELEMETRY_ENABLED: "false",
-        T3CODE_DISABLE_AUTO_UPDATE: "true",
+        A4CODE_HOME: a4Home,
       },
     },
   );
@@ -118,7 +115,7 @@ try {
   console.error(`Desktop launch check failed while ${step}.`);
   NodeFS.mkdirSync(artifactsDir, { recursive: true });
   console.error(error instanceof Error ? error.message : error);
-  const logs = NodePath.join(t3Home, "userdata/logs");
+  const logs = NodePath.join(a4Home, "userdata/logs");
   if (NodeFS.existsSync(logs)) {
     NodeFS.cpSync(logs, NodePath.join(artifactsDir, "logs"), { recursive: true });
     const serverLog = NodePath.join(logs, "server-child.log");

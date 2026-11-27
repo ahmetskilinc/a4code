@@ -1,4 +1,4 @@
-import { resolveLocale } from "@t3tools/client-runtime/locales";
+import { resolveLocale } from "@a4code/client-runtime/locales";
 
 import gtConfig from "../../gt.config.json";
 

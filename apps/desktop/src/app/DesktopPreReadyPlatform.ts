@@ -9,14 +9,13 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import * as Electron from "electron";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@a4code/shared/HostProcess";
 
 import * as DesktopEarlyElectronStartup from "./DesktopEarlyElectronStartup.ts";
 import { trimmedString } from "./DesktopConfig.ts";
 import { resolveDesktopAppBranding } from "./DesktopEnvironment.ts";
 import {
   renderUrlHandlerDesktopEntry,
-  replacedVersionedAppImagePath,
 } from "./DesktopLinuxUrlHandler.ts";
 import * as ElectronProtocol from "../electron/ElectronProtocol.ts";
 
@@ -53,14 +52,12 @@ export class DesktopPreReadyElectronOptions extends Context.Service<
     readonly linux: DesktopEarlyElectronStartup.EarlyLinuxElectronOptions | null;
     readonly linuxPasswordStoreCommandLine: string | null;
   }
->()("@t3tools/desktop/app/DesktopPreReadyPlatform/DesktopPreReadyElectronOptions") {}
+>()("@a4code/desktop/app/DesktopPreReadyPlatform/DesktopPreReadyElectronOptions") {}
 
 const LinuxDesktopEntryConfig = Config.all({
   xdgDataHome: trimmedString("XDG_DATA_HOME"),
-  launcherPath: trimmedString("T3CODE_DESKTOP_LAUNCHER_PATH"),
+  launcherPath: trimmedString("A4CODE_DESKTOP_LAUNCHER_PATH"),
   appImagePath: trimmedString("APPIMAGE"),
-  // electron-updater sets this on the AppImage it relaunches after installing an update.
-  relaunchedByUpdater: trimmedString("APPIMAGE_SILENT_INSTALL"),
 });
 
 /** @public */
@@ -69,6 +66,9 @@ export const make = Effect.gen(function* () {
   const homeDirectory = yield* HostProcess.HomeDirectory;
   const linuxDesktopEntryConfig = yield* LinuxDesktopEntryConfig;
   return yield* Effect.sync((): DesktopPreReadyElectronOptions["Service"] => {
+    Electron.app.commandLine.appendSwitch("disable-background-networking");
+    Electron.app.commandLine.appendSwitch("disable-component-update");
+    Electron.app.commandLine.appendSwitch("dns-prefetch-disable");
     const linuxPasswordStoreCommandLine =
       platform === "linux"
         ? readCommandLineSwitchValue(Electron.app.commandLine, "password-store")
@@ -122,23 +122,6 @@ export const make = Effect.gen(function* () {
           } catch {}
         }
         const desktopEntryPath = NodePath.posix.join(applicationsDir, linux.linuxDesktopEntryName);
-        const { appImagePath } = linuxDesktopEntryConfig;
-        if (
-          Option.isSome(appImagePath) &&
-          Option.isNone(linuxDesktopEntryConfig.launcherPath) &&
-          Option.contains(linuxDesktopEntryConfig.relaunchedByUpdater, "true")
-        ) {
-          try {
-            const replacedPath = replacedVersionedAppImagePath({
-              previousEntry: NodeFS.readFileSync(desktopEntryPath, "utf8"),
-              appImagePath: appImagePath.value,
-            });
-            // Relative, so the pair survives a moved folder; symlink never overwrites a file.
-            if (replacedPath !== null) {
-              NodeFS.symlinkSync(NodePath.posix.basename(appImagePath.value), replacedPath);
-            }
-          } catch {}
-        }
         NodeFS.writeFileSync(
           desktopEntryPath,
           renderUrlHandlerDesktopEntry({

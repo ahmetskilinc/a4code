@@ -8,7 +8,6 @@ const REMOTE_REQUEST_URL_PATTERNS = ["http://*/*", "https://*/*", "ws://*/*", "w
 export interface MainWindowRequestHeaderPolicy {
   readonly desktopOrigin: string;
   readonly mainWebContentsId: number;
-  readonly clerkFrontendApiHostname?: string | undefined;
   readonly devServerOrigin?: string | undefined;
   readonly isDevelopment: boolean;
 }
@@ -71,12 +70,6 @@ function hasExactDesktopOriginHeader(
 
 function shouldPreserveOriginHeader(policy: MainWindowRequestHeaderPolicy, url: URL): boolean {
   const hostname = normalizeHostname(url.hostname);
-  if (
-    policy.clerkFrontendApiHostname !== undefined &&
-    hostname === normalizeHostname(policy.clerkFrontendApiHostname)
-  ) {
-    return true;
-  }
   if (!policy.isDevelopment) return false;
   if (policy.devServerOrigin !== undefined && toHttpOrigin(url) === policy.devServerOrigin) {
     return true;
@@ -85,8 +78,8 @@ function shouldPreserveOriginHeader(policy: MainWindowRequestHeaderPolicy, url: 
 }
 
 /**
- * Strips Electron's synthetic `Origin` (`t3code://app`) and `Sec-Fetch-*` headers on outbound
- * main-window requests so origin-checking reverse proxies treat Desktop like native T3 clients.
+ * Strips Electron's synthetic `Origin` (`a4code://app`) and `Sec-Fetch-*` headers on outbound
+ * main-window requests so origin-checking reverse proxies treat Desktop like native a4code clients.
  */
 export function stripDesktopOriginHeaders(
   policy: MainWindowRequestHeaderPolicy,

@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 declare global {
   interface Window {
@@ -15,9 +15,9 @@ declare global {
 test(
   "A pending send does not submit text typed while workspace defaults load",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    const project = await t3.project("demo", { "t3.json": '{"defaultThreadEnvMode":"local"}' });
-    await t3.thread({ project, title: "Earlier work", messages: ["first"] });
+  async ({ a4code, app, browser, screen }) => {
+    const project = await a4code.project("demo", { "a4code.json": '{"defaultThreadEnvMode":"local"}' });
+    await a4code.thread({ project, title: "Earlier work", messages: ["first"] });
 
     await browser.addInitScript(() => {
       const requested = Promise.withResolvers<void>();
@@ -25,13 +25,13 @@ test(
       let sendHeld = () => {};
       const send = WebSocket.prototype.send;
       WebSocket.prototype.send = function (data) {
-        if (typeof data !== "string" || !data.includes('"relativePath":"t3.json"')) {
+        if (typeof data !== "string" || !data.includes('"relativePath":"a4code.json"')) {
           return send.call(this, data);
         }
         const parsed = JSON.parse(data);
         const messages = [parsed].flat();
         const isProjectFile = (frame: { tag?: string; payload?: { relativePath?: string } }) =>
-          frame.tag === "projects.readFile" && frame.payload?.relativePath === "t3.json";
+          frame.tag === "projects.readFile" && frame.payload?.relativePath === "a4code.json";
         const held = messages.filter(isProjectFile);
         if (held.length === 0) return send.call(this, data);
         const others = messages.filter((frame) => !isProjectFile(frame));
@@ -58,7 +58,7 @@ test(
         },
       };
     });
-    await t3.open();
+    await a4code.open();
 
     await browser.evaluate(async () => {
       await window.workspaceDefaultHold.requested;

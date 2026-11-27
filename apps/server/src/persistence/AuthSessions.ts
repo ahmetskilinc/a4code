@@ -1,5 +1,5 @@
 import * as Context from "effect/Context";
-import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
+import * as NodeSqliteClient from "@a4code/shared/nodeSqliteClient";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -12,7 +12,7 @@ import {
   AuthEnvironmentScopes,
   AuthSessionId,
   ServerAuthSessionMethod,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 
 import {
   type AuthSessionRepositoryError,
@@ -96,12 +96,6 @@ export const RevokeOtherAuthSessionsInput = Schema.Struct({
 });
 export type RevokeOtherAuthSessionsInput = typeof RevokeOtherAuthSessionsInput.Type;
 
-export const RevokeAuthSessionsByProofKeyInput = Schema.Struct({
-  proofKeyThumbprint: Schema.String,
-  revokedAt: Schema.DateTimeUtcFromString,
-});
-export type RevokeAuthSessionsByProofKeyInput = typeof RevokeAuthSessionsByProofKeyInput.Type;
-
 export const SetAuthSessionLastConnectedAtInput = Schema.Struct({
   sessionId: AuthSessionId,
   lastConnectedAt: Schema.DateTimeUtcFromString,
@@ -142,11 +136,8 @@ export class AuthSessionRepository extends Context.Service<
     readonly getProofKeyThumbprint: (
       input: GetAuthSessionByIdInput,
     ) => Effect.Effect<Option.Option<string>, AuthSessionRepositoryError>;
-    readonly revokeByProofKey: (
-      input: RevokeAuthSessionsByProofKeyInput,
-    ) => Effect.Effect<ReadonlyArray<AuthSessionId>, AuthSessionRepositoryError>;
   }
->()("t3/persistence/AuthSessions/AuthSessionRepository") {}
+>()("a4code/persistence/AuthSessions/AuthSessionRepository") {}
 
 const AuthSessionDbRow = Schema.Struct({
   sessionId: AuthSessionId,
@@ -288,7 +279,7 @@ export const make = Effect.gen(function* () {
           last_connected_at AS "lastConnectedAt",
           revoked_at AS "revokedAt"
         FROM auth_sessions
-        WHERE session_id = ${sessionId}
+        WHERE subject <> 'cloud-connect' AND session_id = ${sessionId}
       `,
   });
 
@@ -332,7 +323,7 @@ export const make = Effect.gen(function* () {
           last_connected_at AS "lastConnectedAt",
           revoked_at AS "revokedAt"
         FROM auth_sessions
-        WHERE revoked_at IS NULL
+        WHERE subject <> 'cloud-connect' AND revoked_at IS NULL
           AND (expires_at > ${now} OR ${sql.in("session_id", connectedSessionIds)})
         ORDER BY issued_at DESC, session_id DESC
       `,
@@ -384,21 +375,8 @@ export const make = Effect.gen(function* () {
       sql`
         SELECT proof_key_thumbprint AS "proofKeyThumbprint"
         FROM auth_sessions
-        WHERE session_id = ${sessionId}
+        WHERE subject <> 'cloud-connect' AND session_id = ${sessionId}
           AND proof_key_thumbprint IS NOT NULL
-      `,
-  });
-
-  const revokeByProofKeyRows = SqlSchema.findAll({
-    Request: RevokeAuthSessionsByProofKeyInput,
-    Result: Schema.Struct({ sessionId: AuthSessionId }),
-    execute: ({ proofKeyThumbprint, revokedAt }) =>
-      sql`
-        UPDATE auth_sessions
-        SET revoked_at = ${revokedAt}
-        WHERE proof_key_thumbprint = ${proofKeyThumbprint}
-          AND revoked_at IS NULL
-        RETURNING session_id AS "sessionId"
       `,
   });
 
@@ -575,17 +553,6 @@ export const make = Effect.gen(function* () {
       Effect.map((rows) => Option.fromNullishOr(rows[0]?.proofKeyThumbprint)),
     );
 
-  const revokeByProofKey: AuthSessionRepository["Service"]["revokeByProofKey"] = (input) =>
-    revokeByProofKeyRows(input).pipe(
-      Effect.mapError(
-        toPersistenceSqlOrDecodeError(
-          "AuthSessionRepository.revokeByProofKey:query",
-          "AuthSessionRepository.revokeByProofKey:decodeRows",
-        ),
-      ),
-      Effect.map((rows) => rows.map((row) => row.sessionId)),
-    );
-
   return {
     create,
     createReplacingActive,
@@ -597,7 +564,6 @@ export const make = Effect.gen(function* () {
     revokeAllExcept,
     setLastConnectedAt,
     getProofKeyThumbprint,
-    revokeByProofKey,
   } satisfies AuthSessionRepository["Service"];
 });
 

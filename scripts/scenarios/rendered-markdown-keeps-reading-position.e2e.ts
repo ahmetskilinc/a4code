@@ -2,7 +2,7 @@
 // The DOM lib types the functions this scenario runs in the page.
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 const sections = (name: string) =>
   Array.from(
@@ -14,15 +14,15 @@ const sections = (name: string) =>
 test(
   "Rendered Markdown returns to where each file was being read",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    const project = await t3.project("reading", {
+  async ({ a4code, app, browser, screen }) => {
+    const project = await a4code.project("reading", {
       "long.md": sections("Long"),
       "other.md": sections("Other"),
     });
     const message =
       'See :codex-file-citation{path="long.md"} and :codex-file-citation{path="other.md"}';
-    const first = await t3.thread({ project, title: "First reading", messages: [message] });
-    await t3.thread({ project, title: "Second reading", messages: [message] });
+    const first = await a4code.thread({ project, title: "First reading", messages: [message] });
+    await a4code.thread({ project, title: "Second reading", messages: [message] });
 
     /** The first heading at or below the top of the rendered Markdown scroller. */
     const reading = () =>
@@ -49,7 +49,7 @@ test(
     };
     const expandMessage = () => screen.getByRole("button", /^Agent See/).tap();
 
-    await t3.open(first);
+    await a4code.open(first);
     await expandMessage();
     await openFile("long.md");
     await screen.getByRole("button", "Show rendered markdown").tap();

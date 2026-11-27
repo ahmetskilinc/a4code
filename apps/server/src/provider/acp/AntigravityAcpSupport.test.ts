@@ -4,7 +4,7 @@ import {
   ANTIGRAVITY_DEFAULT_MODEL,
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
   type ChatAttachment,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -16,7 +16,7 @@ import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import {
   applyAntigravityAcpModelSelection,
   antigravityPermissionDisposition,
-  antigravityServesT3Code,
+  antigravityServesA4Code,
   antigravitySessionMeta,
   antigravitySessionMode,
   buildAntigravityPrompt,
@@ -58,7 +58,7 @@ function makeModelRuntime(
   };
 }
 
-describe("antigravityServesT3Code", () => {
+describe("antigravityServesA4Code", () => {
   // The model manifest accepts the same `v` and `agy_acp_server_` prefixes.
   it.each([
     ["1.5.0", false],
@@ -68,7 +68,7 @@ describe("antigravityServesT3Code", () => {
     ["agy_acp_server_1.5.12", true],
     ["custom", true],
   ] as const)("%s → %s", (version, serves) => {
-    expect(antigravityServesT3Code(version)).toBe(serves);
+    expect(antigravityServesA4Code(version)).toBe(serves);
   });
 });
 
@@ -136,7 +136,7 @@ describe("Antigravity Auto", () => {
   );
 
   it.each(["auto", "auto-accept-edits"] as const)(
-    "runs only server-qualified T3 MCP calls unasked in %s",
+    "runs only server-qualified a4code MCP calls unasked in %s",
     (runtimeMode) => {
       const policy = { runtimeMode, cwd: "/workspace" };
       const request = (
@@ -147,18 +147,18 @@ describe("Antigravity Auto", () => {
         toolCall: { toolCallId: "call-1", title, kind: "execute", rawInput },
         options: [{ optionId: "allow", name: "Allow", kind: "allow_once" }],
       });
-      for (const t3Call of [
-        request("Run mcp_t3-code_t3_thread_list?"),
-        request("MCP Tool delegate_task", { ServerName: "t3-code", ToolName: "delegate_task" }),
+      for (const a4Call of [
+        request("Run mcp_a4code_a4_thread_list?"),
+        request("MCP Tool delegate_task", { ServerName: "a4code", ToolName: "delegate_task" }),
       ]) {
-        expect(antigravityPermissionDisposition(policy, t3Call)).toBe("allow");
+        expect(antigravityPermissionDisposition(policy, a4Call)).toBe("allow");
         expect(
-          antigravityPermissionDisposition({ ...policy, approvalPolicy: "on-request" }, t3Call),
+          antigravityPermissionDisposition({ ...policy, approvalPolicy: "on-request" }, a4Call),
         ).toBe("ask");
         expect(
           antigravityPermissionDisposition(
             { ...policy, sandboxPolicy: { type: "readOnly" } },
-            t3Call,
+            a4Call,
           ),
         ).toBe("deny");
       }
@@ -167,17 +167,17 @@ describe("Antigravity Auto", () => {
         request("Running preview_status"),
         request("Run mcp_github_create_issue"),
         request("MCP Tool preview_status", { ServerName: "other", ToolName: "preview_status" }),
-        request("Run mcp_t3-code_preview_status", {
-          CommandLine: "Run mcp_t3-code_preview_status",
+        request("Run mcp_a4code_preview_status", {
+          CommandLine: "Run mcp_a4code_preview_status",
         }),
         // A directly called tool's rawInput is its own arguments, whatever their names.
         request("Run mcp_github_create_issue", {
-          ServerName: "t3-code",
+          ServerName: "a4code",
           ToolName: "delegate_task",
         }),
-        request("Running create_issue", { ServerName: "t3-code", ToolName: "delegate_task" }),
+        request("Running create_issue", { ServerName: "a4code", ToolName: "delegate_task" }),
         // call_mcp_tool is titled for the tool it calls.
-        request("MCP Tool create_issue", { ServerName: "t3-code", ToolName: "delegate_task" }),
+        request("MCP Tool create_issue", { ServerName: "a4code", ToolName: "delegate_task" }),
       ]) {
         expect(antigravityPermissionDisposition(policy, otherCall)).toBe("ask");
       }
@@ -333,7 +333,7 @@ const makeAttachmentFixture = Effect.fn("AntigravityAcpSupportTest.makeAttachmen
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const attachmentsDir = yield* fs.makeTempDirectoryScoped({
-      prefix: "t3-antigravity-attachments-",
+      prefix: "a4-antigravity-attachments-",
     });
     const write = Effect.fn("AntigravityAcpSupportTest.writeAttachment")(function* (
       attachment: ChatAttachment,

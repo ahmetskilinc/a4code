@@ -4,12 +4,12 @@ import {
   scopeProjectRef,
   scopedThreadKey,
   scopeThreadRef,
-} from "@t3tools/client-runtime/environment";
+} from "@a4code/client-runtime/environment";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { useStableCallback } from "~/hooks/useStableCallback";
 
-import { pullRequestDetailToVcsStatus } from "@t3tools/client-runtime/state/pull-requests";
-import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
+import { pullRequestDetailToVcsStatus } from "@a4code/client-runtime/state/pull-requests";
+import type { EnvironmentThreadShell } from "@a4code/client-runtime/state/shell";
 import {
   resolveEnvironmentMachineKind,
   type EnvironmentId,
@@ -17,7 +17,7 @@ import {
   type ThreadLinkedPullRequest,
   type ThreadPullRequestLink,
   type VcsStatusResult,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { msg, T, useGT, useMessages, Var } from "gt-react";
 import { TerminalIcon } from "lucide-react";
 import { m, type MessageResolver } from "../i18n/messages";
@@ -31,7 +31,7 @@ import {
   resolveThreadPullRequestChains,
   type ThreadPullRequestBadge,
   visibleThreadPullRequests,
-} from "@t3tools/client-runtime/thread-pull-requests";
+} from "@a4code/client-runtime/thread-pull-requests";
 import { useRender } from "@base-ui/react/use-render";
 import {
   type ComponentType,
@@ -45,11 +45,11 @@ import { Button } from "./ui/button";
 import { revealThreadTerminal } from "../lib/revealThreadTerminal";
 
 import { useEnvironmentQuery } from "../state/query";
-import { linkedPullRequestDetailAtom, useSharedPullRequestSummary } from "../state/pullRequests";
+import { useSharedPullRequestSummary } from "../state/pullRequests";
 import { useThreadRunningTerminalIds } from "../state/terminalSessions";
 import { vcsEnvironment } from "../state/vcs";
 import { useUiStateStore } from "../uiStateStore";
-import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
+import { sourceControlClients } from "@a4code/client-runtime/source-control-clients";
 import {
   pullRequestMatchesSearchQuery,
   resolveThreadLastVisitedAt,
@@ -104,13 +104,7 @@ export function useLinkedThreadPullRequest(
   const fallback =
     current === null ? ((!supportsLinks ? linkedPullRequest : null) ?? branchPullRequest) : null;
   // Preserve reference identity so sidebar renders do not touch the summary cache.
-  const reference = fallback == null ? null : linkedPullRequestReference(fallback);
-  // Mounted for its answers, which land in the shared summary read below.
-  useEnvironmentQuery(
-    !enabled || environmentId === null || reference === null
-      ? null
-      : linkedPullRequestDetailAtom({ environmentId, input: reference }),
-  );
+  const reference = !enabled || fallback == null ? null : linkedPullRequestReference(fallback);
   const detail = useSharedPullRequestSummary(environmentId, reference);
 
   if (current !== null) return currentStatus;
@@ -199,7 +193,7 @@ export function linkedPullRequestSnapshotStatus(
 export {
   resolveThreadPullRequestBadge,
   type ThreadPullRequestBadge,
-} from "@t3tools/client-runtime/thread-pull-requests";
+} from "@a4code/client-runtime/thread-pull-requests";
 
 export interface ThreadPullRequestBadgePresentation {
   readonly Icon: PullRequestGlyphIcon;

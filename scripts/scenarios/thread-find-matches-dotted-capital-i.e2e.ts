@@ -1,15 +1,15 @@
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
-test("Find in thread matches İstanbul with istanbul", WEB, async ({ t3, app, screen, browser }) => {
-  const project = await t3.project("demo");
-  const thread = await t3.thread({
+test("Find in thread matches İstanbul with istanbul", WEB, async ({ a4code, app, screen, browser }) => {
+  const project = await a4code.project("demo");
+  const thread = await a4code.thread({
     project,
     title: "Travel notes",
     messages: ["Travel notes for İstanbul"],
   });
-  await t3.open(thread);
+  await a4code.open(thread);
   await screen.getByRole("button", /^Agent Travel notes for İstanbul/).tap();
   await browser
     .locator("[data-user-message-body]")

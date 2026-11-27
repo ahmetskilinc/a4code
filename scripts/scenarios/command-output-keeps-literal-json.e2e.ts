@@ -1,19 +1,19 @@
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 test(
   "An expanded command shows the JSON line it printed, keys and all",
   WEB,
-  async ({ t3, app, screen }) => {
-    const project = await t3.project("demo");
-    const thread = await t3.thread({
+  async ({ a4code, app, screen }) => {
+    const project = await a4code.project("demo");
+    const thread = await a4code.thread({
       project,
       title: "JSON output",
       messages: ["Print the JSON"],
       model: "command-output",
     });
-    await t3.open(thread);
+    await a4code.open(thread);
 
     await expect(screen.getByText("The command printed one JSON line.")).toBeVisible();
     await screen.getByRole("button", "Worked for", { exact: false }).tap();

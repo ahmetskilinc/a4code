@@ -4,12 +4,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
-import {
-  DEFAULT_SERVER_SETTINGS,
-  ProviderDriverKind,
-  ProviderInstanceId,
-} from "@t3tools/contracts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import { DEFAULT_SERVER_SETTINGS, ProviderDriverKind, ProviderInstanceId } from "@a4code/contracts";
+import * as HostProcess from "@a4code/shared/HostProcess";
 
 import { BUILT_IN_DRIVERS } from "../provider/builtInDrivers.ts";
 import * as ManagedPolicy from "./ManagedPolicy.ts";
@@ -21,7 +17,7 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const dir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-managed-policy-" });
+      const dir = yield* fs.makeTempDirectoryScoped({ prefix: "a4-managed-policy-" });
       const file = path.join(dir, "policy.json");
       if (contents !== undefined) yield* fs.writeFileString(file, contents);
       return yield* ManagedPolicy.load(file);
@@ -40,7 +36,7 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
         JSON.stringify({
           schemaVersion: 1,
           organization: "Example Corp",
-          supportUrl: "https://it.example/t3",
+          supportUrl: "https://it.example/a4code",
           settings: {
             "storageCleanup.logsAfterDays": { value: 30, locked: true },
             defaultRuntimeMode: { value: "approval-required", locked: false },
@@ -49,7 +45,7 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
       );
       assert.deepEqual(policy.summary, {
         organization: "Example Corp",
-        supportUrl: "https://it.example/t3",
+        supportUrl: "https://it.example/a4code",
         lockedSettings: ["storageCleanup.logsAfterDays"],
       });
     }),
@@ -78,17 +74,17 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
         JSON.stringify({
           schemaVersion: 1,
           organization: "Example Corp",
-          limits: { webhookTasks: false, telemetry: true, previewTunnel: false },
+          limits: { webhookTasks: false, browserCookieImport: true, previewTunnel: false },
         }),
       );
       assert.deepEqual(policy.summary?.limits, {
         webhookTasks: false,
-        telemetry: true,
+        browserCookieImport: true,
         previewTunnel: false,
       });
       assert.equal(ManagedPolicy.deniedBy(policy, "webhookTasks"), "Example Corp");
       assert.equal(ManagedPolicy.deniedBy(policy, "previewTunnel"), "Example Corp");
-      assert.isUndefined(ManagedPolicy.deniedBy(policy, "telemetry"));
+      assert.isUndefined(ManagedPolicy.deniedBy(policy, "worktreeLayoutCommands"));
     }),
   );
 
@@ -99,7 +95,7 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
         [
           "{ not json",
           // An unknown key may be a restriction from a newer release.
-          JSON.stringify({ ...base, limits: { connect: false, futureLimit: true } }),
+          JSON.stringify({ ...base, limits: { webhookTasks: false, futureLimit: true } }),
           JSON.stringify({ ...base, settings: { notASetting: { value: 1, locked: true } } }),
           JSON.stringify({
             ...base,
@@ -165,7 +161,7 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
               },
             },
           }),
-          // Startup reads OTLP endpoints before the policy, and environment variables outrank them.
+          // An obsolete settings key must not silently alter managed policy.
           JSON.stringify({
             ...base,
             settings: { "observability.otlpTracesUrl": { value: "", locked: true } },
@@ -186,7 +182,7 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
       assert.include(reasons[10], 'lock "worktreeCleanup" too');
       assert.include(reasons[11], 'lock "providerInstances.codex" as a whole');
       assert.include(reasons[12], "holds a credential");
-      assert.include(reasons[13], "a policy cannot override");
+      assert.include(reasons[13], "not a setting this version can manage");
     }),
   );
 
@@ -215,7 +211,7 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
         "environment",
       ]);
       // The host variable that replaces Codex's launch arguments is ignored too.
-      const host = { PATH: "/usr/bin", T3CODE_CODEX_LAUNCH_ARGS: "-c mcp_servers.x.command=sh" };
+      const host = { PATH: "/usr/bin", A4CODE_CODEX_LAUNCH_ARGS: "-c mcp_servers.x.command=sh" };
       const managedHost = providerHostEnvironment(policy.summary, host);
       assert.deepEqual(managedHost, { PATH: "/usr/bin" });
       // A PATH refresh after launch reaches drivers that hold the managed copy.
@@ -238,7 +234,7 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
               driver: codex,
               environment: [
                 variable("HTTPS_PROXY", "http://mine"),
-                variable("T3CODE_CODEX_LAUNCH_ARGS", "--dangerously-bypass-approvals-and-sandbox"),
+                variable("A4CODE_CODEX_LAUNCH_ARGS", "--dangerously-bypass-approvals-and-sandbox"),
               ],
             },
           },
@@ -290,7 +286,7 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
           saved._tag === "Allowed"
             ? (saved.settings.providerInstances[codexId]?.environment ?? [])
             : [];
-        assert.isTrue(savedEnvironment.some((entry) => entry.name === "T3CODE_CODEX_LAUNCH_ARGS"));
+        assert.isTrue(savedEnvironment.some((entry) => entry.name === "A4CODE_CODEX_LAUNCH_ARGS"));
         // A home path setting would rewrite a locked home variable at launch, so the lock owns it.
         const claude = ProviderDriverKind.make("claudeAgent");
         const homeLocked = yield* ManagedPolicy.fromDocument("/test/policy.json", {
@@ -352,7 +348,7 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
           "config.serverUrl",
         );
         // The same override from the environment that starts the server is ignored too.
-        const host = { PATH: "/usr/bin", T3CODE_CODEX_LAUNCH_ARGS: "--yolo" };
+        const host = { PATH: "/usr/bin", A4CODE_CODEX_LAUNCH_ARGS: "--yolo" };
         assert.deepEqual(providerHostEnvironment((yield* policyOn("linux")).summary, host), {
           PATH: "/usr/bin",
         });
@@ -464,31 +460,5 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
       assert.include(reasons[1], "notAProvider");
       assert.include(reasons[2], "launchArgs");
     }),
-  );
-
-  it.effect(
-    "tells clients how updates are managed and refuses an update feed it cannot trust",
-    () =>
-      Effect.gen(function* () {
-        const base = { schemaVersion: 1, organization: "Example Corp" };
-        const updates = {
-          mode: "auto" as const,
-          feedUrl: "https://updates.example/t3",
-          allowNightly: false,
-        };
-        const policy = yield* loadFrom(JSON.stringify({ ...base, limits: { updates } }));
-        const { feedUrl: _feedUrl, ...clientUpdates } = updates;
-        assert.deepEqual(policy.summary?.limits, { updates: clientUpdates });
-        for (const invalid of [
-          { mode: "auto", feedUrl: "http://updates.example/t3" },
-          { mode: "manual" },
-          { mode: "sometimes" },
-          { mode: "auto", pinVersion: "1.2.3" },
-        ]) {
-          yield* loadFrom(JSON.stringify({ ...base, limits: { updates: invalid } })).pipe(
-            Effect.flip,
-          );
-        }
-      }),
   );
 });

@@ -1,9 +1,9 @@
 import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
-import { type ToolActivityIcon } from "@t3tools/contracts";
-import { toolActivityFaviconUrl } from "@t3tools/shared/favicon";
-import { getProjectFaviconCacheKey } from "@t3tools/shared/projectFavicon";
+import { type ToolActivityIcon } from "@a4code/contracts";
+import { toolActivityFaviconUrl } from "@a4code/shared/favicon";
+import { getProjectFaviconCacheKey } from "@a4code/shared/projectFavicon";
 import { use, useState } from "react";
-import { T3Wordmark } from "../T3Wordmark";
+import { A4Wordmark } from "../A4Wordmark";
 import {
   BotIcon,
   BrainIcon,
@@ -51,7 +51,7 @@ export type WorkEntryIconName =
   | "square-pen"
   | "terminal"
   | "pull-request"
-  | "t3-code"
+  | "a4code"
   | "wrench"
   | "x"
   | "zap";
@@ -87,8 +87,8 @@ export function ToolActivityIconView(props: {
   if (!props.icon) {
     return <WorkEntryIcon name={props.fallbackName} className={fallbackClassName} />;
   }
-  if (props.icon._tag === "website") {
-    const src = toolActivityFaviconUrl(props.icon, resolvedTheme, 32);
+  if (props.icon._tag !== "native-app") {
+    const src = toolActivityFaviconUrl(props.icon, resolvedTheme);
     return src ? (
       <ToolActivityImageIcon
         key={src}
@@ -102,22 +102,7 @@ export function ToolActivityIconView(props: {
       <WorkEntryIcon name={props.fallbackName} className={fallbackClassName} />
     );
   }
-  if (props.icon._tag === "themed-logo") {
-    const src =
-      resolvedTheme === "dark"
-        ? (props.icon.logoUrlDark ?? props.icon.logoUrl)
-        : props.icon.logoUrl;
-    return (
-      <ToolActivityImageIcon
-        key={src}
-        cacheKey={src}
-        src={src}
-        fallbackName={props.fallbackName}
-        className={props.className}
-        muted={props.muted}
-      />
-    );
-  }
+
   return (
     <NativeAppToolActivityIcon
       app={props.icon.app}
@@ -244,8 +229,8 @@ function WorkEntryIcon({ name, className }: { name: WorkEntryIconName; className
       return <Code2Icon className={className} aria-hidden />;
     case "device":
       return <SmartphoneIcon className={className} aria-hidden />;
-    case "t3-code":
-      return <T3Wordmark className={className} aria-hidden />;
+    case "a4code":
+      return <A4Wordmark className={className} aria-hidden />;
     case "check":
       return <CheckIcon className={className} aria-hidden />;
     case "list-todo":

@@ -1,9 +1,9 @@
 // @effect-diagnostics nodeBuiltinImport:off -- Pure synchronous hashing keeps page matching bounded without a runtime dependency.
 import * as NodeCrypto from "node:crypto";
-import type { ProviderApprovalPushHooks, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
-import type { HtmlRenderReference } from "@t3tools/shared/htmlRender";
-import { stableStringify } from "@t3tools/shared/relaySigning";
-import { resolveT3McpToolId } from "@t3tools/shared/t3McpToolPresentation";
+import type { ProviderApprovalPushHooks, ProviderInstanceId, ThreadId } from "@a4code/contracts";
+import type { HtmlRenderReference } from "@a4code/shared/htmlRender";
+import { stableStringify } from "@a4code/shared/stableStringify";
+import { resolveA4McpToolId } from "@a4code/shared/a4McpToolPresentation";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -40,8 +40,8 @@ interface KeptToolResult {
   readonly output: Record<string, unknown>;
 }
 
-/** What one of T3's own MCP tools is asking the person behind a thread to approve. */
-export interface T3ApprovalRequest {
+/** What one of a4code's own MCP tools is asking the person behind a thread to approve. */
+export interface A4ApprovalRequest {
   /** The whole question, as the provider's client hands it on. */
   readonly message: string;
   readonly pushHooks?: ProviderApprovalPushHooks | undefined;
@@ -49,8 +49,8 @@ export interface T3ApprovalRequest {
   readonly state?: string | undefined;
 }
 
-/** A request T3 is waiting on, and what the person answered once an adapter has shown it. */
-export interface KeptApprovalRequest extends T3ApprovalRequest {
+/** A request a4code is waiting on, and what the person answered once an adapter has shown it. */
+export interface KeptApprovalRequest extends A4ApprovalRequest {
   readonly id: string;
   readonly approved?: boolean | undefined;
 }
@@ -111,22 +111,22 @@ export class McpProviderSessions extends Context.Service<
     ) => Effect.Effect<Record<string, unknown> | undefined>;
     readonly clearToolResults: (threadId: ThreadId) => Effect.Effect<void>;
     // The provider's client hands an adapter a server name and the message. This is how the
-    // adapter learns a request is T3's own, and what it names, from T3 itself: kept from when
-    // T3 asks until it has the answer. Recording returns the request's own id, and only that id
+    // adapter learns a request is a4code's own, and what it names, from a4code itself: kept from when
+    // a4code asks until it has the answer. Recording returns the request's own id, and only that id
     // forgets it: two calls may ask the same thing at once, and one may outlive its session.
     readonly recordApprovalRequest: (
       threadId: ThreadId,
-      request: T3ApprovalRequest,
+      request: A4ApprovalRequest,
     ) => Effect.Effect<string>;
     readonly findApprovalRequest: (
       threadId: ThreadId,
       message: string,
     ) => Effect.Effect<KeptApprovalRequest | undefined>;
     readonly forgetApprovalRequest: (threadId: ThreadId, id: string) => Effect.Effect<void>;
-    // An adapter that shows T3's own requests says so for its provider instance and passes on
+    // An adapter that shows a4code's own requests says so for its provider instance and passes on
     // each answer the person gave in the app. It is handed the message and no id, so the answer
     // counts for every request of the thread asking `message` that has none yet. For those
-    // instances that answer, not the client's reply, is what T3 goes by.
+    // instances that answer, not the client's reply, is what a4code goes by.
     readonly showsApprovalRequests: (providerInstanceId: ProviderInstanceId) => Effect.Effect<void>;
     readonly areApprovalRequestsShown: (
       providerInstanceId: ProviderInstanceId,
@@ -142,7 +142,7 @@ export class McpProviderSessions extends Context.Service<
       id: string,
     ) => Effect.Effect<KeptApprovalRequest | undefined>;
   }
->()("@t3tools/provider-core/server/McpProviderSessions") {}
+>()("@a4code/provider-core/server/McpProviderSessions") {}
 
 interface PageInput {
   readonly html?: unknown;
@@ -353,7 +353,7 @@ const make = Effect.gen(function* () {
             return;
           }
         }
-        const canonicalTool = resolveT3McpToolId(toolName) ?? toolName;
+        const canonicalTool = resolveA4McpToolId(toolName) ?? toolName;
         const entry: KeptToolResult = {
           toolName: canonicalTool,
           inputHash: hashToolInput(input),
@@ -377,7 +377,7 @@ const make = Effect.gen(function* () {
     ),
     takeToolResult: Effect.fn("McpProviderSessions.takeToolResult")(
       function (threadId, toolName, input, reported) {
-        const canonicalTool = resolveT3McpToolId(toolName) ?? toolName;
+        const canonicalTool = resolveA4McpToolId(toolName) ?? toolName;
         return Ref.modify(toolResultState, (state) => {
           const kept = state.entries.get(threadId) ?? [];
           const index = matchingToolResultIndex(kept, canonicalTool, input, reported);

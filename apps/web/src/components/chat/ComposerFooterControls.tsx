@@ -1,5 +1,5 @@
-import type { ModelSelection, ProviderInstanceId, RuntimeMode } from "@t3tools/contracts";
-import { createModelSelection } from "@t3tools/shared/model";
+import type { ModelSelection, ProviderInstanceId, RuntimeMode } from "@a4code/contracts";
+import { createModelSelection } from "@a4code/shared/model";
 import { T, useGT, useMessages } from "gt-react";
 import { type ComponentProps, memo, use, useId, useRef, useState } from "react";
 

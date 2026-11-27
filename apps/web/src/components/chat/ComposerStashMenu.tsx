@@ -1,9 +1,9 @@
 import { msg, T, useGT, useMessages, Var } from "gt-react";
 import { BookmarkIcon, FileIcon, FileTextIcon } from "lucide-react";
 import { memo, useEffect, useEffectEvent, useRef, useState, type RefObject } from "react";
-import { assistantCitationsToPlainText } from "@t3tools/shared/assistantCitations";
-import { replaceComposerContextReferences } from "@t3tools/shared/composerContextReferences";
-import { composerFileLinksToPlainText } from "@t3tools/shared/composerInlineTokens";
+import { assistantCitationsToPlainText } from "@a4code/shared/assistantCitations";
+import { replaceComposerContextReferences } from "@a4code/shared/composerContextReferences";
+import { composerFileLinksToPlainText } from "@a4code/shared/composerInlineTokens";
 
 import { RelativeTime } from "../RelativeTime";
 import { m, type MessageResolver } from "~/i18n/messages";
@@ -145,7 +145,7 @@ export const ComposerStashMenu = memo(function ComposerStashMenu(props: {
     }
   });
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes capture-phase pointerdown and keydown listeners for outside close and keyboard navigation
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- subscribes capture-phase pointerdown and keydown listeners for outside close and keyboard navigation
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => closeOnOutsidePointer(event);
     const onKeyDown = (event: KeyboardEvent) => handleKeyDown(event);

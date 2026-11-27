@@ -1,45 +1,26 @@
 import { describe, expect, it } from "@effect/vitest";
-
-import { faviconUrlForOrigin, toolActivityFaviconUrl } from "./favicon.ts";
-
-describe("faviconUrlForOrigin", () => {
-  it("sends only the public hostname and requested size, never the port", () => {
-    expect(faviconUrlForOrigin("https://github.com:8443/pingdotgg/t3code?private=query", 64)).toBe(
-      "https://www.google.com/s2/favicons?domain=github.com&sz=64",
-    );
-  });
-
-  // regression: #5838 no favicon request for missing or non-http origins
-  it.each([null, "invalid URL", "file:///tmp/private"])(
-    "rejects an invalid or unsupported origin %s",
-    (origin) => {
-      expect(faviconUrlForOrigin(origin)).toBeNull();
-    },
-  );
-});
+import { toolActivityFaviconUrl } from "./favicon.ts";
 
 describe("toolActivityFaviconUrl", () => {
-  it("uses the page origin instead of a third-party favicon service", () => {
-    expect(toolActivityFaviconUrl({ pageUrl: "https://example.com/docs/page?q=1" }, "light")).toBe(
-      "https://example.com/favicon.ico",
-    );
-    expect(toolActivityFaviconUrl({ pageUrl: "http://localhost:5173/app" }, "light")).toBe(
-      "http://localhost:5173/favicon.ico",
-    );
+  it("never loads a remote website icon or provider logo from a transcript", () => {
+    const url = "https://example.com/private";
+    expect(
+      toolActivityFaviconUrl({ _tag: "website", pageUrl: url, faviconUrl: url }, "light"),
+    ).toBeNull();
+    expect(toolActivityFaviconUrl({ _tag: "themed-logo", logoUrl: url }, "dark")).toBeNull();
   });
 
-  it("accepts provider-supplied image URLs but rejects extension URLs", () => {
+  it("uses an embedded image when the preferred dark icon is remote", () => {
+    const embedded = "data:image/png;base64,AA==";
     expect(
       toolActivityFaviconUrl(
-        { pageUrl: "https://example.com/docs", faviconUrl: "https://example.com/icon.png" },
-        "light",
+        {
+          _tag: "themed-logo",
+          logoUrl: embedded,
+          logoUrlDark: "https://example.com/dark.png",
+        },
+        "dark",
       ),
-    ).toBe("https://example.com/icon.png");
-    expect(
-      toolActivityFaviconUrl(
-        { pageUrl: "https://example.com/docs", faviconUrl: "chrome-extension://example/_favicon/" },
-        "light",
-      ),
-    ).toBe("https://example.com/favicon.ico");
+    ).toBe(embedded);
   });
 });

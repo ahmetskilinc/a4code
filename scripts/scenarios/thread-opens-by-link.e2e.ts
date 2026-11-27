@@ -1,18 +1,18 @@
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 test(
   "A seeded thread opens by its link and shows its history",
   WEB,
-  async ({ t3, app, screen }) => {
-    const project = await t3.project("demo");
-    const thread = await t3.thread({
+  async ({ a4code, app, screen }) => {
+    const project = await a4code.project("demo");
+    const thread = await a4code.thread({
       project,
       title: "Earlier work",
       messages: ["first", "second"],
     });
-    await t3.open(thread);
+    await a4code.open(thread);
 
     await expect(screen.getByText("second fixture turn complete", { exact: false })).toBeVisible();
     await app.screenshot("thread");

@@ -1,10 +1,10 @@
 # Grok Build
 
-Run xAI's [Grok Build CLI](https://x.ai/cli) in T3 Code using your xAI subscription or `XAI_API_KEY`.
+Run xAI's [Grok Build CLI](https://x.ai/cli) in a4code using your xAI subscription or `XAI_API_KEY`.
 
 ## Set up Grok Build
 
-1. Install the Grok Build CLI (`@xai-official/grok`) on the machine running your T3 Code server.
+1. Install the Grok Build CLI (`@xai-official/grok`) on the machine running your a4code server.
 2. Authenticate on that machine:
    - Run `grok login` (or `grok login --device-auth` on a headless/remote host), **or**
    - Set `XAI_API_KEY` in the Grok instance's **Environment** settings.
@@ -23,4 +23,4 @@ Run xAI's [Grok Build CLI](https://x.ai/cli) in T3 Code using your xAI subscript
 
 ## Troubleshooting
 
-- **Provider check timeouts**: Startup checks in large directories can take 9–14 seconds. If discovery times out, set `T3CODE_GROK_PROBE_TIMEOUT_MS=60000` in the server's environment and restart ([Provider check timeouts](./install.md#provider-check-timeouts)).
+- **Provider check timeouts**: Startup checks in large directories can take 9–14 seconds. If discovery times out, set `A4CODE_GROK_PROBE_TIMEOUT_MS=60000` in the server's environment and restart ([Provider check timeouts](./install.md#provider-check-timeouts)).

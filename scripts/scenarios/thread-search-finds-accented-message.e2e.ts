@@ -1,14 +1,14 @@
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 test(
   "Thread search finds an accented message by a short unaccented word",
   WEB,
-  async ({ t3, app, screen }) => {
-    const project = await t3.project("demo");
-    const thread = await t3.thread({ project, title: "Weekly notes", messages: ["Start"] });
-    await t3.open(thread);
+  async ({ a4code, app, screen }) => {
+    const project = await a4code.project("demo");
+    const thread = await a4code.thread({ project, title: "Weekly notes", messages: ["Start"] });
+    await a4code.open(thread);
 
     // Search reads what the user wrote; messages the CLI sends count as an agent's.
     const composer = screen.getByRole("textbox");

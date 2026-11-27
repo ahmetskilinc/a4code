@@ -9,8 +9,8 @@ import {
   type UsageSummary,
   type UsageSummaryInput,
   UsageReadError,
-} from "@t3tools/contracts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+} from "@a4code/contracts";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
@@ -25,32 +25,27 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
-import { HttpClient, HttpClientResponse } from "effect/http";
+import * as Duration from "effect/Duration";
 
-import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
-import { formatMalformedUsageWarning } from "@t3tools/shared/usageFormat";
+import { writeFileStringAtomically } from "@a4code/shared/atomicWrite";
+import { formatMalformedUsageWarning } from "@a4code/shared/usageFormat";
 import * as ServerConfig from "../config.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { BUILT_IN_USAGE_DRIVERS, type BuiltInUsageReadersEnv } from "../provider/builtInDrivers.ts";
-import type { ProviderDriver } from "@t3tools/provider-core/server/driver";
-import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
+import type { ProviderDriver } from "@a4code/provider-core/server/driver";
+import { mergeProviderInstanceEnvironment } from "@a4code/provider-core/server/instanceEnvironment";
 import type {
   ProviderUsageInstance,
   TranscriptUsageFormat,
   UsageRecord,
-} from "@t3tools/provider-core/server/usage";
+} from "@a4code/provider-core/server/usage";
 import {
   canonicalModelFilter,
   resolveModelAliases,
   usageTimestampFilter,
   UsageAggregator,
 } from "./usageAggregation.ts";
-import {
-  createOverrideRateTable,
-  isUnlistedModel,
-  parseRateTable,
-  type RateTable,
-} from "./usagePricing.ts";
+import { createOverrideRateTable, parseRateTable } from "./usagePricing.ts";
 import {
   DESKTOP_HOST_SCOPE_ENV,
   listTranscriptFiles,
@@ -68,15 +63,6 @@ import {
   type CachedFile,
   type ScanCache,
 } from "./usageScanCache.ts";
-
-const LITELLM_RATES_URL =
-  "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
-const LITELLM_RATES_API_URL =
-  "https://api.github.com/repos/BerriAI/litellm/contents/model_prices_and_context_window.json?ref=main";
-
-const RATES_TTL_MS = 24 * 60 * 60 * 1000;
-
-const RATES_REFRESH_FLOOR_MS = 60 * 1000;
 
 // mtime slack includes writes just before local midnight on the window's first day.
 const MTIME_SLACK_MS = 36 * 60 * 60 * 1000;
@@ -118,7 +104,6 @@ const RatesCacheFile = Schema.Struct({
   document: Schema.Unknown,
 });
 const decodeRatesCache = Schema.decodeUnknownEffect(Schema.fromJsonString(RatesCacheFile));
-const encodeRatesCache = Schema.encodeEffect(Schema.fromJsonString(RatesCacheFile));
 
 const ScanCacheJson = Schema.fromJsonString(Schema.Unknown);
 const decodeScanCacheFile = Schema.decodeUnknownEffect(ScanCacheJson);
@@ -167,14 +152,13 @@ export class UsageService extends Context.Service<
     readonly readSummary: (input: UsageSummaryInput) => Effect.Effect<UsageSummary, UsageReadError>;
     readonly refreshRates: Effect.Effect<UsagePricing>;
   }
->()("t3/usage/UsageService") {}
+>()("a4code/usage/UsageService") {}
 
 export const make = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const config = yield* ServerConfig.ServerConfig;
   const settingsService = yield* ServerSettings.ServerSettingsService;
-  const httpClient = yield* HttpClient.HttpClient;
   const hostEnvironment = yield* HostProcess.Environment;
   const hostPlatform = yield* HostProcess.Platform;
   const hostScope = hostEnvironment[DESKTOP_HOST_SCOPE_ENV]?.trim();
@@ -226,7 +210,7 @@ export const make = Effect.gen(function* () {
       Effect.provideService(Path.Path, path),
     );
   const hostIdPath = path.join(config.baseDir, "usage-host-id");
-  const explicitHostId = hostEnvironment["T3CODE_HOST_ID"]?.trim();
+  const explicitHostId = hostEnvironment["A4CODE_HOST_ID"]?.trim();
   const hostId =
     explicitHostId ||
     (yield* fileSystem.readFileString(hostIdPath).pipe(
@@ -256,97 +240,32 @@ export const make = Effect.gen(function* () {
       Effect.map((value) => value.trim() || hostname),
       Effect.orElseSucceed(() => hostname),
     ));
-  let rates: RateTable = new Map();
-  let ratesFetchedAtMs: number | null = null;
-  let ratesLastFailedAtMs: number | null = null;
-  let ratesStatus: UsagePricing["status"] = "unavailable";
-  const ratesLock = yield* Semaphore.make(1);
-
-  const pricing = (): UsagePricing => ({
-    status: ratesStatus,
-    source: LITELLM_RATES_URL,
-    fetchedAt:
-      ratesFetchedAtMs === null ? null : DateTime.formatIso(DateTime.makeUnsafe(ratesFetchedAtMs)),
-    knownModels: rates.size,
-  });
-
-  const fetchRates = (url: string, accept = "application/json") =>
-    httpClient.get(url, { headers: { accept } }).pipe(
-      Effect.flatMap(HttpClientResponse.filterStatusOk),
-      Effect.flatMap((response) => response.json),
-      Effect.map((document) => {
-        const parsed = parseRateTable(document);
-        return parsed.size > 0 ? { document, parsed } : null;
-      }),
-      Effect.timeout(10_000),
-      Effect.catchCause(() => Effect.succeed(null)),
-    );
-
-  // Outside ratesLock, which a slow fetch holds: a provisional answer prices with these.
-  const loadSavedRates = yield* Effect.cached(
+  const [readRates, invalidateRates] = yield* Effect.cachedInvalidateWithTTL(
     fileSystem.readFileString(ratesCachePath).pipe(
-      Effect.flatMap((raw) => decodeRatesCache(raw)),
-      Effect.map((saved) => {
-        const parsed = parseRateTable(saved.document);
-        if (parsed.size === 0) return;
-        rates = parsed;
-        ratesFetchedAtMs = saved.fetchedAtMs;
-        ratesStatus = "cached";
-      }),
-      Effect.ignoreCause,
+      Effect.flatMap(decodeRatesCache),
+      Effect.map((saved) => ({
+        rates: parseRateTable(saved.document),
+        fetchedAt: saved.fetchedAtMs,
+      })),
+      Effect.orElseSucceed(() => ({ rates: parseRateTable({}), fetchedAt: null })),
+      Effect.map(({ rates, fetchedAt }) => ({
+        rates,
+        pricing: {
+          source: "Local model rates",
+          status: rates.size > 0 ? "cached" : "unavailable",
+          knownModels: rates.size,
+          fetchedAt:
+            rates.size > 0 && fetchedAt !== null
+              ? DateTime.formatIso(DateTime.makeUnsafe(fetchedAt))
+              : null,
+        } satisfies UsagePricing,
+      })),
     ),
+    Duration.infinity,
   );
-
-  const loadRates = Effect.fn("UsageService.loadRates")(function* (force: boolean) {
-    const now = yield* Clock.currentTimeMillis;
-    const maxAgeMs = force ? RATES_REFRESH_FLOOR_MS : RATES_TTL_MS;
-    yield* loadSavedRates;
-    if (ratesFetchedAtMs !== null && now - ratesFetchedAtMs < maxAgeMs) return;
-    if (ratesLastFailedAtMs !== null && now - ratesLastFailedAtMs < RATES_REFRESH_FLOOR_MS) return;
-
-    let fetched = yield* fetchRates(LITELLM_RATES_URL);
-    if (fetched === null) {
-      fetched = yield* fetchRates(LITELLM_RATES_API_URL, "application/vnd.github.raw+json");
-    }
-    if (fetched === null) {
-      ratesLastFailedAtMs = yield* Clock.currentTimeMillis;
-      if (rates.size > 0) ratesStatus = "cached";
-      return;
-    }
-
-    rates = fetched.parsed;
-    ratesFetchedAtMs = now;
-    ratesLastFailedAtMs = null;
-    ratesStatus = "fresh";
-
-    yield* encodeRatesCache({ fetchedAtMs: now, document: fetched.document }).pipe(
-      Effect.flatMap((contents) => writeCacheFile(ratesCachePath, contents)),
-      Effect.ignoreCause,
-    );
-  });
-
-  const ensureRates = (force: boolean) => ratesLock.withPermit(loadRates(force));
-
-  // Rates are kept for RATES_TTL_MS, so a model released after the table was fetched would stay unpriced
-  // that long. A scan that meets a model the table does not list refetches early: once per model against
-  // a fresh table, with loadRates keeping RATES_REFRESH_FLOOR_MS between attempts.
-  const checkedUnlistedModels = new Set<string>();
-  const refreshForUnlistedModels = Effect.fn("UsageService.refreshForUnlistedModels")(function* (
-    models: ReadonlySet<string>,
-  ) {
-    const unlisted = [...models].filter(
-      (model) => !checkedUnlistedModels.has(model) && isUnlistedModel(rates, model),
-    );
-    if (unlisted.length === 0) return;
-    yield* ensureRates(true);
-    const now = yield* Clock.currentTimeMillis;
-    // A failed fetch leaves the models unchecked, so a later scan tries again.
-    if (ratesFetchedAtMs === null || now - ratesFetchedAtMs >= RATES_REFRESH_FLOOR_MS) return;
-    for (const model of unlisted) checkedUnlistedModels.add(model);
-  });
-
-  const refreshRates = ensureRates(true).pipe(
-    Effect.map(pricing),
+  const refreshRates = invalidateRates.pipe(
+    Effect.andThen(readRates),
+    Effect.map(({ pricing }) => pricing),
     Effect.withSpan("UsageService.refreshRates"),
   );
 
@@ -901,24 +820,18 @@ export const make = Effect.gen(function* () {
         resolved.dirs.every(
           (source) => (coveredSince.get(coverageKey(source)) ?? Infinity) <= windowStartMs,
         );
-      const [, scanned] = yield* Effect.all(
-        [
-          fromMemory ? loadSavedRates : provisional ? ensureRates(false) : Effect.void,
-          collectDirs(
-            resolved,
-            windowStartMs,
-            settings,
-            retentionCutoffMs,
-            awaitRefresh,
-            fromMemory,
-          ),
-        ],
-        { concurrency: 2 },
+      const scannedDirs = yield* collectDirs(
+        resolved,
+        windowStartMs,
+        settings,
+        retentionCutoffMs,
+        awaitRefresh,
+        fromMemory,
       );
-      return { scannedDirs: scanned, fromMemory };
+      return { scannedDirs, fromMemory };
     });
-    const [{ scannedDirs, fromMemory }] = yield* Effect.all(
-      [collect, provisional ? Effect.void : ensureRates(false)],
+    const [{ scannedDirs, fromMemory }, { rates, pricing: summaryPricing }] = yield* Effect.all(
+      [collect, readRates],
       { concurrency: 2 },
     );
 
@@ -998,23 +911,6 @@ export const make = Effect.gen(function* () {
       for (const filePath of ordered) fileCache.set(filePath, entries.get(filePath)!);
       cacheDirty = true;
     }
-
-    // The models priced below, as UsageAggregator resolves them: an alias replaces rateModel.
-    const rateModels = new Set<string>();
-    for (const files of filesByDir) {
-      for (const file of files) {
-        for (const record of file.records) {
-          const alias = modelAliases.get(record.model);
-          const model = alias ?? record.model;
-          if (priceOverrides.has(model.trim())) continue;
-          rateModels.add(alias === undefined ? (record.rateModel ?? model) : model);
-        }
-      }
-    }
-    // A saved answer prices with saved rates and the full scan after it refetches.
-    if (!fromMemory) yield* refreshForUnlistedModels(rateModels);
-
-    const summaryPricing = pricing();
 
     const aggregator = new UsageAggregator({
       timeZone: input.timeZone,

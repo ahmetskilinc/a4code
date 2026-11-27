@@ -2,7 +2,7 @@ import type {
   ToolActivityIcon,
   ToolActivityNativeAppReference,
   ToolActivitySource,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as Digest from "effect/crypto/Digest";
 import * as Effect from "effect/Effect";
 import * as Hex from "effect/encoding/Hex";
@@ -12,7 +12,7 @@ import {
   mcpToolPresentation as integrationToolPresentation,
   normalizeMcpHttpUrl as normalizedHttpUrl,
   normalizeMcpText as normalizedDisplayName,
-} from "@t3tools/provider-core/server/mcpToolPresentation";
+} from "@a4code/provider-core/server/mcpToolPresentation";
 
 type CodexLifecycleItem = EffectCodexSchema.V2ItemCompletedNotification["item"];
 
@@ -24,7 +24,7 @@ function normalizedImageUrl(value: unknown): string | undefined {
   if (typeof value !== "string" || value.length > 4096) return undefined;
   try {
     const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:" || url.protocol === "data:"
+    return url.protocol === "data:" && url.href.toLowerCase().startsWith("data:image/")
       ? url.href
       : undefined;
   } catch {

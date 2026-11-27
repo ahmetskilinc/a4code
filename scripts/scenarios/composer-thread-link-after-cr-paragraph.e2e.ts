@@ -1,29 +1,29 @@
 /// <reference lib="dom" />
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 test(
   "A pasted thread link after a carriage-return blank line becomes a chip",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    const project = await t3.project("demo");
-    const linked = await t3.thread({
+  async ({ a4code, app, browser, screen }) => {
+    const project = await a4code.project("demo");
+    const linked = await a4code.thread({
       project,
       title: "Release notes",
       messages: ["Draft the notes"],
     });
-    const thread = await t3.thread({
+    const thread = await a4code.thread({
       project,
       title: "Follow-up",
       messages: ["Start a follow-up"],
     });
-    await t3.open(thread);
+    await a4code.open(thread);
     const composer = screen.getByRole("textbox");
     await composer.tap();
     await browser.evaluate((threadId: string) => {
       const environmentId = decodeURIComponent(window.location.pathname.split("/")[1]!);
-      const href = `t3-thread://v2/${environmentId}/${threadId}`;
+      const href = `a4-thread://v2/${environmentId}/${threadId}`;
       const clipboardData = new DataTransfer();
       clipboardData.setData("text/plain", `First paragraph \`\r\r<${href}>\rSecond paragraph \``);
       const editor = document.activeElement;

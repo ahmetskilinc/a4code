@@ -1,7 +1,8 @@
-import { resolveProviderProbeTimeoutMs } from "@t3tools/provider-core/server/snapshotProbe";
-import { ServerProviderModel } from "@t3tools/contracts";
+import { MUSE_DEFAULT_MODEL } from "@a4code/contracts";
+import { resolveProviderProbeTimeoutMs } from "@a4code/provider-core/server/snapshotProbe";
+import { ServerProviderModel } from "@a4code/contracts";
 import { MuseSettings } from "../settings.ts";
-import { resolveSpawnCommand } from "@t3tools/shared/shell";
+import { resolveSpawnCommand } from "@a4code/shared/shell";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -25,7 +26,7 @@ import {
   providerProbeEnvironment,
   spawnAndCollect,
   type ProviderProbeResult,
-} from "@t3tools/provider-core/server/snapshotProbe";
+} from "@a4code/provider-core/server/snapshotProbe";
 
 const MUSE_PRESENTATION = {
   displayName: "Muse Code",
@@ -44,7 +45,18 @@ export const makePendingMuseProvider = Effect.fn("makePendingMuseProvider")(func
     presentation: MUSE_PRESENTATION,
     enabled: settings.enabled,
     checkedAt: DateTime.formatIso(yield* DateTime.now),
-    models: providerModelsFromSettings([], settings.customModels, FALLBACK_CAPABILITIES),
+    models: providerModelsFromSettings(
+      [
+        {
+          slug: MUSE_DEFAULT_MODEL,
+          name: "Default",
+          isCustom: false,
+          capabilities: FALLBACK_CAPABILITIES,
+        },
+      ],
+      settings.customModels,
+      FALLBACK_CAPABILITIES,
+    ),
     slashCommands: settings.enabled ? [COMPACT_SLASH_COMMAND] : [],
     probe: {
       installed: false,
@@ -53,7 +65,7 @@ export const makePendingMuseProvider = Effect.fn("makePendingMuseProvider")(func
       auth: { status: "unknown" },
       message: settings.enabled
         ? "Checking Muse Code CLI availability..."
-        : "Muse Code is disabled in T3 Code settings.",
+        : "Muse Code is disabled in a4code settings.",
     },
   });
 });
@@ -103,8 +115,8 @@ export const checkMuseProviderStatus = Effect.fn("checkMuseProviderStatus")(func
       status: "error",
       auth: { status: "unknown" },
       message: missing
-        ? "Muse Code CLI (`muse`) was not found. Install Muse Code and run `muse login` on this T3 server host."
-        : "Failed to execute Muse Code CLI. Check its binary path on this T3 server host.",
+        ? "Muse Code CLI (`muse`) was not found. Install Muse Code and run `muse login` on this a4code server host."
+        : "Failed to execute Muse Code CLI. Check its binary path on this a4code server host.",
     });
   }
   if (Option.isNone(versionResult.success)) {
@@ -124,10 +136,10 @@ export const checkMuseProviderStatus = Effect.fn("checkMuseProviderStatus")(func
       version,
       status: "error",
       auth: { status: "unknown" },
-      // T3 runs Muse with MUSE_NO_AUTO_UPDATE=1, so a launcher whose runtime was never fetched
+      // a4code runs Muse with MUSE_NO_AUTO_UPDATE=1, so a launcher whose runtime was never fetched
       // (common after a mise upgrade) refuses to install it; a manual run completes setup.
       message: versionOutput.stderr.includes("installed binary is missing")
-        ? "Muse Code has not finished installing. Run `muse --version` on this T3 server host, then refresh its status."
+        ? "Muse Code has not finished installing. Run `muse --version` on this a4code server host, then refresh its status."
         : "Muse Code CLI is installed but failed to run.",
     });
   }
@@ -145,7 +157,7 @@ export const checkMuseProviderStatus = Effect.fn("checkMuseProviderStatus")(func
       status: "error",
       auth: { status: "unknown" },
       message:
-        "Muse Code SDK could not read the model catalog. Check your Muse installation and run `muse login` on this T3 server host.",
+        "Muse Code SDK could not read the model catalog. Check your Muse installation and run `muse login` on this a4code server host.",
     });
   }
   const models = catalog.success.value;
@@ -160,7 +172,7 @@ export const checkMuseProviderStatus = Effect.fn("checkMuseProviderStatus")(func
         : {
             status: "warning",
             message:
-              "Muse Code returned no models. Run `muse login` on this T3 server host and refresh its status.",
+              "Muse Code returned no models. Run `muse login` on this a4code server host and refresh its status.",
           }),
     },
     models,

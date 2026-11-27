@@ -5,7 +5,7 @@ import {
   type ProviderAuthResponse,
   type ProviderAuthState,
   type ProviderInstanceId,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -62,6 +62,7 @@ export const make = Effect.fn("ProviderAuthFlow.make")(function* (options: {
   readonly credentialBinding: NonNullable<ProviderAuth.ProviderAuthController["credentialBinding"]>;
   readonly methods: Effect.Effect<ReadonlyArray<ProviderAuthMethod>, ProviderSetupError>;
   readonly defaultMethodId?: string;
+  readonly initialMethods?: ReadonlyArray<ProviderAuthMethod>;
   readonly refreshMethodsAfterAuth?: boolean;
   /** Fail with ProviderSetupError containing safe text for the user, never native token data. */
   readonly authenticate: (
@@ -85,6 +86,7 @@ export const make = Effect.fn("ProviderAuthFlow.make")(function* (options: {
     message: null,
     interaction: null,
     credentialOwner: options.credentialBinding.owner,
+    ...(options.initialMethods ? { methods: options.initialMethods } : {}),
   };
   const snapshot = yield* SubscriptionRef.make({ owner: null as string | null, state: empty });
   let active: Flow | undefined;
@@ -137,7 +139,7 @@ export const make = Effect.fn("ProviderAuthFlow.make")(function* (options: {
       })),
     ),
   );
-  yield* refreshMethods.pipe(Effect.forkIn(scope));
+  if (options.initialMethods === undefined) yield* refreshMethods.pipe(Effect.forkIn(scope));
 
   const controller: ProviderAuth.ProviderAuthController = {
     credentialBinding: options.credentialBinding,
@@ -290,7 +292,11 @@ export const make = Effect.fn("ProviderAuthFlow.make")(function* (options: {
           flow.fiber = yield* Effect.gen(function* () {
             const methods = yield* options.methods;
             yield* publish(flow, { methods });
-            const methodId = selectedMethodId ?? options.defaultMethodId ?? methods[0]?.id;
+            const selected =
+              selectedMethodId === "default" && options.initialMethods && !options.defaultMethodId
+                ? undefined
+                : selectedMethodId;
+            const methodId = selected ?? options.defaultMethodId ?? methods[0]?.id;
             if (!methodId || !methods.some((method) => method.id === methodId))
               return yield* new ProviderSetupError({
                 instanceId: options.instanceId,

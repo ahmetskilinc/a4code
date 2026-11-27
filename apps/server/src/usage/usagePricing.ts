@@ -3,9 +3,9 @@ import type {
   UsageCostSource,
   UsageModelPriceOverride,
   UsageTokenTotals,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 
-import type { UsageRecord, UsageSpeed } from "@t3tools/provider-core/server/usage";
+import type { UsageRecord, UsageSpeed } from "@a4code/provider-core/server/usage";
 
 export interface TokenRates {
   readonly inputCostPerToken: number;
@@ -314,14 +314,6 @@ export function lookupRate(table: RateTable, model: string): ModelRate | null {
     resolved.set(model, rate);
   }
   return rate;
-}
-
-/** A priceable model the table has no rate for; a newer table may list it. */
-export function isUnlistedModel(table: RateTable, model: string): boolean {
-  const bareName = bareModelName(stripVariantSuffix(normalizeRateKey(model)));
-  return (
-    bareName.length > 0 && !UNPRICEABLE_MODELS.has(bareName) && lookupRate(table, model) === null
-  );
 }
 
 function resolveRate(table: RateTable, model: string): ModelRate | null {

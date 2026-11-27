@@ -6,7 +6,7 @@
 
 typedef void (*identity_visitor)(void *, int, int, int, int64_t, const char *);
 
-int t3_process_identities(void *context, identity_visitor visit) {
+int a4_process_identities(void *context, identity_visitor visit) {
     int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
     for (int attempt = 0; attempt < 3; attempt++) {
         size_t len = 0;

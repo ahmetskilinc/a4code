@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test";
-import { AuthMcpClientAccess, RuntimeMode } from "@t3tools/contracts";
+import { AuthMcpClientAccess, RuntimeMode } from "@a4code/contracts";
 
 import {
   agentRedirectUrl,
@@ -20,7 +20,7 @@ it("checks a typed code even in a signed-in browser, and approves without one at
   const signedOut = {
     clientName: "Poke",
     redirectHost: "poke.com",
-    environmentHost: "prod-a1.t3coderelay.com",
+    environmentHost: "prod-a1.a4coderelay.com",
   };
   const details = { ...signedOut, csrfToken: "csrf", oneClickAccess: AuthMcpClientAccess.literals };
   const access = resolveMcpAccess(null, undefined, false);

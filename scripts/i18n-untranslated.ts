@@ -1,12 +1,12 @@
 // @effect-diagnostics nodeBuiltinImport:off globalConsole:off - a synchronous wrapper around one lint run.
-// Counts copy that `t3code/no-untranslated-copy` flags, per directory.
+// Counts copy that `a4code/no-untranslated-copy` flags, per directory.
 import * as NodeChildProcess from "node:child_process";
 import * as NodePath from "node:path";
 
-const ROOTS = ["apps/web/src", "apps/mobile/src", "packages/client-runtime/src"];
+const ROOTS = ["apps/web/src", "packages/client-runtime/src"];
 const RULE = "no-untranslated-copy";
 // Split these one level deeper; they hold most of each app.
-const SPLIT = new Set(["apps/web/src/components", "apps/mobile/src/features"]);
+const SPLIT = new Set(["apps/web/src/components"]);
 
 const lint = NodeChildProcess.spawnSync("vp", ["lint", "--format=json", ...ROOTS], {
   encoding: "utf8",

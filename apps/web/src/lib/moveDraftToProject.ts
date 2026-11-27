@@ -1,9 +1,9 @@
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
+import { scopeProjectRef } from "@a4code/client-runtime/environment";
 import {
   deriveLogicalProjectKeyFromSettings,
   selectProjectGroupingSettings,
-} from "@t3tools/client-runtime/state/project-grouping";
-import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
+} from "@a4code/client-runtime/state/project-grouping";
+import type { EnvironmentProject } from "@a4code/client-runtime/state/shell";
 
 import {
   composerDraftHasUserContent,

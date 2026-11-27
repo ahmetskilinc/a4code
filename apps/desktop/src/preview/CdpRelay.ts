@@ -63,9 +63,9 @@ const fitsPayloadBudget = (message: unknown) => {
   return visit(message);
 };
 
-const BROWSER_CONTEXT_ID = "t3-preview";
+const BROWSER_CONTEXT_ID = "a4-preview";
 const ANNOUNCE = Symbol("announce");
-const PAGE_SESSION_ID = "t3-preview-page";
+const PAGE_SESSION_ID = "a4-preview-page";
 
 const ACKNOWLEDGED = new Set([
   "Target.setDiscoverTargets",
@@ -121,7 +121,7 @@ export function createCdpRelayConnection(
   };
   let sessionSequence = 0;
   const newSession = (kind: "browser" | "page") => {
-    const sessionId = `t3-preview-${kind}-${++sessionSequence}`;
+    const sessionId = `a4-preview-${kind}-${++sessionSequence}`;
     sessions.set(sessionId, kind);
     return sessionId;
   };

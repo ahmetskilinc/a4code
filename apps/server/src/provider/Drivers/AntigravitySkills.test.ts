@@ -5,7 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
 import { discoverAntigravitySkills } from "./AntigravitySkills.ts";
-import { symlinksSupported } from "@t3tools/shared/testing/symlinks";
+import { symlinksSupported } from "@a4code/shared/testing/symlinks";
 
 const writeSkill = Effect.fn("writeSkill")(function* (directory: string, contents: string) {
   const fileSystem = yield* FileSystem.FileSystem;
@@ -20,7 +20,7 @@ const makeWorkspace = Effect.fn("makeWorkspace")(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const temporaryDirectory = yield* fileSystem.makeTempDirectoryScoped({
-    prefix: "t3-antigravity-skills-",
+    prefix: "a4-antigravity-skills-",
   });
   return {
     cwd: path.join(temporaryDirectory, "workspace"),
@@ -99,7 +99,7 @@ it.layer(NodeServices.layer)("discoverAntigravitySkills", (it) => {
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const workspace = yield* makeWorkspace();
-      const profileDirectory = path.join(workspace.userHome, "t3", "providers", "antigravity", "p");
+      const profileDirectory = path.join(workspace.userHome, "a4code", "providers", "antigravity", "p");
       const plugins = path.join(profileDirectory, "config", "plugins");
       const skill = (name: string) => `---\nname: ${name}\ndescription: From ${name}.\n---\n`;
       for (const plugin of ["demo", "off", "solo"]) {

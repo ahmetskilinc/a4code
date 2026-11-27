@@ -4,9 +4,9 @@ export const MCP_APP_PROTOCOL_VERSION = "2026-01-26";
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
 export const MCP_APP_EXTENSION_ID = "io.modelcontextprotocol/ui";
 export const MCP_APP_RESOURCE_SCHEME = "ui://";
-export const MCP_APP_OUTPUT_KEY = "t3McpApp";
+export const MCP_APP_OUTPUT_KEY = "a4McpApp";
 /** Frame URL query parameter carrying the host's color scheme before `ui/initialize`. */
-export const MCP_APP_COLOR_SCHEME_PARAM = "t3-color-scheme";
+export const MCP_APP_COLOR_SCHEME_PARAM = "a4-color-scheme";
 
 const MCP_APP_MIN_HEIGHT = 80;
 export const MCP_APP_DEFAULT_HEIGHT = 320;
@@ -164,7 +164,11 @@ export function mcpAppToolCallableByApp(meta: unknown): boolean {
   return !Array.isArray(visibility) || visibility.includes("app");
 }
 
-/** Block undeclared origins, including self, which would expose T3's API. */
+export function mcpAppRequestsNetwork(csp: McpAppCsp | undefined): boolean {
+  return csp !== undefined && Object.values(csp).some((domains) => domains.length > 0);
+}
+
+/** Block undeclared origins, including self, which would expose a4code's API. */
 export function mcpAppContentSecurityPolicy(csp: McpAppCsp | undefined): string {
   const resources = csp?.resourceDomains?.join(" ") ?? "";
   const list = (domains: ReadonlyArray<string> | undefined, fallback: string) =>
@@ -251,7 +255,7 @@ export function injectMcpAppCookieBootstrap(html: string): string {
   return `${prefix}${bootstrap}${html.slice(prefix.length)}`;
 }
 
-export const MCP_APP_DOCUMENT_MESSAGE = "t3-mcp-app-document";
+export const MCP_APP_DOCUMENT_MESSAGE = "a4-mcp-app-document";
 
 /**
  * Binds the host bridge to this document rather than to the frame's window, which outlives it.
@@ -259,7 +263,7 @@ export const MCP_APP_DOCUMENT_MESSAGE = "t3-mcp-app-document";
  * acts on a message only once this document confirms it is alive.
  */
 export function injectMcpAppDocumentBootstrap(html: string): string {
-  const bootstrap = `<script>(function(){var host=window.parent,port=new MessageChannel(),own=port.port1;own.onmessage=function(event){var data=event.data;if(!data)return;if("alive" in data)own.postMessage({alive:data.alive});else window.dispatchEvent(new MessageEvent("message",{data:data.message,origin:data.origin,source:host}));};host.postMessage({t3:${JSON.stringify(MCP_APP_DOCUMENT_MESSAGE)}},"*",[port.port2]);})();</script>`;
+  const bootstrap = `<script>(function(){var host=window.parent,port=new MessageChannel(),own=port.port1;own.onmessage=function(event){var data=event.data;if(!data)return;if("alive" in data)own.postMessage({alive:data.alive});else window.dispatchEvent(new MessageEvent("message",{data:data.message,origin:data.origin,source:host}));};host.postMessage({a4code:${JSON.stringify(MCP_APP_DOCUMENT_MESSAGE)}},"*",[port.port2]);})();</script>`;
   // Preserve captured CSP ahead of executable code, including this bootstrap.
   const prefix =
     /^(?:\uFEFF?\s*<!doctype[^>]*>\s*)?(?:<meta http-equiv="Content-Security-Policy" content="[^"]*">)?/i.exec(

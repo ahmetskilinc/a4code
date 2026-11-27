@@ -1,6 +1,7 @@
-import { resolveProviderProbeTimeoutMs } from "@t3tools/provider-core/server/snapshotProbe";
+import { resolveProviderProbeTimeoutMs } from "@a4code/provider-core/server/snapshotProbe";
 import {
   ProviderDriverKind,
+  DEFAULT_MODEL_BY_PROVIDER,
   type ModelCapabilities,
   type ProviderOptionDescriptor,
   type ServerProvider,
@@ -8,7 +9,7 @@ import {
   type ServerProviderSkill,
   type ServerProviderSlashCommand,
   settingsSecretLiteral,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import type { OpenCodeSettings } from "../settings.ts";
 import * as Cause from "effect/Cause";
 import * as Schema from "effect/Schema";
@@ -21,19 +22,19 @@ import type * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 
-import { createModelCapabilities, DEFAULT_VARIANT_CHOICE_ID } from "@t3tools/shared/model";
+import { createModelCapabilities, DEFAULT_VARIANT_CHOICE_ID } from "@a4code/shared/model";
 import {
   brokenVersionDetail,
   noCompatibilityPolicy,
   type ProviderCompatibilityLookup,
-} from "@t3tools/provider-core/server/compatibility";
+} from "@a4code/provider-core/server/compatibility";
 import {
   buildServerProvider,
   COMPACT_SLASH_COMMAND,
   nonEmptyTrimmed,
   providerModelsFromSettings,
   type ServerProviderDraft,
-} from "@t3tools/provider-core/server/snapshotProbe";
+} from "@a4code/provider-core/server/snapshotProbe";
 import * as OpenCodeRuntime from "./OpenCodeRuntime.ts";
 import type { ProbedOpenCode } from "./versionProbe.ts";
 import type { Agent, ProviderListResponse } from "@opencode-ai/sdk/v2";
@@ -487,8 +488,17 @@ export const makePendingOpenCodeProvider = Effect.fn(
   "OpencodeProviderStatus.makePendingOpenCodeProvider",
 )(function* (openCodeSettings: OpenCodeSettings): Effect.fn.Return<ServerProviderDraft> {
   const checkedAt = yield* Effect.map(DateTime.now, DateTime.formatIso);
+  const defaultSlug = DEFAULT_MODEL_BY_PROVIDER[ProviderDriverKind.make("opencode")]!;
   const models = providerModelsFromSettings(
-    [],
+    [
+      {
+        slug: defaultSlug,
+        name: defaultSlug,
+        isCustom: false,
+        isDefault: true,
+        capabilities: DEFAULT_OPENCODE_MODEL_CAPABILITIES,
+      },
+    ],
     openCodeSettings.customModels,
     DEFAULT_OPENCODE_MODEL_CAPABILITIES,
   );
@@ -506,8 +516,8 @@ export const makePendingOpenCodeProvider = Effect.fn(
         auth: { status: "unknown" },
         message:
           openCodeSettings.serverUrl.trim().length > 0
-            ? "OpenCode is disabled in T3 Code settings. A server URL is configured."
-            : "OpenCode is disabled in T3 Code settings.",
+            ? "OpenCode is disabled in a4code settings. A server URL is configured."
+            : "OpenCode is disabled in a4code settings.",
       },
     });
   }
@@ -1052,8 +1062,8 @@ export const checkOpenCodeProviderStatus = Effect.fn("checkOpenCodeProviderStatu
         status: "warning",
         auth: { status: "unknown" },
         message: isExternalServer
-          ? "OpenCode is disabled in T3 Code settings. A server URL is configured."
-          : "OpenCode is disabled in T3 Code settings.",
+          ? "OpenCode is disabled in a4code settings. A server URL is configured."
+          : "OpenCode is disabled in a4code settings.",
       },
     });
   }

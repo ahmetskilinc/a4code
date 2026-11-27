@@ -1,40 +1,39 @@
-import { ProviderDriverKind, TextGenerationError } from "@t3tools/contracts";
+import { ProviderDriverKind, TextGenerationError } from "@a4code/contracts";
 import { KiroSettings } from "../settings.ts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
-import type * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
+import type * as ProviderHost from "@a4code/provider-core/server/ProviderHost";
 import {
   defaultProviderContinuationIdentity,
   type ProviderDriver,
   type ProviderInstance,
-} from "@t3tools/provider-core/server/driver";
-import { ProviderDriverError } from "@t3tools/provider-core/server/errors";
-import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
-import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
-import { withInstanceIdentity } from "@t3tools/provider-core/server/instanceIdentity";
-import { makeManualOnlyProviderMaintenanceCapabilities } from "@t3tools/provider-core/server/maintenanceResolver";
-import { makeManagedServerProvider } from "@t3tools/provider-core/server/managedProvider";
+} from "@a4code/provider-core/server/driver";
+import { ProviderDriverError } from "@a4code/provider-core/server/errors";
+import { mergeProviderInstanceEnvironment } from "@a4code/provider-core/server/instanceEnvironment";
+import { expandHomePath } from "@a4code/provider-core/server/pathExpansion";
+import { withInstanceIdentity } from "@a4code/provider-core/server/instanceIdentity";
+import { makeManualOnlyProviderMaintenanceCapabilities } from "@a4code/provider-core/server/maintenanceResolver";
+import {
+  makeManagedServerProvider,
+  readLocalCliStatus,
+} from "@a4code/provider-core/server/managedProvider";
 import {
   haveProviderSnapshotSettingsChanged,
   makeProviderSnapshotSettingsSource,
   type ProviderSnapshotSettings,
-} from "@t3tools/provider-core/server/snapshotSettings";
-import type { ProviderTextGeneration } from "@t3tools/provider-core/server/textGeneration";
+} from "@a4code/provider-core/server/snapshotSettings";
+import type { ProviderTextGeneration } from "@a4code/provider-core/server/textGeneration";
 import { type KiroAdapterV2DriverEnv, makeKiroAdapterV2Driver } from "./adapter.ts";
-import {
-  buildInitialKiroProviderSnapshot,
-  checkKiroProviderStatus,
-  kiroDefaultModelId,
-} from "./status.ts";
+import { buildInitialKiroProviderSnapshot, kiroDefaultModelId } from "./status.ts";
 
 const DRIVER_KIND = ProviderDriverKind.make("kiro");
 const decodeKiroSettings = Schema.decodeSync(KiroSettings);
 // Kiro updates itself in the background (`kiro-cli update` reports only), so
-// T3 offers no one-click update.
+// a4code offers no one-click update.
 const MAINTENANCE = makeManualOnlyProviderMaintenanceCapabilities({
   provider: DRIVER_KIND,
   packageName: null,
@@ -80,8 +79,6 @@ export const KiroDriver: ProviderDriver<KiroSettings, KiroDriverEnv> = {
     enabled,
     config,
   }) {
-    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-    const crypto = yield* SecureRandom.SecureRandom;
     const processEnv = yield* mergeProviderInstanceEnvironment(
       environment,
       yield* HostProcess.Environment,
@@ -102,19 +99,21 @@ export const KiroDriver: ProviderDriver<KiroSettings, KiroDriverEnv> = {
       enabled,
       binaryPath: expandHomePath(config.binaryPath, yield* HostProcess.HomeDirectory),
     } satisfies KiroSettings;
+    const checkLocalProvider = buildInitialKiroProviderSnapshot(effectiveConfig).pipe(
+      Effect.map(stampIdentity),
+      Effect.flatMap(
+        readLocalCliStatus({ binaryPath: effectiveConfig.binaryPath, environment: processEnv }),
+      ),
+    );
     const snapshotSettings = yield* makeProviderSnapshotSettingsSource(effectiveConfig);
     const snapshot = yield* makeManagedServerProvider<ProviderSnapshotSettings<KiroSettings>>({
       resolveMaintenance: () => Effect.succeed(MAINTENANCE),
       getSettings: snapshotSettings.getSettings,
       streamSettings: snapshotSettings.streamSettings,
       haveSettingsChanged: haveProviderSnapshotSettingsChanged,
-      initialSnapshot: (settings) =>
-        buildInitialKiroProviderSnapshot(settings.provider).pipe(Effect.map(stampIdentity)),
-      checkProvider: checkKiroProviderStatus(effectiveConfig, processEnv).pipe(
-        Effect.map(stampIdentity),
-        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-        Effect.provideService(SecureRandom.SecureRandom, crypto),
-      ),
+      initialSnapshot: () => checkLocalProvider,
+      checkProvider: checkLocalProvider,
+      refreshOnInterval: false,
     }).pipe(
       Effect.mapError(
         (cause) =>

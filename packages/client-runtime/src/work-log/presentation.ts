@@ -8,30 +8,30 @@ import {
   type ToolActivityIcon,
   type OrchestrationV2TurnItem,
   type ThreadId,
-} from "@t3tools/contracts";
-import type { ToolCallVisibility } from "@t3tools/contracts/settings";
+} from "@a4code/contracts";
+import type { ToolCallVisibility } from "@a4code/contracts/settings";
 import {
-  resolveT3McpSummaryAction,
-  resolveT3McpToolDefinition,
-  type T3McpToolDefinition,
-  type T3McpToolSummaryAction,
-} from "@t3tools/shared/t3McpToolPresentation";
-import { classifyMarkdownImageSource } from "@t3tools/client-runtime/markdown-images";
-import { resolveMediaSource } from "@t3tools/client-runtime/media-source";
-import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
-import { isWorkspaceImagePreviewPath } from "@t3tools/shared/mediaPreview";
-import { formatTokens } from "@t3tools/shared/usageFormat";
-import { classifyToolActivity } from "@t3tools/shared/toolActivity";
-import { toolOutputIndicatesFailure } from "@t3tools/shared/toolOutput";
+  resolveA4McpSummaryAction,
+  resolveA4McpToolDefinition,
+  type A4McpToolDefinition,
+  type A4McpToolSummaryAction,
+} from "@a4code/shared/a4McpToolPresentation";
+import { classifyMarkdownImageSource } from "@a4code/client-runtime/markdown-images";
+import { resolveMediaSource } from "@a4code/client-runtime/media-source";
+import { sourceControlClients } from "@a4code/client-runtime/source-control-clients";
+import { isWorkspaceImagePreviewPath } from "@a4code/shared/mediaPreview";
+import { formatTokens } from "@a4code/shared/usageFormat";
+import { classifyToolActivity } from "@a4code/shared/toolActivity";
+import { toolOutputIndicatesFailure } from "@a4code/shared/toolOutput";
 
 import {
-  summarizeT3ToolCalls,
-  t3ToolOutcomeLabel,
-  t3ToolResultIndicatesFailure,
-  type T3ToolSummaryCall,
-} from "@t3tools/client-runtime/t3ToolSummary";
+  summarizeA4ToolCalls,
+  a4ToolOutcomeLabel,
+  a4ToolResultIndicatesFailure,
+  type A4ToolSummaryCall,
+} from "@a4code/client-runtime/a4ToolSummary";
 import { mFallback, msg } from "gt-i18n";
-import { t3ToolSentence } from "./t3ToolSentences.ts";
+import { a4ToolSentence } from "./a4ToolSentences.ts";
 import type { MFunctionType } from "gt-i18n/types";
 
 export type WorkLogToolLifecycleStatus = RuntimeItemStatus | "stopped" | "idle";
@@ -88,7 +88,7 @@ export function contextCompactionLabel(
 }
 
 export interface WorkLogPresentationEntry {
-  readonly questionAnswer?: import("@t3tools/contracts").UserInputAttachmentAnswerPayload;
+  readonly questionAnswer?: import("@a4code/contracts").UserInputAttachmentAnswerPayload;
   readonly id: string;
   readonly createdAt: string;
   readonly label: string;
@@ -149,7 +149,7 @@ function workEntryToolName(
     return `${data.server}.${data.tool}`;
   }
   if (typeof data?.toolName === "string") return data.toolName;
-  return resolveT3McpToolDefinition(entry.toolTitle) ? entry.toolTitle : entry.label;
+  return resolveA4McpToolDefinition(entry.toolTitle) ? entry.toolTitle : entry.label;
 }
 
 function workEntryToolInput(
@@ -172,7 +172,7 @@ function workEntryToolOutput(
     : (data?.output ?? data?.result ?? data?.rawOutput ?? data?.content);
 }
 
-function t3ToolStatusKey(status: string | undefined) {
+function a4ToolStatusKey(status: string | undefined) {
   return status === "inProgress" ||
     status === "completed" ||
     status === "failed" ||
@@ -182,8 +182,8 @@ function t3ToolStatusKey(status: string | undefined) {
     : "other";
 }
 
-function resolveT3McpToolPresentation(
-  definition: T3McpToolDefinition | null,
+function resolveA4McpToolPresentation(
+  definition: A4McpToolDefinition | null,
   status: string | undefined,
   data: unknown,
   resolve: MFunctionType,
@@ -215,9 +215,9 @@ function resolveT3McpToolPresentation(
     number > 0
       ? number
       : null;
-  const sentence = t3ToolSentence(definition.labels);
-  const statusKey = t3ToolStatusKey(status);
-  // A tool added to the shared table after `t3ToolSentences.ts` was generated.
+  const sentence = a4ToolSentence(definition.labels);
+  const statusKey = a4ToolStatusKey(status);
+  // A tool added to the shared table after `a4ToolSentences.ts` was generated.
   const [action, running, completed] = definition.labels;
   const fallbackVerb =
     status === "inProgress"
@@ -301,14 +301,14 @@ export function resolveWorkEntryToolPresentation(
   fallbackStatus?: "inProgress" | "completed",
   resolve: MFunctionType = mFallback,
 ) {
-  const definition = resolveT3McpToolDefinition(
+  const definition = resolveA4McpToolDefinition(
     workEntryToolName(entry),
     workEntryToolInput(entry),
   );
   const output = workEntryToolOutput(entry);
-  const failed = definition !== null && t3ToolResultIndicatesFailure(output);
+  const failed = definition !== null && a4ToolResultIndicatesFailure(output);
   const status = entry.toolLifecycleStatus ?? fallbackStatus;
-  const presentation = resolveT3McpToolPresentation(
+  const presentation = resolveA4McpToolPresentation(
     definition,
     failed ? "failed" : status,
     entry.toolData,
@@ -317,7 +317,7 @@ export function resolveWorkEntryToolPresentation(
   if (definition === null || presentation === null || failed || status !== "completed") {
     return presentation;
   }
-  const outcomeLabel = t3ToolOutcomeLabel(
+  const outcomeLabel = a4ToolOutcomeLabel(
     definition.summaryAction,
     { input: workEntryToolInput(entry), output, outcome: "completed" },
     resolve,
@@ -354,8 +354,8 @@ function workEntryIndicatesToolFailureFromOutput(
   // "that exit code 2 is expected" as a failed tool.
   if (!workLogEntryIsToolLike(entry) || entry.itemType === "reasoning") return false;
   if (
-    resolveT3McpToolDefinition(workEntryToolName(entry)) &&
-    t3ToolResultIndicatesFailure(workEntryToolOutput(entry))
+    resolveA4McpToolDefinition(workEntryToolName(entry)) &&
+    a4ToolResultIndicatesFailure(workEntryToolOutput(entry))
   ) {
     return true;
   }
@@ -697,7 +697,7 @@ function joinClauses(items: ReadonlyArray<string>, resolve: MFunctionType): stri
   );
 }
 
-function t3ToolSummaryCall(entry: WorkLogPresentationEntry): T3ToolSummaryCall {
+function a4ToolSummaryCall(entry: WorkLogPresentationEntry): A4ToolSummaryCall {
   return {
     input: workEntryToolInput(entry),
     output: workEntryToolOutput(entry),
@@ -712,7 +712,7 @@ function t3ToolSummaryCall(entry: WorkLogPresentationEntry): T3ToolSummaryCall {
   };
 }
 
-function summaryActionPriority(action: ToolGroupAction | T3McpToolSummaryAction): number {
+function summaryActionPriority(action: ToolGroupAction | A4McpToolSummaryAction): number {
   switch (action) {
     case "command":
     case "edit":
@@ -775,35 +775,35 @@ export function summarizeToolGroup(
   }
   entries = toolEntries;
   const groups = new Map<
-    ToolGroupAction | T3McpToolSummaryAction,
+    ToolGroupAction | A4McpToolSummaryAction,
     {
       action: ToolGroupAction;
-      t3Action: T3McpToolSummaryAction | null;
+      a4Action: A4McpToolSummaryAction | null;
       entries: WorkLogPresentationEntry[];
     }
   >();
   const sources = new Map<string, ToolActivitySource>();
   for (const entry of entries) {
-    const t3Action = resolveT3McpSummaryAction(
+    const a4Action = resolveA4McpSummaryAction(
       workEntryToolName(entry),
-      t3ToolSummaryCall(entry).input,
+      a4ToolSummaryCall(entry).input,
     );
-    if (entry.toolSource && t3Action === null) {
+    if (entry.toolSource && a4Action === null) {
       sources.set(entry.toolSource.key, entry.toolSource);
       continue;
     }
     const action = toolGroupAction(entry);
-    const key = t3Action ?? action;
+    const key = a4Action ?? action;
     const group = groups.get(key);
     if (group) group.entries.push(entry);
-    else groups.set(key, { action, t3Action, entries: [entry] });
+    else groups.set(key, { action, a4Action, entries: [entry] });
   }
   const summaries = [...groups].map(([action, group], index) => ({
     index,
     count: group.entries.length,
     priority: summaryActionPriority(action),
-    ...(group.t3Action
-      ? summarizeT3ToolCalls(group.t3Action, group.entries.map(t3ToolSummaryCall), resolve)
+    ...(group.a4Action
+      ? summarizeA4ToolCalls(group.a4Action, group.entries.map(a4ToolSummaryCall), resolve)
       : {
           label: toolGroupActionLabel(
             group.action,
@@ -837,7 +837,7 @@ export function summarizeToolGroup(
   const sourcedCount = entries.filter(
     (entry) =>
       entry.toolSource !== undefined &&
-      resolveT3McpToolDefinition(workEntryToolName(entry)) === null,
+      resolveA4McpToolDefinition(workEntryToolName(entry)) === null,
   ).length;
   const remainingCount =
     entries.length - sourcedCount - selected.reduce((count, group) => count + group.count, 0);

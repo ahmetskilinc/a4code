@@ -1,7 +1,7 @@
 import {
   type ApprovalTextPart,
   approvalTextParts,
-} from "@t3tools/client-runtime/state/thread-requests";
+} from "@a4code/client-runtime/state/thread-requests";
 import { T, useGT } from "gt-react";
 import { useState } from "react";
 import { observeResize } from "~/lib/observeResize";

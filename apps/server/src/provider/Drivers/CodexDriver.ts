@@ -1,5 +1,4 @@
-import { resolveProviderProbeTimeoutMs } from "@t3tools/provider-core/server/snapshotProbe";
-import { CodexSettings, ProviderDriverKind } from "@t3tools/contracts";
+import { CodexSettings, ProviderDriverKind } from "@a4code/contracts";
 import * as Digest from "effect/crypto/Digest";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import type * as Signature from "effect/crypto/Signature";
@@ -15,42 +14,38 @@ import { ChildProcessSpawner } from "effect/process";
 
 import type * as CodexUsageHistory from "../../usage/CodexUsageHistory.ts";
 import { makeCodexTextGeneration } from "../../textGeneration/CodexTextGeneration.ts";
-import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
-import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
+import * as ProviderLatestVersions from "@a4code/provider-core/server/ProviderLatestVersions";
+import * as ProviderHost from "@a4code/provider-core/server/ProviderHost";
 import * as ServerConfig from "../../config.ts";
-import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
-import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
+import { expandHomePath } from "@a4code/provider-core/server/pathExpansion";
+import * as ProviderEventLoggers from "@a4code/provider-core/server/ProviderEventLoggers";
 import {
   createCodexAdapterV2,
   type CodexAdapterV2DriverEnv,
 } from "../../orchestration-v2/Adapters/CodexAdapterV2.ts";
 import { ProviderDriverError } from "../Errors.ts";
 import * as ResetCreditCoordinator from "../resetCreditCoordinator.ts";
-import {
-  checkCodexProviderStatus,
-  makePendingCodexProvider,
-  makeCodexSkillsProbe,
-  withCodexAppServerClient,
-} from "../CodexProvider.ts";
+import { makePendingCodexProvider, withCodexAppServerClient } from "../CodexProvider.ts";
 import { resolveCodexLaunchArgs } from "../codexLaunchArgs.ts";
-import { makeManagedServerProvider } from "@t3tools/provider-core/server/managedProvider";
-import * as ModelCatalog from "@t3tools/provider-core/server/ModelCatalog";
-import { applyCodexModelCatalog } from "../codexModelCatalog.ts";
-import type { ProviderDriver, ProviderInstance } from "@t3tools/provider-core/server/driver";
-import { withInstanceIdentity } from "@t3tools/provider-core/server/instanceIdentity";
-import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
 import {
-  enrichProviderSnapshotWithVersionAdvisory,
+  makeManagedServerProvider,
+  readLocalCliStatus,
+} from "@a4code/provider-core/server/managedProvider";
+import * as ModelCatalog from "@a4code/provider-core/server/ModelCatalog";
+import type { ProviderDriver, ProviderInstance } from "@a4code/provider-core/server/driver";
+import { withInstanceIdentity } from "@a4code/provider-core/server/instanceIdentity";
+import { mergeProviderInstanceEnvironment } from "@a4code/provider-core/server/instanceEnvironment";
+import {
   makeCachedProviderMaintenanceResolution,
   makePackageManagedProviderMaintenanceResolver,
   resolveProviderMaintenanceCapabilitiesEffect,
   type ProviderMaintenanceCapabilities,
-} from "@t3tools/provider-core/server/maintenanceResolver";
+} from "@a4code/provider-core/server/maintenanceResolver";
 import {
   haveProviderSnapshotSettingsChanged,
   makeProviderSnapshotSettingsSource,
   type ProviderSnapshotSettings,
-} from "@t3tools/provider-core/server/snapshotSettings";
+} from "@a4code/provider-core/server/snapshotSettings";
 import {
   codexContinuationIdentity,
   codexHomeLaunchArgs,
@@ -63,7 +58,7 @@ import * as CodexInstallation from "../CodexInstallation.ts";
 import * as CodexManagedTokenBroker from "../CodexManagedTokenBroker.ts";
 import * as ServerSecretStore from "../../auth/ServerSecretStore.ts";
 import * as ServerEnvironment from "../../environment/ServerEnvironment.ts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@a4code/shared/HostProcess";
 const decodeCodexSettings = Schema.decodeSync(CodexSettings);
 
 const DRIVER_KIND = ProviderDriverKind.make("codex");
@@ -183,7 +178,6 @@ export const CodexDriver: ProviderDriver<
     const pathService = yield* Path.Path;
     const host = yield* ProviderHost.ProviderHost;
     const httpClient = yield* HttpClient.HttpClient;
-    const latestVersions = yield* ProviderLatestVersions.ProviderLatestVersions;
     const installation = yield* CodexInstallation.CodexInstallation;
     const modelCatalog = yield* ModelCatalog.ModelCatalog;
     const currentCatalog = modelCatalog.current(DRIVER_KIND);
@@ -269,21 +263,24 @@ export const CodexDriver: ProviderDriver<
           }),
       ),
     );
-
-    // Kick the TTL-gated manifest refresh in the background and classify with the in-memory
-    // manifest, so a slow or hung fetch never delays the provider check.
-    const checkProvider = modelCatalog.refreshInBackground.pipe(
-      Effect.andThen(
-        Effect.zipWith(
-          checkCodexProviderStatus(effectiveConfig, undefined, processEnv),
-          currentCatalog,
-          (draft, catalog) => stampIdentity(applyCodexModelCatalog(draft, catalog)),
-          { concurrent: true },
-        ),
+    const checkLocalProvider = Effect.zipWith(
+      makePendingCodexProvider(effectiveConfig),
+      currentCatalog,
+      (draft, catalog) =>
+        stampIdentity({
+          ...draft,
+          models: [
+            ...(catalog?.models.map((entry) => ModelCatalog.catalogServerModel(catalog, entry)) ??
+              []),
+            ...draft.models.filter(
+              (model) => !catalog?.models.some((entry) => entry.slug === model.slug),
+            ),
+          ],
+        }),
+    ).pipe(
+      Effect.flatMap(
+        readLocalCliStatus({ binaryPath: effectiveConfig.binaryPath, environment: processEnv }),
       ),
-      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-      Effect.provideService(FileSystem.FileSystem, fileSystem),
-      Effect.provideService(Path.Path, pathService),
     );
     const snapshotSettings = yield* makeProviderSnapshotSettingsSource(effectiveConfig);
     const snapshot = yield* makeManagedServerProvider<ProviderSnapshotSettings<CodexSettings>>({
@@ -291,24 +288,9 @@ export const CodexDriver: ProviderDriver<
       getSettings: snapshotSettings.getSettings,
       streamSettings: snapshotSettings.streamSettings,
       haveSettingsChanged: haveProviderSnapshotSettingsChanged,
-      initialSnapshot: (settings) =>
-        Effect.zipWith(
-          makePendingCodexProvider(settings.provider),
-          currentCatalog,
-          (draft, catalog) => stampIdentity(applyCodexModelCatalog(draft, catalog)),
-        ),
-      checkProvider,
-      enrichSnapshot: ({ settings, snapshot, publishSnapshot }) =>
-        resolveMaintenance().pipe(
-          Effect.flatMap((maintenanceCapabilities) =>
-            enrichProviderSnapshotWithVersionAdvisory(snapshot, maintenanceCapabilities, {
-              enableProviderUpdateChecks: settings.enableProviderUpdateChecks,
-            }),
-          ),
-          Effect.provideService(HttpClient.HttpClient, httpClient),
-          Effect.provideService(ProviderLatestVersions.ProviderLatestVersions, latestVersions),
-          Effect.flatMap((enrichedSnapshot) => publishSnapshot(enrichedSnapshot)),
-        ),
+      initialSnapshot: () => checkLocalProvider,
+      checkProvider: checkLocalProvider,
+      refreshOnInterval: false,
     }).pipe(
       Effect.mapError(
         (cause) =>
@@ -325,33 +307,6 @@ export const CodexDriver: ProviderDriver<
       processEnv,
       snapshot.getSnapshot.pipe(Effect.map((value) => value.models)),
     );
-    const probeSkills = yield* makeCodexSkillsProbe().pipe(
-      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-    );
-    const snapshotForCwd = (cwd: string) =>
-      !effectiveConfig.enabled
-        ? snapshot.getSnapshot
-        : Effect.all([
-            snapshot.getSnapshot,
-            probeSkills({
-              binaryPath: effectiveConfig.binaryPath,
-              homePath: effectiveConfig.homePath,
-              launchArgs: resolveCodexLaunchArgs(effectiveConfig.launchArgs, processEnv),
-              cwd,
-              environment: processEnv,
-            }).pipe(Effect.timeout(resolveProviderProbeTimeoutMs("codex", 20_000, processEnv))),
-          ]).pipe(
-            Effect.map(([machineSnapshot, skills]) => ({ ...machineSnapshot, skills })),
-            Effect.mapError(
-              (cause) =>
-                new ProviderDriverError({
-                  driver: DRIVER_KIND,
-                  instanceId,
-                  detail: `Failed to probe Codex skills for '${cwd}'`,
-                  cause,
-                }),
-            ),
-          );
 
     // Redemption spends account credit; serialize by the auth.json directory, keep one idempotency key
     // until the outcome, and bound the wait so a hung app-server cannot hold the account lock.
@@ -405,7 +360,7 @@ export const CodexDriver: ProviderDriver<
           ),
         );
 
-    // `codex login` and `codex logout` rewrite auth.json outside T3.
+    // `codex login` and `codex logout` rewrite auth.json outside a4code.
     if (effectiveConfig.enabled) {
       yield* fileSystem.watch(accountKey).pipe(
         Stream.filter((event) => pathService.basename(event.path) === "auth.json"),
@@ -424,7 +379,6 @@ export const CodexDriver: ProviderDriver<
       accentColor,
       enabled,
       snapshot,
-      snapshotForCwd,
       consumeResetCredit,
       orchestrationAdapter,
       textGeneration,

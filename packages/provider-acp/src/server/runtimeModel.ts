@@ -9,8 +9,8 @@ import * as EffectAcpSchemaV1 from "effect-acp/schema-v1";
 import {
   deriveToolActivityPresentation,
   mergeToolActivityData,
-} from "@t3tools/shared/toolActivity";
-import { T3_MCP_TOOL_NAMES } from "@t3tools/shared/t3McpToolPresentation";
+} from "@a4code/shared/toolActivity";
+import { A4_MCP_TOOL_NAMES } from "@a4code/shared/a4McpToolPresentation";
 import {
   acpChangedPathsOfToolCall,
   mergeAcpChangedPaths,
@@ -20,7 +20,7 @@ import type {
   OrchestrationV2ProviderThreadNativeMetadata,
   ThreadTokenUsageSnapshot,
   ToolLifecycleItemType,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -359,7 +359,7 @@ export function acpContentBlockDisplayText(
       const mimeType = boundedContentMetadata(content.mimeType, 256) || "unknown type";
       return `[ACP audio (${mimeType})]`;
     }
-    case "_t3_unknown":
+    case "_a4_unknown":
       return `[Unsupported ACP content: ${boundedContentMetadata(content.originalType, 128) || "unknown"}]`;
   }
 }
@@ -393,9 +393,9 @@ function sanitizeAcpToolCallContent(
         };
       case "terminal":
         return { type: "terminal", terminalId: entry.terminalId };
-      case "_t3_unknown":
+      case "_a4_unknown":
         return {
-          type: "_t3_unknown",
+          type: "_a4_unknown",
           originalType: boundedContentMetadata(entry.originalType, 128) || "unknown",
           raw: null,
         };
@@ -1130,19 +1130,19 @@ function acpMcpFallbackInput(value: string | undefined): Record<string, unknown>
   return undefined;
 }
 
-// Known T3 inventory gates matches, so server-name separators can stay loose. Kiro titles "@t3-code/<tool>".
-const T3_MCP_TITLE_CALL =
-  /^(?:@|mcp[-_]{1,2})?t3[-_ ]?code[-_.:/ ]{1,3}(?<tool>[A-Za-z0-9][A-Za-z0-9_.-]*)(?::.*)?$/i;
+// Known a4code inventory gates matches, so server-name separators can stay loose. Kiro titles "@a4code/<tool>".
+const A4_MCP_TITLE_CALL =
+  /^(?:@|mcp[-_]{1,2})?a4code[-_ ]?code[-_.:/ ]{1,3}(?<tool>[A-Za-z0-9][A-Za-z0-9_.-]*)(?::.*)?$/i;
 
-const T3_MCP_TITLE_SUFFIX_CALL =
-  /^(?<tool>[A-Za-z0-9][A-Za-z0-9_.-]*?)(?: \(t3[-_ ]?code MCP Server\)(?::|$)|[-_.]t3[-_ ]?code$)/i;
+const A4_MCP_TITLE_SUFFIX_CALL =
+  /^(?<tool>[A-Za-z0-9][A-Za-z0-9_.-]*?)(?: \(a4code[-_ ]?code MCP Server\)(?::|$)|[-_.]a4code[-_ ]?code$)/i;
 
 /**
  * glm and Kimi use bare names. Kimi appends streamed JSON arguments. Require a
  * name or JSON opening brace so built-ins titled "<tool>: <description>" cannot
  * impersonate an inventory entry.
  */
-const T3_MCP_BARE_TITLE_CALL = /^(?<tool>[A-Za-z0-9_]+)(?::\s*\{|$)/;
+const A4_MCP_BARE_TITLE_CALL = /^(?<tool>[A-Za-z0-9_]+)(?::\s*\{|$)/;
 
 // Antigravity titles calls "Running <tool>" or, from agy 1.5.8, "Run mcp_<server>_<tool>"; prompts end in "?".
 const ANTIGRAVITY_TOOL_TITLE = /^Run(?:ning)? (?<name>[^\s?]+)\??$/;
@@ -1189,8 +1189,8 @@ export function extractMcpToolCallIdentity(
     : undefined;
   const metaServerId = typeof meta?.serverId === "string" ? meta.serverId.trim() : "";
   const metaToolName = typeof meta?.toolName === "string" ? meta.toolName.trim() : "";
-  if (/^t3[-_ ]?code$/i.test(metaServerId) && metaToolName.length > 0) {
-    for (const knownTool of T3_MCP_TOOL_NAMES) {
+  if (/^a4code[-_ ]?code$/i.test(metaServerId) && metaToolName.length > 0) {
+    for (const knownTool of A4_MCP_TOOL_NAMES) {
       const boundary = metaToolName.length - knownTool.length - 1;
       if (
         metaToolName === knownTool ||
@@ -1198,15 +1198,15 @@ export function extractMcpToolCallIdentity(
           boundary >= 0 &&
           !/[A-Za-z0-9]/.test(metaToolName.charAt(boundary)))
       ) {
-        return { server: "t3-code", tool: knownTool };
+        return { server: "a4code", tool: knownTool };
       }
     }
   }
   const gooseExtension =
     typeof gooseToolCall?.extensionName === "string" ? gooseToolCall.extensionName.trim() : "";
   const assertsForeignOrigin =
-    (metaServerId.length > 0 && !/^t3[-_ ]?code$/i.test(metaServerId)) ||
-    (gooseExtension.length > 0 && !/^t3[-_ ]?code$/i.test(gooseExtension));
+    (metaServerId.length > 0 && !/^a4code[-_ ]?code$/i.test(metaServerId)) ||
+    (gooseExtension.length > 0 && !/^a4code[-_ ]?code$/i.test(gooseExtension));
   // goose metadata also tags built-ins; retain their command/file projections instead of classifying as MCP.
   if (assertsForeignOrigin) {
     if (metaServerId.length === 0 || metaToolName.length === 0) return undefined;
@@ -1220,10 +1220,10 @@ export function extractMcpToolCallIdentity(
   // args; a read of the same path only fetches the tool's docs.
   const devicePath = typeof rawInput?.path === "string" ? rawInput.path : "";
   if (devicePath.startsWith("xd://") && typeof rawInput?.content === "string") {
-    const deviceTool = T3_MCP_TITLE_CALL.exec(devicePath.slice("xd://".length))?.groups?.tool;
-    if (deviceTool !== undefined && T3_MCP_TOOL_NAMES.has(deviceTool)) {
+    const deviceTool = A4_MCP_TITLE_CALL.exec(devicePath.slice("xd://".length))?.groups?.tool;
+    if (deviceTool !== undefined && A4_MCP_TOOL_NAMES.has(deviceTool)) {
       const input = acpMcpFallbackInput(rawInput.content);
-      return { server: "t3-code", tool: deviceTool, ...(input === undefined ? {} : { input }) };
+      return { server: "a4code", tool: deviceTool, ...(input === undefined ? {} : { input }) };
     }
   }
   const candidates = [
@@ -1239,21 +1239,21 @@ export function extractMcpToolCallIdentity(
     if (
       qualified?.[1] &&
       qualified[2] &&
-      /^editor_t3_?code_[0-9a-f]{8}$/.test(qualified[1]) &&
-      T3_MCP_TOOL_NAMES.has(qualified[2])
+      /^editor_a4_?code_[0-9a-f]{8}$/.test(qualified[1]) &&
+      A4_MCP_TOOL_NAMES.has(qualified[2])
     ) {
-      return { server: "t3-code", tool: qualified[2] };
+      return { server: "a4code", tool: qualified[2] };
     }
-    if (qualified?.[1] && qualified[2] && !/^t3[-_ ]?code$/i.test(qualified[1]))
+    if (qualified?.[1] && qualified[2] && !/^a4code[-_ ]?code$/i.test(qualified[1]))
       return { server: qualified[1], tool: qualified[2] };
     const name = ANTIGRAVITY_TOOL_TITLE.exec(trimmed)?.groups?.name ?? trimmed;
     const match =
-      T3_MCP_TITLE_CALL.exec(name) ??
-      T3_MCP_TITLE_SUFFIX_CALL.exec(name) ??
-      T3_MCP_BARE_TITLE_CALL.exec(name);
+      A4_MCP_TITLE_CALL.exec(name) ??
+      A4_MCP_TITLE_SUFFIX_CALL.exec(name) ??
+      A4_MCP_BARE_TITLE_CALL.exec(name);
     const candidateTool = match?.groups?.tool;
-    if (candidateTool !== undefined && T3_MCP_TOOL_NAMES.has(candidateTool)) {
-      return { server: "t3-code", tool: candidateTool };
+    if (candidateTool !== undefined && A4_MCP_TOOL_NAMES.has(candidateTool)) {
+      return { server: "a4code", tool: candidateTool };
     }
   }
   const commands = [
@@ -1266,7 +1266,7 @@ export function extractMcpToolCallIdentity(
     const match = ACP_MCP_FALLBACK_CALL.exec(command);
     if (match?.[1] !== undefined) {
       const input = acpMcpFallbackInput(match[2]);
-      return { server: "t3-code", tool: match[1], ...(input === undefined ? {} : { input }) };
+      return { server: "a4code", tool: match[1], ...(input === undefined ? {} : { input }) };
     }
   }
   return undefined;
@@ -1532,7 +1532,7 @@ export function syntheticLoadSessionResponseFromInitialize(
   return {
     ...(modes ? { modes } : {}),
     _meta: {
-      t3SessionLoadReady: "replay_idle",
+      a4SessionLoadReady: "replay_idle",
     },
   };
 }
@@ -1812,7 +1812,7 @@ export function parseSessionUpdateEvent(params: EffectAcpSchema.SessionNotificat
       });
       break;
     }
-    case "_t3_unknown": {
+    case "_a4_unknown": {
       events.push({
         _tag: "UnknownUpdate",
         updateType: boundedContentMetadata(upd.originalSessionUpdate, 128) || "unknown",

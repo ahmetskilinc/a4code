@@ -7,7 +7,7 @@ import {
   type OrchestrationV2ThreadLinkMetadata,
   type OrchestrationGetTurnDiffResult,
   type OrchestrationV2GetTurnItemInput,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
@@ -32,7 +32,7 @@ import {
 import type { EnvironmentRegistry } from "../connection/registry.ts";
 import * as EnvironmentSupervisor from "../connection/supervisor.ts";
 import * as RemoteEnvironmentAuthorization from "../authorization/service.ts";
-import * as ManagedRelayDpopSigner from "../relay/managedRelay.ts";
+import * as Dpop from "../authorization/dpopProof.ts";
 import { EnvironmentRpcUnavailableError, request } from "../rpc/client.ts";
 import type { EnvironmentShellState } from "./shell.ts";
 import { fetchEnvironmentThreadTranscript } from "./threadTranscriptHttp.ts";
@@ -138,7 +138,7 @@ export function createOrchestrationEnvironmentAtoms<R, E>(
         return yield* fetchEnvironmentThreadTranscript({
           prepared: prepared.value,
           threadId: input.threadId,
-          signer: yield* Effect.serviceOption(ManagedRelayDpopSigner.ManagedRelayDpopSigner),
+          signer: yield* Effect.serviceOption(Dpop.DpopSigner),
           remoteAuthorization: yield* Effect.serviceOption(
             RemoteEnvironmentAuthorization.RemoteEnvironmentAuthorization,
           ),

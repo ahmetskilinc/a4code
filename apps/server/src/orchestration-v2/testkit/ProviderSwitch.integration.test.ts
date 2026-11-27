@@ -1,5 +1,5 @@
 import { vi } from "vite-plus/test";
-import { historyResponseItems } from "@t3tools/provider-core/server/handoffBudget";
+import { historyResponseItems } from "@a4code/provider-core/server/handoffBudget";
 import { assert, describe, it } from "@effect/vitest";
 import {
   CommandId,
@@ -24,8 +24,8 @@ import {
   ThreadId,
   TurnItemId,
   ProviderDriverKind,
-} from "@t3tools/contracts";
-import { derivePendingBackgroundWork } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
+} from "@a4code/contracts";
+import { derivePendingBackgroundWork } from "@a4code/shared/orchestrationV2PendingBackgroundWork";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -49,7 +49,7 @@ import {
   CodexProviderCapabilitiesV2,
   canReuseCodexContextUsage,
 } from "../Adapters/CodexAdapterV2.ts";
-import { AcpProviderCapabilitiesV2 } from "@t3tools/provider-acp/server/adapter";
+import { AcpProviderCapabilitiesV2 } from "@a4code/provider-acp/server/adapter";
 import * as EventSink from "../EventSink.ts";
 import * as EventStore from "../EventStore.ts";
 import * as LegacyV1ThreadImporter from "../legacy/LegacyV1ThreadImporter.ts";
@@ -60,15 +60,15 @@ import * as ProjectionReplay from "./ProjectionReplay.ts";
 import * as ProjectionStore from "../ProjectionStore.ts";
 import * as ProviderAdapterRegistry from "../ProviderAdapterRegistry.ts";
 import * as ProviderSessionManager from "../ProviderSessionManager.ts";
-import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
+import { makeProviderFailure } from "@a4code/provider-core/server/failure";
 import {
   CLAUDE_MODEL_SELECTION,
   CODEX_MODEL_SELECTION,
   GROK_MODEL_SELECTION,
 } from "./fixtures/shared.ts";
 import * as ProviderReplayHarness from "./ProviderReplayHarness.ts";
-import { checkpointWorkspace } from "@t3tools/provider-testing/replayWorkspace";
-import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import { checkpointWorkspace } from "@a4code/provider-testing/replayWorkspace";
+import * as ProviderAdapter from "@a4code/provider-core/server/ProviderAdapter";
 
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
@@ -1430,7 +1430,7 @@ describe("orchestration v2 provider switching", () => {
           (yield* orchestrator.getThreadProjection(threadId)).runs.at(-1)?.status,
           "completed",
         );
-        // A second generation means T3 discarded the native session as full.
+        // A second generation means a4code discarded the native session as full.
         assert.equal(yield* Ref.get(generation), 1);
       }).pipe(
         Effect.provide(
@@ -3135,7 +3135,7 @@ describe("orchestration v2 provider switching", () => {
     }),
   );
 
-  // regression: #15993 t3_worktree_handoff releases the Claude session that runs it. Nothing
+  // regression: #15993 a4_worktree_handoff releases the Claude session that runs it. Nothing
   // was left to report how the call ended, so it stayed running and the thread stayed Waiting.
   it.live("interrupts the handoff tool call that releases its own session", () =>
     Effect.gen(function* () {
@@ -3156,7 +3156,7 @@ describe("orchestration v2 provider switching", () => {
           holdFirstTurn: started,
           heldRunningToolCall: {
             id: toolCallId,
-            toolName: "mcp__t3-code__t3_worktree_handoff",
+            toolName: "mcp__a4code__a4_worktree_handoff",
           },
           backgroundTasksEndWithProcess: true,
         }),
@@ -3222,7 +3222,7 @@ describe("orchestration v2 provider switching", () => {
           type: "thread.metadata.update",
           commandId: CommandId.make(`command:${key}:release`),
           threadId: scenarioThreadId,
-          branch: `t3/${key}`,
+          branch: `a4code/${key}`,
           worktreePath,
           expectedWorktreePath: null,
         });

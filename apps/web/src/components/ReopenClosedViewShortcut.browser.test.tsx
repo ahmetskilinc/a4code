@@ -1,5 +1,5 @@
-import type { ResolvedKeybindingsConfig, ScopedThreadRef } from "@t3tools/contracts";
-import { DEFAULT_RESOLVED_KEYBINDINGS } from "@t3tools/shared/keybindings";
+import type { ResolvedKeybindingsConfig, ScopedThreadRef } from "@a4code/contracts";
+import { DEFAULT_RESOLVED_KEYBINDINGS } from "@a4code/shared/keybindings";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -367,13 +367,13 @@ describe("root reopen shortcut", () => {
   it("includes the reopened issue selection in the /issues URL", async () => {
     setup();
     const issueSurface = {
-      id: "issue:remote:project-1:github:github.com:pingdotgg/t3code:42" as const,
+      id: "issue:remote:project-1:github:github.com:example/demo:42" as const,
       kind: "issue" as const,
       environmentId: "remote",
       projectId: "project-1",
       tracker: "github",
       host: "github.com",
-      scope: "pingdotgg/t3code",
+      scope: "example/demo",
       key: "42",
     };
     useClosedViewStore.getState().remember({
@@ -395,7 +395,7 @@ describe("root reopen shortcut", () => {
           selectedProjectId: "project-1",
           selectedHost: "github.com",
           tracker: "github",
-          scope: "pingdotgg/t3code",
+          scope: "example/demo",
           key: "42",
         }),
       }),
@@ -404,21 +404,21 @@ describe("root reopen shortcut", () => {
 
   it("reopens a closed pull request tab from another route with saved list preferences and no foreign search params", async () => {
     setup();
-    window.localStorage.removeItem("t3.pullRequests.preferences");
+    window.localStorage.removeItem("a4code.pullRequests.preferences");
     using _cleanup = {
-      [Symbol.dispose]: () => window.localStorage.removeItem("t3.pullRequests.preferences"),
+      [Symbol.dispose]: () => window.localStorage.removeItem("a4code.pullRequests.preferences"),
     };
     writePullRequestListPreferences({ involvement: "reviewing", state: "merged" });
     useClosedViewStore.getState().remember({
       kind: "panel-tab",
       threadRef: PULL_REQUESTS_PANEL_REF,
       surface: {
-        id: "pull-request:remote:project-1:github.com:pingdotgg/t3code#42",
+        id: "pull-request:remote:project-1:github.com:example/demo#42",
         kind: "pull-request",
         environmentId: "remote",
         projectId: "project-1",
         host: "github.com",
-        repository: "pingdotgg/t3code",
+        repository: "example/demo",
         number: 42,
       },
     });
@@ -455,7 +455,7 @@ describe("root reopen shortcut", () => {
     expect(router.state.location.search).toEqual({
       involvement: "reviewing",
       state: "merged",
-      repository: "pingdotgg/t3code",
+      repository: "example/demo",
       number: 42,
       selectedProjectId: "project-1",
       selectedHost: "github.com",

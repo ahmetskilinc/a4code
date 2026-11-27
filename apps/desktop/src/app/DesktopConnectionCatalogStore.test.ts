@@ -1,33 +1,20 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
-import { ConnectionCatalogDocument } from "@t3tools/client-runtime/platform";
-import { EnvironmentId, type PersistedSavedEnvironmentRecord } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
-import * as Base64 from "effect/encoding/Base64";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
 
 import * as ElectronSafeStorage from "../electron/ElectronSafeStorage.ts";
-import * as DesktopSavedEnvironments from "../settings/DesktopSavedEnvironments.ts";
 import * as DesktopConfig from "./DesktopConfig.ts";
 import * as DesktopConnectionCatalogStore from "./DesktopConnectionCatalogStore.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
-const decodeConnectionCatalog = Schema.decodeEffect(
-  Schema.fromJsonString(ConnectionCatalogDocument),
-);
-const encodeLegacySavedEnvironments = Schema.encodeEffect(
-  Schema.fromJsonString(
-    Schema.Struct({ version: Schema.Literal(1), records: Schema.Array(Schema.Unknown) }),
-  ),
-);
 function layerSafeStorageFor(available: boolean, failDecrypt: Ref.Ref<boolean> | null = null) {
   return Layer.succeed(ElectronSafeStorage.ElectronSafeStorage, {
     isEncryptionAvailable: Effect.succeed(available),
@@ -68,7 +55,7 @@ function layerFor(
     runningUnderArm64Translation: false,
   }).pipe(
     Layer.provide(
-      Layer.mergeAll(NodeServices.layer, DesktopConfig.layerTest({ T3CODE_HOME: baseDir })),
+      Layer.mergeAll(NodeServices.layer, DesktopConfig.layerTest({ A4CODE_HOME: baseDir })),
     ),
   );
   const layerSafeStorage = layerSafeStorageFor(encryptionAvailable, failDecrypt);
@@ -79,14 +66,7 @@ function layerFor(
     NodeCrypto.layer,
     fileSystemLayer,
   );
-  const layerSavedEnvironments = DesktopSavedEnvironments.layer.pipe(
-    Layer.provideMerge(layerDependencies),
-  );
-
-  return DesktopConnectionCatalogStore.layer.pipe(
-    Layer.provideMerge(layerSavedEnvironments),
-    Layer.provideMerge(layerDependencies),
-  );
+  return DesktopConnectionCatalogStore.layer.pipe(Layer.provideMerge(layerDependencies));
 }
 
 const withStore = <A, E, R>(
@@ -96,7 +76,7 @@ const withStore = <A, E, R>(
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const baseDir = yield* fileSystem.makeTempDirectoryScoped({
-      prefix: "t3-desktop-connection-catalog-test-",
+      prefix: "a4-desktop-connection-catalog-test-",
     });
     return yield* effect.pipe(Effect.provide(layerFor(baseDir, encryptionAvailable)));
   }).pipe(Effect.provide(NodeServices.layer));
@@ -125,119 +105,11 @@ describe("DesktopConnectionCatalogStore", () => {
     ),
   );
 
-  it.effect("migrates legacy relay, SSH, bearer profile, and credential data", () =>
+  it.effect("starts with an empty catalog when no environments have been paired", () =>
     withStore(
       Effect.gen(function* () {
         const store = yield* DesktopConnectionCatalogStore.DesktopConnectionCatalogStore;
-        const environment = yield* DesktopEnvironment.DesktopEnvironment;
-        const fileSystem = yield* FileSystem.FileSystem;
-        const records: readonly PersistedSavedEnvironmentRecord[] = [
-          {
-            environmentId: EnvironmentId.make("relay-environment"),
-            label: "Relay",
-            httpBaseUrl: "https://relay.example.com/",
-            wsBaseUrl: "wss://relay.example.com/",
-            createdAt: "2026-06-01T00:00:00.000Z",
-            lastConnectedAt: null,
-            relayManaged: { relayUrl: "https://relay-control.example.com/" },
-          },
-          {
-            environmentId: EnvironmentId.make("ssh-environment"),
-            label: "SSH",
-            httpBaseUrl: "http://127.0.0.1:41773/",
-            wsBaseUrl: "ws://127.0.0.1:41773/",
-            createdAt: "2026-06-02T00:00:00.000Z",
-            lastConnectedAt: null,
-            desktopSsh: {
-              alias: "devbox",
-              hostname: "devbox.example.com",
-              username: "julius",
-              port: 22,
-            },
-          },
-          {
-            environmentId: EnvironmentId.make("bearer-environment"),
-            label: "Bearer",
-            httpBaseUrl: "https://bearer.example.com/",
-            wsBaseUrl: "wss://bearer.example.com/",
-            createdAt: "2026-06-03T00:00:00.000Z",
-            lastConnectedAt: null,
-          },
-        ];
-        yield* fileSystem.makeDirectory(environment.stateDir, { recursive: true });
-        yield* fileSystem.writeFileString(
-          environment.savedEnvironmentRegistryPath,
-          yield* encodeLegacySavedEnvironments({
-            version: 1,
-            records: records.map((record) =>
-              record.environmentId === "bearer-environment"
-                ? {
-                    ...record,
-                    encryptedBearerToken: Base64.encode(
-                      textEncoder.encode("encrypted:legacy-token"),
-                    ),
-                  }
-                : record,
-            ),
-          }),
-        );
-
-        const migrated = yield* store.get;
-        assert.isTrue(Option.isSome(migrated));
-        if (Option.isNone(migrated)) {
-          return;
-        }
-        const catalog = yield* decodeConnectionCatalog(migrated.value);
-
-        assert.deepInclude(catalog.targets[0], {
-          _tag: "RelayConnectionTarget",
-          environmentId: EnvironmentId.make("relay-environment"),
-          label: "Relay",
-        });
-        assert.deepInclude(catalog.targets[1], {
-          _tag: "SshConnectionTarget",
-          environmentId: EnvironmentId.make("ssh-environment"),
-          label: "SSH",
-          connectionId: "ssh:ssh-environment",
-        });
-        assert.deepInclude(catalog.targets[2], {
-          _tag: "BearerConnectionTarget",
-          environmentId: EnvironmentId.make("bearer-environment"),
-          label: "Bearer",
-          connectionId: "bearer:bearer-environment",
-        });
-        assert.deepInclude(catalog.profiles[0], {
-          _tag: "SshConnectionProfile",
-          connectionId: "ssh:ssh-environment",
-          environmentId: EnvironmentId.make("ssh-environment"),
-          label: "SSH",
-          target: {
-            alias: "devbox",
-            hostname: "devbox.example.com",
-            username: "julius",
-            port: 22,
-          },
-        });
-        assert.deepInclude(catalog.profiles[1], {
-          _tag: "BearerConnectionProfile",
-          connectionId: "bearer:bearer-environment",
-          environmentId: EnvironmentId.make("bearer-environment"),
-          label: "Bearer",
-          httpBaseUrl: "https://bearer.example.com/",
-          wsBaseUrl: "wss://bearer.example.com/",
-        });
-        assert.equal(catalog.credentials.length, 1);
-        assert.equal(catalog.credentials[0]?.connectionId, "bearer:bearer-environment");
-        assert.equal(catalog.credentials[0]?.credential._tag, "BearerConnectionCredential");
-        if (catalog.credentials[0]?.credential._tag === "BearerConnectionCredential") {
-          assert.equal(catalog.credentials[0].credential.token, "legacy-token");
-        }
-
-        yield* fileSystem.writeFileString(
-          environment.savedEnvironmentRegistryPath,
-          '{"version":1,"records":[]}',
-        );
-        assert.deepEqual(yield* store.get, migrated);
+        assert.deepStrictEqual(yield* store.get, Option.none());
       }),
     ),
   );
@@ -270,7 +142,7 @@ describe("DesktopConnectionCatalogStore", () => {
       const path = yield* Path.Path;
       const fileSystem = yield* FileSystem.FileSystem;
       const baseDir = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-desktop-connection-catalog-test-",
+        prefix: "a4-desktop-connection-catalog-test-",
       });
       const failDecrypt = yield* Ref.make(false);
       const layer = layerFor(baseDir, true, failDecrypt);
@@ -302,7 +174,7 @@ describe("DesktopConnectionCatalogStore", () => {
   );
 
   const emptyCatalog =
-    '{"schemaVersion":1,"targets":[],"profiles":[],"credentials":[],"remoteDpopTokens":[],"disabledEnvironmentIds":[]}';
+    '{"schemaVersion":1,"targets":[],"profiles":[],"credentials":[],"disabledEnvironmentIds":[]}';
   const savedFilesHolding = Effect.fn(function* (stateDir: string, contents: string) {
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -325,7 +197,7 @@ describe("DesktopConnectionCatalogStore", () => {
         const catalogPath = path.join(environment.stateDir, "connection-catalog.json");
         assert.isTrue(
           yield* store.set(
-            '{"schemaVersion":1,"targets":[{"_tag":"FutureConnectionTarget","environmentId":"remote"}],"profiles":[],"credentials":[],"remoteDpopTokens":[],"disabledEnvironmentIds":[]}',
+            '{"schemaVersion":1,"targets":[{"_tag":"FutureConnectionTarget","environmentId":"remote"}],"profiles":[],"credentials":[],"disabledEnvironmentIds":[]}',
           ),
         );
         const original = yield* fileSystem.readFileString(catalogPath);
@@ -343,7 +215,7 @@ describe("DesktopConnectionCatalogStore", () => {
       const path = yield* Path.Path;
       const fileSystem = yield* FileSystem.FileSystem;
       const baseDir = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-desktop-connection-catalog-test-",
+        prefix: "a4-desktop-connection-catalog-test-",
       });
       const failDecrypt = yield* Ref.make(false);
       const store = yield* DesktopConnectionCatalogStore.DesktopConnectionCatalogStore.pipe(

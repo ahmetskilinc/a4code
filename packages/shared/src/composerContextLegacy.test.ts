@@ -41,7 +41,7 @@ describe("upgradeLegacyContextMessage", () => {
       );
       expect(result.text).not.toContain("\uE000");
       expect(result.text).toContain(
-        "Before [f.ts line](t3-context://v1/review-comment/legacy_review-comment_1) after",
+        "Before [f.ts line](a4-context://v1/review-comment/legacy_review-comment_1) after",
       );
     }
   });
@@ -52,7 +52,7 @@ describe("upgradeLegacyContextMessage", () => {
     const block = `<review_comment sectionId="s" filePath="f.ts" startIndex="1" endIndex="1">\nComment\n${fence}diff\n${diff}\n${fence}\n</review_comment>`;
     const result = upgradeLegacyContextMessage(`Before ${block} between ${review} after`);
     expect(result.text).toBe(
-      "Before [f.ts line](t3-context://v1/review-comment/legacy_review-comment_1) between [f.ts line](t3-context://v1/review-comment/legacy_review-comment_2) after",
+      "Before [f.ts line](a4-context://v1/review-comment/legacy_review-comment_1) between [f.ts line](a4-context://v1/review-comment/legacy_review-comment_2) after",
     );
     expect(result.records).toHaveLength(2);
     expect(result.records[0]).toMatchObject({ text: "Comment", diff, fenceLanguage: "diff" });
@@ -96,7 +96,7 @@ describe("upgradeLegacyContextMessage", () => {
         `${prompt}\n<terminal_context>\n- Build line 7:\n  output\n</terminal_context>`,
       );
       expect(upgraded.text).toBe(
-        `${prompt}\n\n[Build line 7](t3-context://v1/terminal/legacy_terminal_1)`,
+        `${prompt}\n\n[Build line 7](a4-context://v1/terminal/legacy_terminal_1)`,
       );
     },
   );
@@ -145,7 +145,7 @@ describe("upgradeLegacyContextMessage", () => {
       `Literal \uE0000\uE000 before ${review} after \uE0007\uE000`,
     );
     expect(upgraded.text).toBe(
-      "Literal \uE0000\uE000 before [f.ts line](t3-context://v1/review-comment/legacy_review-comment_1) after \uE0007\uE000",
+      "Literal \uE0000\uE000 before [f.ts line](a4-context://v1/review-comment/legacy_review-comment_1) after \uE0007\uE000",
     );
     expect(upgraded.records).toHaveLength(1);
     const unmatched =
@@ -169,7 +169,7 @@ describe("upgradeLegacyContextMessage", () => {
       ].join("\n"),
     );
     expect(upgraded.text).toBe(
-      "Compare [Terminal line 10](t3-context://v1/terminal/legacy_terminal_2) and [Terminal lines 1-2](t3-context://v1/terminal/legacy_terminal_3) with [Terminal line 1](t3-context://v1/terminal/legacy_terminal_1)",
+      "Compare [Terminal line 10](a4-context://v1/terminal/legacy_terminal_2) and [Terminal lines 1-2](a4-context://v1/terminal/legacy_terminal_3) with [Terminal line 1](a4-context://v1/terminal/legacy_terminal_1)",
     );
   });
 
@@ -202,7 +202,7 @@ describe("upgradeLegacyContextMessage", () => {
     ].join("\n");
     const upgraded = upgradeLegacyContextMessage(text);
     expect(upgraded.text).toBe(
-      "Look at [Terminal 1 lines 509-510](t3-context://v1/terminal/legacy_terminal_1) and [Build line 7](t3-context://v1/terminal/legacy_terminal_2) please",
+      "Look at [Terminal 1 lines 509-510](a4-context://v1/terminal/legacy_terminal_1) and [Build line 7](a4-context://v1/terminal/legacy_terminal_2) please",
     );
     expect(upgraded.records).toEqual([
       {
@@ -233,11 +233,11 @@ describe("upgradeLegacyContextMessage", () => {
   it("appends references for terminal entries without placeholders and drops extra placeholders", () => {
     const text = "￼ and ￼\n\n<terminal_context>\n- T line 1:\n  1 | x\n</terminal_context>";
     expect(upgradeLegacyContextMessage(text).text).toBe(
-      "[T line 1](t3-context://v1/terminal/legacy_terminal_1) and",
+      "[T line 1](a4-context://v1/terminal/legacy_terminal_1) and",
     );
     const noPlaceholder = "hi\n\n<terminal_context>\n- T line 1:\n  1 | x\n</terminal_context>";
     expect(upgradeLegacyContextMessage(noPlaceholder).text).toBe(
-      "hi\n\n[T line 1](t3-context://v1/terminal/legacy_terminal_1)",
+      "hi\n\n[T line 1](a4-context://v1/terminal/legacy_terminal_1)",
     );
   });
 
@@ -257,7 +257,7 @@ describe("upgradeLegacyContextMessage", () => {
       "</element_context>",
     ].join("\n");
     const upgraded = upgradeLegacyContextMessage(text);
-    expect(upgraded.text).toBe("fix this\n\n[<Button>](t3-context://v1/element/legacy_element_1)");
+    expect(upgraded.text).toBe("fix this\n\n[<Button>](a4-context://v1/element/legacy_element_1)");
     expect(upgraded.records).toEqual([
       {
         version: 1,
@@ -333,7 +333,7 @@ describe("upgradeLegacyContextMessage", () => {
     ].join("\n");
     const upgraded = upgradeLegacyContextMessage(text);
     expect(upgraded.text).toBe(
-      "bigger\n\n[Checkout](t3-context://v1/preview-annotation/legacy_preview-annotation_1)",
+      "bigger\n\n[Checkout](a4-context://v1/preview-annotation/legacy_preview-annotation_1)",
     );
     expect(upgraded.records).toEqual([
       {
@@ -381,7 +381,7 @@ describe("upgradeLegacyContextMessage", () => {
       ].join("\n"),
     );
     expect(upgraded.text).toBe(
-      "Explain this\n\n[Checkout](t3-context://v1/preview-annotation/legacy_preview-annotation_1)",
+      "Explain this\n\n[Checkout](a4-context://v1/preview-annotation/legacy_preview-annotation_1)",
     );
     expect(upgraded.records).toHaveLength(1);
     expect(upgraded.records[0]).toMatchObject({
@@ -408,7 +408,7 @@ describe("upgradeLegacyContextMessage", () => {
       ].join("\n"),
     );
     expect(upgraded.text).toBe(
-      "Compare\n\n[First](t3-context://v1/preview-annotation/legacy_preview-annotation_1) [Second](t3-context://v1/preview-annotation/legacy_preview-annotation_2)",
+      "Compare\n\n[First](a4-context://v1/preview-annotation/legacy_preview-annotation_1) [Second](a4-context://v1/preview-annotation/legacy_preview-annotation_2)",
     );
     expect(upgraded.records).toMatchObject([
       { annotationId: "annotation-1", comment: "First comment" },
@@ -429,7 +429,7 @@ describe("upgradeLegacyContextMessage", () => {
     ].join("\n");
     const upgraded = upgradeLegacyContextMessage(text);
     expect(upgraded.text).toBe(
-      "Before\n[b.ts L4-L6](t3-context://v1/review-comment/legacy_review-comment_1)\nAfter",
+      "Before\n[b.ts L4-L6](a4-context://v1/review-comment/legacy_review-comment_1)\nAfter",
     );
     expect(upgraded.records).toEqual([
       {
@@ -455,7 +455,7 @@ describe("upgradeLegacyContextMessage", () => {
       `@build:7 ${review}\n\n<terminal_context>\n- Build line 7:\n  output\n</terminal_context>`,
     );
     expect(upgraded.text).toBe(
-      "[Build line 7](t3-context://v1/terminal/legacy_terminal_1) [f.ts line](t3-context://v1/review-comment/legacy_review-comment_1)",
+      "[Build line 7](a4-context://v1/terminal/legacy_terminal_1) [f.ts line](a4-context://v1/review-comment/legacy_review-comment_1)",
     );
   });
 
@@ -488,10 +488,10 @@ describe("upgradeLegacyContextMessage", () => {
     const upgraded = upgradeLegacyContextMessage(text);
     expect(upgraded.text).toBe(
       [
-        "See [T line 1](t3-context://v1/terminal/legacy_terminal_1)",
-        "[f.ts line](t3-context://v1/review-comment/legacy_review-comment_1)",
+        "See [T line 1](a4-context://v1/terminal/legacy_terminal_1)",
+        "[f.ts line](a4-context://v1/review-comment/legacy_review-comment_1)",
         "",
-        "[<div>](t3-context://v1/element/legacy_element_1) [P](t3-context://v1/preview-annotation/legacy_preview-annotation_1)",
+        "[<div>](a4-context://v1/element/legacy_element_1) [P](a4-context://v1/preview-annotation/legacy_preview-annotation_1)",
       ].join("\n"),
     );
     expect(upgraded.records.map((record) => record.contextId)).toEqual([

@@ -13,7 +13,7 @@ import {
   type AuthSessionState,
   type ExecutionEnvironmentDescriptor,
   type EnvironmentAuthInvalidError,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as DateTime from "effect/DateTime";
 import type * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -116,9 +116,7 @@ export async function installEnvironmentHttpTest(scenario: EnvironmentHttpTestSc
             )
             .handle("revokePairingLink", () => unexpectedEndpoint("auth.revokePairingLink"))
             .handle("revokeClient", () => unexpectedEndpoint("auth.revokeClient"))
-            .handle("revokeOtherClients", () => unexpectedEndpoint("auth.revokeOtherClients"))
-            .handle("approveConnectDevice", () => unexpectedEndpoint("auth.approveConnectDevice"))
-            .handle("revokeConnectDevice", () => unexpectedEndpoint("auth.revokeConnectDevice")),
+            .handle("revokeOtherClients", () => unexpectedEndpoint("auth.revokeOtherClients")),
         ),
       ]),
       Effect.provideService(EnvironmentAuthenticatedAuth, authenticatedAuth),

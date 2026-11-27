@@ -1,13 +1,13 @@
-import type { EnvironmentSpeechModel, EnvironmentSpeechStatus } from "@t3tools/contracts";
+import type { EnvironmentSpeechModel, EnvironmentSpeechStatus } from "@a4code/contracts";
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 test(
   "Voice settings keeps progress below 100 percent while the final write is pending",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    await t3.project("demo");
+  async ({ a4code, app, browser, screen }) => {
+    await a4code.project("demo");
     // The download stream reports received bytes before the file sink finishes writing them.
     const model = {
       id: "scenario-speech",
@@ -43,7 +43,7 @@ test(
       route.fulfill({ json: { models: [model] } }),
     );
 
-    await t3.open("/settings/voice");
+    await a4code.open("/settings/voice");
     await screen.getByRole("combobox", "Transcribe with").tap();
     await screen.getByRole("option").nth(1).tap();
     const progress = screen.getByText(/^\d+% downloaded$/);

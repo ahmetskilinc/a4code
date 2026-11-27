@@ -1,9 +1,9 @@
 import type { Element, Root } from "hast";
 import { toHtml } from "hast-util-to-html";
 import { describe, expect, it } from "vite-plus/test";
-import { serializeComposerFileLink } from "@t3tools/shared/composerTrigger";
-import { searchableMessageSegments } from "@t3tools/shared/threadFindText";
-import { extractMarkdownLinkHrefs, isMarkdownFileLinkLabel } from "@t3tools/shared/markdownLinks";
+import { serializeComposerFileLink } from "@a4code/shared/composerTrigger";
+import { searchableMessageSegments } from "@a4code/shared/threadFindText";
+import { extractMarkdownLinkHrefs, isMarkdownFileLinkLabel } from "@a4code/shared/markdownLinks";
 
 import {
   decodeMarkdownLinkEscapes,
@@ -145,8 +145,8 @@ const CASES: ReadonlyArray<readonly [markdown: string, html: string]> = [
     '<div data-codex-artifact-template="true" data-artifact-kind="document" data-display-name="Doc" data-skill-directory="/s" data-skill-name="artifact-template-doc"></div>\n<p dir="ltr">::artifact-template{bad="x"}</p>',
   ],
   [
-    "[file](C:\\work\\a.ts) and C:\\Users\\me\\.t3\\shot.png and \\*kept\\*",
-    '<p dir="ltr"><a href="file:///C:/work/a.ts">file</a> and C:\\Users\\me\\.t3\\shot.png and *kept*</p>',
+    "[file](C:\\work\\a.ts) and C:\\Users\\me\\.a4code\\shot.png and \\*kept\\*",
+    '<p dir="ltr"><a href="file:///C:/work/a.ts">file</a> and C:\\Users\\me\\.a4code\\shot.png and *kept*</p>',
   ],
   [
     '```ts title="a.ts"\nconst a = 1;\n```',
@@ -519,7 +519,7 @@ describe("wordsHast", () => {
 
   it("keeps authored SVG and ids out of the math it restores", () => {
     const html = wordsHtml(
-      '<svg width="99999" viewBox="0 0 1 1"><rect x="0" y="0" width="1" height="1"/></svg> <svg data-sourcepos="0-3" height="99999"></svg> <span id="t3-math-0">kept</span> $x$',
+      '<svg width="99999" viewBox="0 0 1 1"><rect x="0" y="0" width="1" height="1"/></svg> <svg data-sourcepos="0-3" height="99999"></svg> <span id="a4-math-0">kept</span> $x$',
       { math: true },
     );
     expect(html).not.toContain("99999");

@@ -2,8 +2,10 @@ import {
   DEFAULT_PROVIDER_HEALTH_REFRESH_INTERVAL,
   type ServerProvider,
   ServerSettingsError,
-} from "@t3tools/contracts";
-import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgroundActivitySettings";
+} from "@a4code/contracts";
+import { resolveServerBackgroundActivitySettings } from "@a4code/shared/backgroundActivitySettings";
+import * as HostProcess from "@a4code/shared/HostProcess";
+import { SpawnExecutableResolution } from "@a4code/shared/shell";
 import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -23,6 +25,32 @@ import {
   resolveUsageLimitsAfterProbe,
 } from "./usageLimits.ts";
 import type { ManagedServerProvider } from "./snapshot.ts";
+
+export function readLocalCliStatus(input: {
+  readonly binaryPath: string;
+  readonly environment: NodeJS.ProcessEnv;
+  readonly configuredServer?: boolean;
+}) {
+  return Effect.fn("readLocalCliStatus")(function* (snapshot: ServerProvider) {
+    if (!snapshot.enabled) return snapshot;
+    const resolve = yield* SpawnExecutableResolution;
+    const platform = yield* HostProcess.Platform;
+    const installed =
+      input.configuredServer === true ||
+      (yield* Effect.promise(async () =>
+        resolve(input.binaryPath, platform, input.environment),
+      )) !== undefined;
+    const { message: _pendingMessage, ...rest } = snapshot;
+    return {
+      ...rest,
+      installed,
+      status: installed ? ("ready" as const) : ("error" as const),
+      ...(!installed
+        ? { message: "Provider executable could not be found on this environment." }
+        : {}),
+    };
+  });
+}
 
 interface ProviderSnapshotState {
   readonly snapshot: ServerProvider;
@@ -49,7 +77,7 @@ const FAILED_CHECK_RECHECK_DELAY = "30 seconds";
  * True inside a `checkProvider` whose failure over a ready provider is discarded for a recheck.
  * A provider that also records check results in its own state must leave that failure out of it.
  */
-export const DeferringFailedCheck = Context.Reference<boolean>("t3/provider/DeferringFailedCheck", {
+export const DeferringFailedCheck = Context.Reference<boolean>("a4code/provider/DeferringFailedCheck", {
   defaultValue: () => false,
 });
 
@@ -466,9 +494,7 @@ export const makeManagedServerProvider = Effect.fn("makeManagedServerProvider")(
     resolveMaintenance: input.resolveMaintenance,
     getSnapshot: Ref.get(snapshotStateRef).pipe(Effect.map((state) => state.snapshot)),
     isAwaitingFirstCheck: Ref.get(snapshotStateRef).pipe(Effect.map((state) => !state.checked)),
-    refresh: input
-      .resolveMaintenance({ fresh: true })
-      .pipe(Effect.andThen(refreshSnapshot), Effect.tapError(Effect.logError), Effect.orDie),
+    refresh: refreshSnapshot().pipe(Effect.tapError(Effect.logError), Effect.orDie),
     applyUsageLimits,
     refreshUsage: refreshUsage(),
     get streamChanges() {

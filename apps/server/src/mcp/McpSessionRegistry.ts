@@ -1,4 +1,4 @@
-import { ProviderInstanceId, ThreadId } from "@t3tools/contracts";
+import { ProviderInstanceId, ThreadId } from "@a4code/contracts";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Digest from "effect/crypto/Digest";
@@ -11,8 +11,8 @@ import * as NetAddress from "effect/net/NetAddress";
 
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as McpInvocationContext from "./McpInvocationContext.ts";
-import * as McpProviderSession from "@t3tools/provider-core/server/mcpSession";
-import { routineSpan } from "@t3tools/shared/observability";
+import * as McpProviderSession from "@a4code/provider-core/server/mcpSession";
+import { routineSpan } from "@a4code/shared/observability";
 
 export interface McpCredentialRequest {
   readonly threadId: ThreadId;
@@ -41,7 +41,7 @@ export interface McpSessionRegistryShape {
 export class McpSessionRegistry extends Context.Service<
   McpSessionRegistry,
   McpSessionRegistryShape
->()("t3/mcp/McpSessionRegistry") {}
+>()("a4code/mcp/McpSessionRegistry") {}
 
 interface AliveMark {
   readonly wallMs: number;

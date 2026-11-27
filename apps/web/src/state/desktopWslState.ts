@@ -1,5 +1,5 @@
-import { revalidateOnMount } from "@t3tools/client-runtime/state/runtime";
-import type { DesktopBridge, DesktopWslState } from "@t3tools/contracts";
+import { revalidateOnMount } from "@a4code/client-runtime/state/runtime";
+import type { DesktopBridge, DesktopWslState } from "@a4code/contracts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Atom } from "effect/reactivity";

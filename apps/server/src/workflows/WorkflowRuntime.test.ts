@@ -1,7 +1,7 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
-import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
+import * as NodeSqliteClient from "@a4code/shared/nodeSqliteClient";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -30,11 +30,11 @@ import { engineTag, type WorkflowDefinition } from "./workflow.ts";
 import * as Workflows from "./Workflows.ts";
 
 /** Waits to be let go. */
-const hold = `T3.workflow("hold", { version: 1, payload: Schema.Struct({}), returns: Schema.String }, () =>
-  Effect.map(T3.wait("go", { returns: Schema.String }), (said) => Option.getOrElse(said, () => "nobody")),
+const hold = `a4code.workflow("hold", { version: 1, payload: Schema.Struct({}), returns: Schema.String }, () =>
+  Effect.map(a4code.wait("go", { returns: Schema.String }), (said) => Option.getOrElse(said, () => "nobody")),
 );
 `;
-const greet = (says: string) => `const { workflow } = T3;
+const greet = (says: string) => `const { workflow } = a4code;
 workflow("greet", { version: 1, payload: Schema.Struct({}), returns: Schema.String }, () =>
   Effect.succeed(${JSON.stringify(says)}),
 );
@@ -51,7 +51,7 @@ const setup = Effect.fn("setup")(function* (
 ) {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const home = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-workflow-defs-" });
+  const home = yield* fileSystem.makeTempDirectoryScoped({ prefix: "a4-workflow-defs-" });
   const directory = path.join(home, "workflows");
   const at = (name: string) => path.join(directory, name);
   yield* fileSystem.makeDirectory(directory);
@@ -99,7 +99,7 @@ it.effect(
         yield* workflows.waitFor(held.runId, (run) => run.status === "waiting");
 
         // A file that does not parse is not written, and says where it breaks.
-        const broken = yield* definitions.save("greet.ts", "T3.workflow(\n  'x',\n];\n");
+        const broken = yield* definitions.save("greet.ts", "a4code.workflow(\n  'x',\n];\n");
         assert.isFalse(broken.changed);
         assert.deepStrictEqual(
           broken.problems.map((problem) => [problem.file, problem.line]),
@@ -125,22 +125,22 @@ it.effect(
         // Nor one with an option nothing reads, or a time a schedule cannot fire at.
         const misspelt = yield* definitions.save(
           "misspelt.ts",
-          'T3.workflow("misspelt", { version: 1, payload: Schema.Struct({}), retries: 2 }, () => Effect.void);\n',
+          'a4code.workflow("misspelt", { version: 1, payload: Schema.Struct({}), retries: 2 }, () => Effect.void);\n',
         );
         assert.include(misspelt.problems[0]?.message ?? "", "does not take `retries`");
         const late = yield* definitions.save(
           "late.ts",
-          'T3.workflow("late", { version: 1, payload: T3.Tick, triggers: [T3.daily("9am")] }, () => Effect.void);\n',
+          'a4code.workflow("late", { version: 1, payload: a4code.Tick, triggers: [a4code.daily("9am")] }, () => Effect.void);\n',
         );
         assert.include(late.problems[0]?.message ?? "", "24-hour time");
         const banana = yield* definitions.save(
           "banana.ts",
-          'T3.workflow("banana", { version: 1, payload: T3.Tick, triggers: [T3.every("banana")] }, () => Effect.void);\n',
+          'a4code.workflow("banana", { version: 1, payload: a4code.Tick, triggers: [a4code.every("banana")] }, () => Effect.void);\n',
         );
         assert.include(banana.problems[0]?.message ?? "", 'Write one such as "5 minutes"');
         const twoHooks = yield* definitions.save(
           "hooks.ts",
-          'T3.workflow("hooks", { version: 1, payload: T3.WebhookRequest, triggers: [T3.webhook("in"), T3.webhook("in")] }, () => Effect.void);\n',
+          'a4code.workflow("hooks", { version: 1, payload: a4code.WebhookRequest, triggers: [a4code.webhook("in"), a4code.webhook("in")] }, () => Effect.void);\n',
         );
         assert.include(twoHooks.problems[0]?.message ?? "", 'two hooks named "in"');
         assert.include((yield* definitions.remove("hold.ts")).problems[0]?.message ?? "", "hold@1");
@@ -163,7 +163,7 @@ it.effect(
         );
         // Only that file is held back: another file's change still runs, and the held one says why.
         const other =
-          'T3.workflow("other", { version: 1, payload: Schema.Struct({}) }, () => Effect.void);\n';
+          'a4code.workflow("other", { version: 1, payload: Schema.Struct({}) }, () => Effect.void);\n';
         // A file the folder's naming leaves out says so, instead of never running without a word.
         yield* fileSystem.writeFileString(at("my flow.ts"), other);
         assert.deepStrictEqual(yield* definitions.save("other.ts", other), {
@@ -209,7 +209,7 @@ it.effect(
             Stream.filter((snapshot) => (snapshot.definition?.problem != null) === wanted),
             Stream.runHead,
           );
-        yield* fileSystem.writeFileString(at("greet.ts"), "T3.workflow(");
+        yield* fileSystem.writeFileString(at("greet.ts"), "a4code.workflow(");
         yield* problem(true);
         const read = yield* definitions.read;
         assert.deepStrictEqual(
@@ -315,7 +315,7 @@ it.effect(
         // A definition that passes the checks but takes the engine down at start changes nothing.
         yield* fileSystem.writeFileString(
           at("broken.ts"),
-          'T3.workflow("broken", { version: 1, payload: Schema.Struct({}) }, () => Effect.void);\n',
+          'a4code.workflow("broken", { version: 1, payload: Schema.Struct({}) }, () => Effect.void);\n',
         );
         const fellBack = yield* definitions.save("greet.ts", greet("hello"));
         assert.isTrue(fellBack.changed);
@@ -351,7 +351,7 @@ it.effect("a file that never finishes loading is given up on, and later files st
 it.effect("a file loads whatever kinds its asks name, and only a malformed `asks` is refused", () =>
   Effect.gen(function* () {
     const { at, fileSystem } = yield* setup();
-    const sorter = (asks: string) => `const { workflow, ask } = T3;
+    const sorter = (asks: string) => `const { workflow, ask } = a4code;
 workflow("sorter", { version: 1, payload: Schema.Struct({})${asks} }, () =>
   ask("sort", { kind: "feture", title: "Which way?", choices: ["Yes", "No"] }),
 );
@@ -376,12 +376,12 @@ it.effect("a file given up on registers nothing into the file that loads after i
     const { at, fileSystem } = yield* setup();
     yield* fileSystem.writeFileString(
       at("slow.ts"),
-      'await new Promise((resolve) => { globalThis.t3TestResume = resolve; });\nT3.workflow("slow", { version: 1, payload: Schema.Struct({}) }, () => Effect.void);\n',
+      'await new Promise((resolve) => { globalThis.a4TestResume = resolve; });\nT3.workflow("slow", { version: 1, payload: Schema.Struct({}) }, () => Effect.void);\n',
     );
     // The second file goes on loading until the first one's top level has run to its end.
     yield* fileSystem.writeFileString(
       at("next.ts"),
-      `${greet("hi")}globalThis.t3TestResume();\nawait new Promise((resolve) => setImmediate(resolve));\n`,
+      `${greet("hi")}globalThis.a4TestResume();\nawait new Promise((resolve) => setImmediate(resolve));\n`,
     );
     yield* WorkflowRuntime.loadDefinitions(at("slow.ts"), 0, 50).pipe(Effect.flip);
     const loaded = yield* WorkflowRuntime.loadDefinitions(at("next.ts"));
@@ -485,8 +485,8 @@ it.effect(
       });
       yield* fileSystem.writeFileString(
         at("helper.ts"),
-        `T3.workflow("helper", { version: 1, payload: Schema.Struct({}), returns: Schema.String }, () =>
-  Effect.map(T3.agent("work", { brief: "Do it.", project: "p" }), (done) => done.value),
+        `a4code.workflow("helper", { version: 1, payload: Schema.Struct({}), returns: Schema.String }, () =>
+  Effect.map(a4code.agent("work", { brief: "Do it.", project: "p" }), (done) => done.value),
 );
 `,
       );
@@ -538,9 +538,9 @@ it.effect(
       // Its top level counts the times it was loaded.
       yield* fileSystem.writeFileString(
         at("counted.ts"),
-        "globalThis.t3GatedLoads = (globalThis.t3GatedLoads ?? 0) + 1;\nexport default [];\n",
+        "globalThis.a4GatedLoads = (globalThis.a4GatedLoads ?? 0) + 1;\nexport default [];\n",
       );
-      const loads = () => (globalThis as { t3GatedLoads?: number }).t3GatedLoads ?? 0;
+      const loads = () => (globalThis as { a4GatedLoads?: number }).a4GatedLoads ?? 0;
       yield* Effect.gen(function* () {
         const { turn, context } = yield* WorkflowRuntime.gate(made, directory);
         const workflows = Context.get(context, Workflows.Workflows);

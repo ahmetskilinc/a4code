@@ -203,9 +203,9 @@ describe("collectComposerInlineTokens", () => {
 
   it("leaves a context reference link alone", () => {
     expect(
-      collectComposerInlineTokens("see [checkout.png](t3-context://v1/image/ctx_abc) ok"),
+      collectComposerInlineTokens("see [checkout.png](a4-context://v1/image/ctx_abc) ok"),
     ).toEqual([]);
-    expect(collectComposerInlineTokens("see ![ctx_abc](t3-context://v1/image/ctx_abc) ok")).toEqual(
+    expect(collectComposerInlineTokens("see ![ctx_abc](a4-context://v1/image/ctx_abc) ok")).toEqual(
       [],
     );
   });
@@ -344,8 +344,8 @@ describe("collectComposerInlineTokens", () => {
 
   it.each([
     [`${serializeComposerFileLink("app/routes/posts.$postId.tsx")} sets $x_i$`, ["$x_i$"]],
-    ["[Fix $x$ parsing](t3-context://v1/thread/thread_1) sets $x_i$", ["$x_i$"]],
-    ["Use $ui with [posts.$b.tsx](t3-context://v1/file/ctx_1) ", []],
+    ["[Fix $x$ parsing](a4-context://v1/thread/thread_1) sets $x_i$", ["$x_i$"]],
+    ["Use $ui with [posts.$b.tsx](a4-context://v1/file/ctx_1) ", []],
   ])("ignores TeX delimiters inside file links and context references: %s", (text, formulas) => {
     expect(composerMathRanges(text, markdownMathRanges).map((formula) => formula.source)).toEqual(
       formulas,

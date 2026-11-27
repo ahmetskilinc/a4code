@@ -1,16 +1,15 @@
 import { useAtomValue } from "@effect/atom-react";
-import { resolvePullRequestDetailChecks } from "@t3tools/client-runtime/pull-request-checks";
-import { pullRequestPendingEditsFor } from "@t3tools/client-runtime/state/pull-requests";
+import { resolvePullRequestDetailChecks } from "@a4code/client-runtime/pull-request-checks";
+import { pullRequestPendingEditsFor } from "@a4code/client-runtime/state/pull-requests";
 import {
   AuthSourceControlWriteScope,
   type EnvironmentId,
   type PullRequestListEntry,
   type PullRequestRef,
   type ProjectId,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { useState } from "react";
 
-import { usePullRequestChecksRefresh } from "~/hooks/usePullRequestChecksRefresh";
 import { useServerConfigs } from "~/state/entities";
 import { useEnvironmentQuery } from "~/state/query";
 import { useEnvironmentScope } from "~/state/session";
@@ -99,17 +98,6 @@ export function usePullRequestDetail(
     checksQuery.data,
     checksQuery.dataUpdatedAt >= detailQuery.dataUpdatedAt,
   );
-  usePullRequestChecksRefresh({
-    refresh: () => {
-      if (!checksQuery.isPending && !detailQuery.isPending) checksQuery.refresh();
-    },
-    enabled:
-      liveDetail?.state === "open" &&
-      supportsChecks &&
-      !(checksQuery.isSuccess && checksQuery.data === null),
-    key: `workspace-pr-checks:${environmentId}:${reference.projectId}:${reference.host}:${reference.repository}:${reference.number}`,
-    checks: liveDetail?.checks ?? [],
-  });
   const [cachedDetail, setCachedDetail] = useState(() =>
     readPullRequestDetailSnapshot(
       typeof window === "undefined" ? undefined : window.localStorage,

@@ -1,7 +1,7 @@
 import * as Cause from "effect/Cause";
-import { scopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
-import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { scopedThreadKey, scopeThreadRef } from "@a4code/client-runtime/environment";
+import type { EnvironmentThreadShell } from "@a4code/client-runtime/state/shell";
+import { EnvironmentId, ThreadId } from "@a4code/contracts";
 import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 

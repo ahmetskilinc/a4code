@@ -10,14 +10,11 @@ import {
   AuthOrchestrationReadScope,
   AuthPreviewOperateScope,
   AuthProvidersManageScope,
-  AuthRelayReadScope,
-  AuthRelayConfigureScope,
-  AuthRelayWriteScope,
   AuthSettingsWriteScope,
   AuthSourceControlWriteScope,
   AuthTerminalOperateScope,
   AuthTerminalReadScope,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { mFallback, msg } from "gt-i18n";
 import type { MFunctionType } from "gt-i18n/types";
 
@@ -49,7 +46,7 @@ export const AUTH_SCOPE_OPTIONS: ReadonlyArray<{
   {
     scope: AuthEnvironmentMaintainScope,
     title: msg("Maintain environment"),
-    description: msg("Update the server and control environment processes."),
+    description: msg("Control environment processes."),
   },
   {
     scope: AuthPreviewOperateScope,
@@ -95,23 +92,6 @@ export const AUTH_SCOPE_OPTIONS: ReadonlyArray<{
     scope: AuthAccessWriteScope,
     title: msg("Manage access"),
     description: msg("Issue and revoke credentials for other clients."),
-  },
-  {
-    scope: AuthRelayReadScope,
-    title: msg("View relay"),
-    description: msg("Inspect managed relay connectivity."),
-  },
-  {
-    scope: AuthRelayWriteScope,
-    title: msg("Manage relay"),
-    description: msg("Update relay preferences or unlink T3 Connect."),
-  },
-  {
-    scope: AuthRelayConfigureScope,
-    title: msg("Configure relay (admin)"),
-    description: msg(
-      "Set up or replace T3 Connect, including its trusted pairing credential issuer.",
-    ),
   },
 ];
 

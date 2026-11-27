@@ -395,72 +395,13 @@ export const isProviderAvailable = (snapshot: ServerProvider): boolean =>
 export const isProviderTextGenerationCapable = (snapshot: ServerProvider): boolean =>
   snapshot.supportsTextGeneration !== false;
 
-export const OtlpEndpointSource = Schema.Literals(["environment", "bootstrap", "settings"]);
-export type OtlpEndpointSource = typeof OtlpEndpointSource.Type;
-
 export const ServerObservability = Schema.Struct({
   logsDirectoryPath: TrimmedNonEmptyString,
   localTracingEnabled: Schema.Boolean,
-  otlpTracesUrl: Schema.optional(TrimmedNonEmptyString),
-  otlpTracesSource: Schema.optional(OtlpEndpointSource),
-  otlpTracesVariable: Schema.optional(TrimmedNonEmptyString),
-  otlpTracesEnabled: Schema.Boolean,
-  otlpMetricsUrl: Schema.optional(TrimmedNonEmptyString),
-  otlpMetricsSource: Schema.optional(OtlpEndpointSource),
-  otlpMetricsVariable: Schema.optional(TrimmedNonEmptyString),
-  otlpMetricsEnabled: Schema.Boolean,
-  otlpLogsUrl: Schema.optional(TrimmedNonEmptyString),
-  otlpLogsSource: Schema.optional(OtlpEndpointSource),
-  otlpLogsVariable: Schema.optional(TrimmedNonEmptyString),
-  otlpLogsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
-  /** Relay tracing policy for browsers opened from this server. */
-  relayTracingAllowed: Schema.optionalKey(Schema.Boolean),
 });
 export type ServerObservability = typeof ServerObservability.Type;
 
-export const OtlpSignal = Schema.Literals(["traces", "metrics", "logs"]);
-export type OtlpSignal = typeof OtlpSignal.Type;
-
-export const OtlpEndpointCheckInput = Schema.Struct({
-  signal: OtlpSignal,
-  url: TrimmedNonEmptyString.check(Schema.isPattern(/^https?:\/\/./i)),
-});
-export type OtlpEndpointCheckInput = typeof OtlpEndpointCheckInput.Type;
-
-export const OtlpEndpointCheckResult = Schema.Union([
-  Schema.TaggedStruct("Accepted", { latencyMs: Schema.Number }),
-  Schema.TaggedStruct("Rejected", { status: Schema.Number }),
-  Schema.TaggedStruct("Unreachable", { timedOut: Schema.Boolean }),
-]);
-export type OtlpEndpointCheckResult = typeof OtlpEndpointCheckResult.Type;
-
 /** The client tells the server what it is, so the triage context can name it. */
-export const ServerPrepareTriageInput = Schema.Struct({
-  client: AuthClientPresentationMetadata,
-});
-export type ServerPrepareTriageInput = typeof ServerPrepareTriageInput.Type;
-
-export const ServerPrepareTriageResult = Schema.Struct({
-  /** Composer text that links the session's prompt file. */
-  prompt: Schema.String,
-});
-export type ServerPrepareTriageResult = typeof ServerPrepareTriageResult.Type;
-
-/**
- * The prompt file links as a chip in the user's message; clients spot a triage
- * draft by it.
- */
-export const TRIAGE_PROMPT_FILE_NAME = "triage-playbook.md";
-
-export class ServerPrepareTriageError extends Schema.TaggedError<ServerPrepareTriageError>()(
-  "ServerPrepareTriageError",
-  { cause: Schema.optional(Schema.Defect()) },
-) {
-  override get message(): string {
-    return "Could not write the triage session files.";
-  }
-}
-
 export const ServerTraceDiagnosticsErrorKind = Schema.Literals([
   "trace-file-not-found",
   "trace-file-read-failed",
@@ -732,7 +673,7 @@ export const ServerEventLoopStall = Schema.Struct({
 });
 export type ServerEventLoopStall = typeof ServerEventLoopStall.Type;
 
-/** The boolean `T3CODE_FEATURE_FLAGS` a server started with. Unset flags are off. */
+/** The boolean `A4CODE_FEATURE_FLAGS` a server started with. Unset flags are off. */
 export const ServerFeatureFlags = Schema.Struct({
   secretProviders: Schema.optionalKey(Schema.Boolean),
   tanstackSource: Schema.optionalKey(Schema.Boolean),

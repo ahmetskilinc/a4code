@@ -1,5 +1,5 @@
-import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
-import { splitsSurrogatePair } from "@t3tools/shared/assistantCitations";
+import type { EnvironmentId, ProjectId } from "@a4code/contracts";
+import { splitsSurrogatePair } from "@a4code/shared/assistantCitations";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { type PullRequestListSort } from "../components/pullRequest/pullRequestListPreferences";

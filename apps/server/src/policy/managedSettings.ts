@@ -6,7 +6,7 @@ import {
   type RuntimeMode,
   ServerSettings,
   withIdleCompaction,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as Exit from "effect/Exit";
 import * as Schema from "effect/Schema";
 import * as SchemaAST from "effect/SchemaAST";
@@ -34,7 +34,6 @@ const UNMANAGEABLE_KEYS: ReadonlySet<string> = new Set([
  * loads, and the user's OTLP environment variables outrank them, so a managed value would look
  * enforced without being.
  */
-const ENVIRONMENT_OVERRIDDEN_KEYS: ReadonlySet<string> = new Set(["observability"]);
 
 /** Legacy settings the server derives from another on every write; manage that one instead. */
 const DERIVED_FROM: ReadonlyMap<string, string> = new Map([
@@ -269,7 +268,6 @@ export function listManageableSettings() {
     .filter(
       ([key]) =>
         !UNMANAGEABLE_KEYS.has(key) &&
-        !ENVIRONMENT_OVERRIDDEN_KEYS.has(key) &&
         !DERIVED_FROM.has(key),
     )
     .flatMap(([key, field]) => leaves(key, getPath(builtIn, [key]), field.ast))
@@ -293,12 +291,6 @@ export function makeManagedSettings(
     }
     if (!(head in ServerSettings.fields) || UNMANAGEABLE_KEYS.has(head)) {
       return { _tag: "Invalid", reason: `"${path}" is not a setting this version can manage` };
-    }
-    if (ENVIRONMENT_OVERRIDDEN_KEYS.has(head)) {
-      return {
-        _tag: "Invalid",
-        reason: `"${path}" is resolved at startup from each user's environment, settings file and desktop bootstrap input, which a policy cannot override`,
-      };
     }
     const source = DERIVED_FROM.get(head);
     if (source !== undefined) {

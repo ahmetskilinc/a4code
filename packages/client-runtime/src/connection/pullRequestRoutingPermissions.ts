@@ -1,6 +1,6 @@
 import { msg } from "gt-i18n";
 import { translatableDetail } from "../errors/translatable.ts";
-import { EnvironmentId } from "@t3tools/contracts";
+import { EnvironmentId } from "@a4code/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -44,8 +44,6 @@ function routeConnectionKey(
   routeProfile: ConnectionCatalogEntry["profile"],
 ): string | null {
   const entry = { profile: routeProfile };
-  if (target._tag === "RelayConnectionTarget")
-    return JSON.stringify([target._tag, target.environmentId]);
   const profile = Option.getOrNull(entry.profile);
   if (target._tag === "SshConnectionTarget") {
     if (profile?._tag !== "SshConnectionProfile") return null;
@@ -95,7 +93,7 @@ export class PullRequestRoutingPermissions extends Context.Reference<{
     permission: PullRequestRoutingPermission,
   ) => Effect.Effect<void, ConnectionAttemptError>;
   readonly forget: (environmentId: EnvironmentId) => Effect.Effect<void, ConnectionAttemptError>;
-}>("@t3tools/client-runtime/connection/PullRequestRoutingPermissions", {
+}>("@a4code/client-runtime/connection/PullRequestRoutingPermissions", {
   defaultValue: () => ({
     get: () => Effect.succeed("off"),
     changes: Stream.succeed([]),

@@ -3,7 +3,7 @@ import {
   fullAccessOverrideExplanation,
   PUSH_HOOKS_APPROVAL_LABEL,
   PUSH_HOOKS_APPROVAL_QUESTION,
-} from "@t3tools/client-runtime/state/thread-requests";
+} from "@a4code/client-runtime/state/thread-requests";
 import { msg, T, useMessages } from "gt-react";
 import { ShieldIcon } from "lucide-react";
 import { memo, use } from "react";
@@ -52,7 +52,7 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
   const { respondingRequestIds, canOperateThread, onRespondToApproval } = use(TimelineRowCtx);
   const m = useMessages();
   const presentation = APPROVAL_PRESENTATION[approval.requestKind];
-  // T3 Code's own question reads as the app asking: a plain sentence, then what it names.
+  // a4code's own question reads as the app asking: a plain sentence, then what it names.
   const { pushHooks } = approval;
   const label = pushHooks ? PUSH_HOOKS_APPROVAL_LABEL : presentation.label;
   const canRespond = approval.responseCapability === "live";

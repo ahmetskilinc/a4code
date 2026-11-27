@@ -1,15 +1,11 @@
-import { CheckpointScopeId, ProjectId, RunId, ThreadId } from "@t3tools/contracts";
+import { CheckpointScopeId, ProjectId, RunId, ThreadId } from "@a4code/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FiberMap from "effect/FiberMap";
 import * as FiberSet from "effect/FiberSet";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import * as ProjectEnrichment from "../project/ProjectEnrichmentService.ts";
-import * as ProjectService from "../project/ProjectService.ts";
-import * as PullRequestService from "../pullRequest/PullRequestService.ts";
 import * as VcsStatusBroadcaster from "../vcs/VcsStatusBroadcaster.ts";
 import * as WorkspaceEntries from "../workspace/WorkspaceEntries.ts";
 import * as CheckpointCapture from "./CheckpointCaptureService.ts";
@@ -45,7 +41,7 @@ export class RunFinalizationObserver extends Context.Reference<{
     readonly threadId: ThreadId;
     readonly cwds: ReadonlyArray<string>;
   }) => Effect.Effect<void>;
-}>("t3/orchestration-v2/RunFinalizationObserver", {
+}>("a4code/orchestration-v2/RunFinalizationObserver", {
   defaultValue: () => ({
     refresh: () => Effect.void,
     refreshAfterTurn: () => Effect.void,
@@ -62,7 +58,7 @@ export class RunFinalizationService extends Context.Service<
       readonly scopeId: CheckpointScopeId;
     }) => Effect.Effect<void, RunFinalizationError>;
   }
->()("t3/orchestration-v2/RunFinalizationService") {}
+>()("a4code/orchestration-v2/RunFinalizationService") {}
 
 const make = Effect.gen(function* () {
   const checkpointCapture = yield* CheckpointCapture.CheckpointCaptureServiceV2;
@@ -124,37 +120,9 @@ export const layerObserver = Layer.effect(
   Effect.gen(function* () {
     const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
     const vcsStatus = yield* VcsStatusBroadcaster.VcsStatusBroadcaster;
-    const projections = yield* ProjectionStore.ProjectionStoreV2;
-    const pullRequests = yield* PullRequestService.PullRequestService;
-    const projects = yield* ProjectService.ProjectService;
-    const enrichment = yield* ProjectEnrichment.ProjectEnrichmentService;
-    const pullRequestLookups = yield* FiberMap.make<string>();
     const repositoryRefreshes = yield* FiberMap.make<ThreadId>();
-    const identityRefreshes = yield* FiberMap.make<ProjectId>();
-    // A turn can add the first remote (`git remote add`, `gh repo create --push`), which the
-    // enrichment and resolver caches would otherwise keep reporting as missing for a minute.
-    const refreshMissingRepositoryIdentity = Effect.fn(
-      "RunFinalizationService.refreshMissingRepositoryIdentity",
-    )(
-      function* (projectId: ProjectId) {
-        const project = yield* projects.getById(projectId);
-        if (Option.isNone(project)) return;
-        const { workspaceRoot } = project.value;
-        if ((yield* enrichment.readRepositoryIdentity(workspaceRoot)) !== null) return;
-        yield* enrichment.refreshRepositoryIdentity(workspaceRoot);
-      },
-      (effect, projectId) =>
-        effect.pipe(
-          Effect.catch((error) =>
-            Effect.logWarning("failed to refresh repository identity after run completion", {
-              projectId,
-              detail: error.message,
-            }),
-          ),
-        ),
-    );
     return {
-      refreshAfterTurn: pullRequests.refreshAfterTurn,
+      refreshAfterTurn: Effect.fn("RunFinalizationObserver.refreshAfterTurn")(() => Effect.void),
       // A project can track dozens of repositories, so the next turn must not wait for them all.
       // A newer turn's refresh replaces a running one.
       refreshRepositories: Effect.fn("RunFinalizationService.refreshRepositories")(function* ({
@@ -177,32 +145,11 @@ export const layerObserver = Layer.effect(
         ).pipe(FiberMap.run(repositoryRefreshes, threadId));
       }),
       refresh: Effect.fn("RunFinalizationService.refresh")(
-        function* ({ cwd, threadId, runId }) {
-          const [, local] = yield* Effect.all(
-            [workspaceEntries.refresh(cwd), vcsStatus.refreshLocalStatus(cwd)],
-            { concurrency: "unbounded" },
-          );
-          const thread = yield* projections.getThreadShell(threadId);
-          if (!thread) return;
-          // Forge discovery probes can take seconds; like the PR lookup, the next turn must not wait.
-          yield* refreshMissingRepositoryIdentity(thread.projectId).pipe(
-            FiberMap.run(identityRefreshes, thread.projectId),
-          );
-          if (local.refName === null || local.isDefaultRef) return;
-          if (thread.branch !== local.refName) return;
-          if (thread.activeRunId !== null && thread.activeRunId !== runId) return;
-          // The forge CLI can take minutes, so the next turn must not wait for it. A newer
-          // turn's lookup replaces a running one instead of queueing behind the cwd's lock.
-          yield* vcsStatus.refreshPullRequestStatus(cwd).pipe(
-            Effect.catch((error) =>
-              Effect.logWarning("failed to refresh pull request status after run completion", {
-                threadId,
-                cwd,
-                detail: error.message,
-              }),
-            ),
-            FiberMap.run(pullRequestLookups, cwd),
-          );
+        function* ({ cwd }) {
+          yield* Effect.all([workspaceEntries.refresh(cwd), vcsStatus.refreshLocalStatus(cwd)], {
+            concurrency: "unbounded",
+            discard: true,
+          });
         },
         (effect, { cwd }) =>
           effect.pipe(Effect.mapError((cause) => new RunFinalizationRefreshError({ cwd, cause }))),

@@ -1,5 +1,5 @@
-import { EnvironmentId } from "@t3tools/contracts";
-import { PrimaryConnectionTarget } from "@t3tools/client-runtime/connection";
+import { EnvironmentId } from "@a4code/contracts";
+import { PrimaryConnectionTarget } from "@a4code/client-runtime/connection";
 import * as DateTime from "effect/DateTime";
 import { Option } from "effect";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -24,7 +24,6 @@ vi.mock(import("../../state/environments"), async (original) => ({
         environmentId: EnvironmentId.make("desk"),
         label: "Desk",
         displayUrl: "http://localhost:12345",
-        relayManaged: false,
         entry: {
           target: new PrimaryConnectionTarget({
             environmentId: EnvironmentId.make("desk"),
@@ -76,11 +75,7 @@ const hub: FleetEnvironmentInput = {
 const renderSettingsMap = () =>
   render(
     <AppRouteModal label="Settings">
-      <EnvironmentsMap
-        onAddEnvironment={() => {}}
-        renderSavedEnvironment={() => null}
-        renderConnectMachine={() => null}
-      />
+      <EnvironmentsMap onAddEnvironment={() => {}} renderSavedEnvironment={() => null} />
     </AppRouteModal>,
     { router: "/settings/connections" },
   );
@@ -148,7 +143,6 @@ describe("EnvironmentsMap", () => {
     const graph = buildFleetGraph({
       clientLabel: "This browser",
       environments: [hub],
-      connectMachines: [],
       now: linkedAt,
     });
     const [stack] = fleetStacks(graph, new Set());
@@ -159,7 +153,6 @@ describe("EnvironmentsMap", () => {
           graph={graph}
           stacks={[stack!]}
           environments={[]}
-          connectProblem={null}
           selection={{ kind: "stack", id: stack!.id }}
           found={null}
           onSelect={onSelect}
@@ -167,7 +160,6 @@ describe("EnvironmentsMap", () => {
           onLinkBack={() => {}}
           onToggleStack={() => {}}
           renderSavedEnvironment={() => null}
-          renderConnectMachine={() => null}
           onAddEnvironment={() => {}}
         />
       </AppRouteModal>,

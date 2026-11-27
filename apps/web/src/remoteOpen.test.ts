@@ -2,11 +2,10 @@ import {
   BearerConnectionProfile,
   BearerConnectionTarget,
   PrimaryConnectionTarget,
-  RelayConnectionTarget,
   SshConnectionProfile,
   SshConnectionTarget,
-} from "@t3tools/client-runtime/connection";
-import { buildRemoteOpenUrl, EnvironmentId } from "@t3tools/contracts";
+} from "@a4code/client-runtime/connection";
+import { buildRemoteOpenUrl, EnvironmentId } from "@a4code/contracts";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -80,12 +79,12 @@ describe("resolveRemoteOpenState", () => {
     ).toEqual({ mode: "local-exec" });
   });
 
-  it("keeps exec behavior for the environment that owns the desktop's T3 home", () => {
+  it("keeps exec behavior for the environment that owns the desktop's a4code home", () => {
     // With Local environment off, a background service on this machine can own the
-    // desktop's home and still be reached through T3 Connect.
+    // desktop's home and still be reached over a paired network address.
     expect(
       resolveRemoteOpenState({
-        target: new RelayConnectionTarget({ environmentId, label: "sol" }),
+        target: new BearerConnectionTarget({ environmentId, connectionId: "paired", label: "sol" }),
         routes: [],
         isDesktopRenderer: true,
         remoteOpenTargets: TAILSCALE_TARGETS,
@@ -97,7 +96,7 @@ describe("resolveRemoteOpenState", () => {
   it("uses deep links for other environments when the desktop home has its own", () => {
     expect(
       resolveRemoteOpenState({
-        target: new RelayConnectionTarget({ environmentId, label: "sol" }),
+        target: new BearerConnectionTarget({ environmentId, connectionId: "paired", label: "sol" }),
         routes: [],
         isDesktopRenderer: true,
         remoteOpenTargets: TAILSCALE_TARGETS,
@@ -163,9 +162,13 @@ describe("resolveRemoteOpenState", () => {
     );
   });
 
-  it("uses the advertised login username in editor links over a relay", () => {
+  it("uses the advertised login username in editor links over a direct connection", () => {
     const state = resolveRemoteOpenState({
-      target: new RelayConnectionTarget({ environmentId, label: "server" }),
+      target: new BearerConnectionTarget({
+        environmentId,
+        connectionId: "paired",
+        label: "server",
+      }),
       routes: [],
       isDesktopRenderer: false,
       remoteOpenTargets: [
@@ -186,7 +189,11 @@ describe("resolveRemoteOpenState", () => {
     for (const remoteOpenTargets of [[], undefined] as const) {
       expect(
         resolveRemoteOpenState({
-          target: new RelayConnectionTarget({ environmentId, label: "sol" }),
+          target: new BearerConnectionTarget({
+            environmentId,
+            connectionId: "paired",
+            label: "sol",
+          }),
           routes: [],
           isDesktopRenderer: false,
           remoteOpenTargets,

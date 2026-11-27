@@ -1,6 +1,6 @@
 import { act, fakeTimers, render, type Screen } from "../../../test/render";
 import { RegistryProvider } from "@effect/atom-react";
-import { DEFAULT_SERVER_SETTINGS, type StorageCleanupReport } from "@t3tools/contracts";
+import { DEFAULT_SERVER_SETTINGS, type StorageCleanupReport } from "@a4code/contracts";
 import { getTranslationsSnapshot, GTProvider } from "gt-react";
 import { type ReactNode } from "react";
 import { expect, it, vi } from "vite-plus/test";

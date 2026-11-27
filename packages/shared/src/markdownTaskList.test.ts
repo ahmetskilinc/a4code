@@ -89,7 +89,7 @@ describe("markdownTaskMarkerOffset", () => {
     expect(markdownTaskMarkerOffset(markdown, 4, "", true)).toBeNull();
 
     const similar = "- [ ] Similar\n\n```text\nseparator\n```\n\n- [ ] Similar<br>different\n";
-    for (const label of ["Similar [docs](https://github.com/pingdotgg/t3code)", "Similar $x$"]) {
+    for (const label of ["Similar [docs](https://github.com/example/demo)", "Similar $x$"]) {
       const attachment = similar.replace("Similar<br>different", label);
       expect(markdownTaskMarkerOffset(attachment, 1, "Similar \uFFFC", true)).toBeNull();
     }

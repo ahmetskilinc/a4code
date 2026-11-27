@@ -1,11 +1,11 @@
-import { managedRuntimeModeDenial } from "@t3tools/client-runtime/contract-labels";
+import { managedRuntimeModeDenial } from "@a4code/client-runtime/contract-labels";
 import {
   DEFAULT_SERVER_SETTINGS,
   type ModelSelection,
   type WorktreeSubmodules,
-} from "@t3tools/contracts";
-import { createModelSelection, pickModelSelection } from "@t3tools/shared/model";
-import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
+} from "@a4code/contracts";
+import { createModelSelection, pickModelSelection } from "@a4code/shared/model";
+import { resolveProjectSettings } from "@a4code/shared/projectSettings";
 import { useNavigate } from "@tanstack/react-router";
 import { T, useGT, useMessages } from "gt-react";
 
@@ -231,7 +231,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
       description={
         isProjectScope
           ? gt("Where new threads in this project start.")
-          : gt("Where new threads start. Projects and their t3.json can override it.")
+          : gt("Where new threads start. Projects and their a4code.json can override it.")
       }
       resetAction={
         !isProjectScope && settings.defaultThreadEnvMode !== null ? (
@@ -588,7 +588,7 @@ export function WorktreeSubmodulesRow() {
         isProjectScope
           ? gt("How new worktrees in this project populate git submodules.")
           : gt(
-              "How new worktrees populate git submodules. Projects and their t3.json can override it.",
+              "How new worktrees populate git submodules. Projects and their a4code.json can override it.",
             )
       }
       resetAction={

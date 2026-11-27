@@ -290,12 +290,12 @@ function runAgent(): void {
             promptCapabilities: { image: false, audio: false, embeddedContext: true },
           },
           authMethods: [],
-          agentInfo: { name: "t3-dev-replay", version: "1" },
+          agentInfo: { name: "a4-dev-replay", version: "1" },
         };
       case "session/new":
       case "session/load": {
-        // T3 starts one agent process per thread, so ids must be unique across processes.
-        // Loading after a restart keeps the thread usable; T3 already holds its history.
+        // a4code starts one agent process per thread, so ids must be unique across processes.
+        // Loading after a restart keeps the thread usable; a4code already holds its history.
         const sessionId =
           message.method === "session/load" ? String(params.sessionId) : NodeCrypto.randomUUID();
         const cwd = typeof params.cwd === "string" ? params.cwd : process.cwd();

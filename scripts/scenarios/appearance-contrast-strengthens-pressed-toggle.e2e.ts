@@ -1,14 +1,14 @@
 /// <reference lib="dom" />
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 test(
   "Raising Appearance contrast strengthens the open thread details toggle",
   WEB,
-  async ({ t3, app, screen, browser }) => {
-    const project = await t3.project("appearance-contrast");
-    const thread = await t3.thread({
+  async ({ a4code, app, screen, browser }) => {
+    const project = await a4code.project("appearance-contrast");
+    const thread = await a4code.thread({
       project,
       title: "Panel contrast",
       messages: ["Hello"],
@@ -30,15 +30,15 @@ test(
     };
 
     await browser.emulateMedia({ colorScheme: "dark" });
-    await t3.open(thread);
+    await a4code.open(thread);
     const background100 = await readPressedBackground();
     await app.screenshot("contrast-100");
 
-    await t3.open("/settings/appearance");
+    await a4code.open("/settings/appearance");
     await screen.getByRole("slider", "Contrast", { exact: true }).press("End");
     await screen.getByText("200%", { exact: true }).waitFor();
 
-    await t3.open(thread);
+    await a4code.open(thread);
     const background200 = await readPressedBackground();
     await app.screenshot("contrast-200");
     expect(background200).not.toBe(background100);

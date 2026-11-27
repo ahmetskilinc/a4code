@@ -1,11 +1,11 @@
-import { isWorkspaceImagePreviewPath } from "@t3tools/shared/mediaPreview";
-import { COMPUTER_USE_TOOL_SOURCE, dynamicToolSurface } from "@t3tools/shared/toolActivity";
+import { isWorkspaceImagePreviewPath } from "@a4code/shared/mediaPreview";
+import { COMPUTER_USE_TOOL_SOURCE, dynamicToolSurface } from "@a4code/shared/toolActivity";
 import type {
   ToolActivityIcon,
   ToolActivityNativeAppReference,
   ToolActivitySource,
   ToolActivitySurface,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 
 export interface ExtractedToolActivityPresentation {
   readonly viewedImagePath?: string;
@@ -31,7 +31,7 @@ function imageUrl(value: unknown): string | undefined {
   if (!raw) return undefined;
   try {
     const url = new URL(raw);
-    return url.protocol === "http:" || url.protocol === "https:" || url.protocol === "data:"
+    return url.protocol === "data:" && url.href.toLowerCase().startsWith("data:image/")
       ? url.href
       : undefined;
   } catch {

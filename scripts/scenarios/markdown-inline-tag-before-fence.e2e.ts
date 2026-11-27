@@ -1,21 +1,21 @@
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 test(
   "A Markdown preview keeps sample headings inside a fence after an inline tag",
   WEB,
-  async ({ t3, app, screen }) => {
+  async ({ a4code, app, screen }) => {
     const markdown =
       "Background for this release. ".repeat(180) +
       "\n<span>\n```md\nSample Markdown\n\n# Sample heading\n```\n";
-    const project = await t3.project("documentation", { "release.md": markdown });
-    const thread = await t3.thread({
+    const project = await a4code.project("documentation", { "release.md": markdown });
+    const thread = await a4code.thread({
       project,
       title: "Release",
       messages: ['See :codex-file-citation{path="release.md"}'],
     });
-    await t3.open(thread);
+    await a4code.open(thread);
 
     await screen.getByRole("button", /^Agent See/).tap();
     await screen.getByRole("link", /^release\.md/).tap();

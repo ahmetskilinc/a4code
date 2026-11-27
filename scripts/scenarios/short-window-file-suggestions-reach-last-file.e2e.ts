@@ -7,14 +7,14 @@ import {
   openThreadWithManyFiles,
   wheelSuggestions,
 } from "./composer-menu.ts";
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 test(
   "In a short window, file suggestions wheel down to a last file the pointer can pick",
   WEB,
-  async ({ t3, app, browser, screen }) => {
+  async ({ a4code, app, browser, screen }) => {
     await browser.setViewport({ width: 375, height: 500 });
-    await openThreadWithManyFiles(t3);
+    await openThreadWithManyFiles(a4code);
     await openFileSuggestionsUnderTallDraft(browser, screen);
 
     await wheelSuggestions(browser, "down");

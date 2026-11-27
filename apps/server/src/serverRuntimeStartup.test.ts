@@ -8,9 +8,7 @@ import {
   CommandId,
   EnvironmentId,
   type ServerLifecycleStreamEvent,
-} from "@t3tools/contracts";
-import { DEFAULT_SIGNAL_EXPORT } from "@t3tools/shared/observability";
-import * as OtelEnvironment from "@t3tools/shared/otelEnvironment";
+} from "@a4code/contracts";
 import { HttpServer } from "effect/http";
 import * as NetAddress from "effect/net/NetAddress";
 import * as Deferred from "effect/Deferred";
@@ -41,12 +39,10 @@ import * as ThreadLaunch from "./orchestration-v2/ThreadLaunchService.ts";
 import * as ThreadManagement from "./orchestration-v2/ThreadManagementService.ts";
 import * as ExternalLauncher from "./process/externalLauncher.ts";
 import * as ProjectService from "./project/ProjectService.ts";
-import * as AgentAwarenessRelay from "./relay/AgentAwarenessRelay.ts";
 import { ServerActivation } from "./serverActivation.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
 import * as ServerSettings from "./serverSettings.ts";
 import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
-import * as AnalyticsService from "./telemetry/AnalyticsService.ts";
 
 it.effect.each([
   "disabled-codex",
@@ -83,13 +79,7 @@ it.effect.each([
         traceBatchWindowMs: 200,
         traceMaxBytes: 1024,
         traceMaxFiles: 1,
-        otlpTracesUrl: undefined,
-        otlpMetricsUrl: undefined,
-        otlpLogsUrl: undefined,
-        otlpTracesExport: DEFAULT_SIGNAL_EXPORT,
-        otlpMetricsExport: DEFAULT_SIGNAL_EXPORT,
-        otlpLogsExport: DEFAULT_SIGNAL_EXPORT,
-        otelEnvironment: OtelEnvironment.none,
+
         staticDir: undefined,
         devAllowedOrigins: [],
         desktopBootstrapToken: undefined,
@@ -118,7 +108,6 @@ it.effect.each([
       }),
       Layer.mock(Orchestrator.OrchestratorV2)({ recoverDelegatedTasks: Effect.void }),
       Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({ shutdown: Effect.void }),
-      Layer.mock(AgentAwarenessRelay.AgentAwarenessRelay)({ start: () => Effect.void }),
       Layer.mock(EffectWorker.OrchestrationEffectWorkerV2)({ runOnce: () => Effect.never }),
       Layer.mock(ServerLifecycleEvents.ServerLifecycleEvents)({
         publish: (event) =>
@@ -211,8 +200,6 @@ it.effect.each([
         prepareTrial: () => Effect.undefined,
       }),
       Layer.mock(GitVcsDriver.GitVcsDriver)({}),
-      Layer.mock(AnalyticsService.AnalyticsService)({}),
-      // No provider logins or Connect link, so startup records no owners.
       FileSystem.layerNoop({}),
       Layer.mock(ServerSecretStore.ServerSecretStore)({ get: () => Effect.succeedNone }),
       Layer.mock(EnvironmentAuth.EnvironmentAuth)({}),
@@ -243,25 +230,6 @@ it.effect.each([
       Effect.provide(ServerRuntimeStartup.layerWithOptions().pipe(Layer.provide(dependencies))),
       Effect.provideService(ServerActivation, Effect.never),
     );
-  }),
-);
-
-it.effect("interrupts the effect worker when awareness relay startup fails", () =>
-  Effect.gen(function* () {
-    const workerInterrupted = yield* Ref.make(false);
-    const workerFiberRef = yield* Ref.make<Fiber.Fiber<void, never> | null>(null);
-
-    const exit = yield* ServerRuntimeStartup.startEffectWorkerWithRelay({
-      runWorker: Effect.never.pipe(Effect.ensuring(Ref.set(workerInterrupted, true))),
-      startRelay: Effect.yieldNow.pipe(
-        Effect.andThen(Effect.die("awareness relay startup failed")),
-      ),
-      workerFiberRef,
-    }).pipe(Effect.exit);
-
-    assert.isTrue(Exit.isFailure(exit));
-    assert.isTrue(yield* Ref.get(workerInterrupted));
-    assert.isNull(yield* Ref.get(workerFiberRef));
   }),
 );
 
@@ -300,70 +268,5 @@ it.effect("enqueueCommand fails queued work when readiness fails", () =>
 
     const error = yield* Effect.flip(Fiber.join(queuedCommandFiber));
     assert.equal(error.message, "Server runtime startup failed before command readiness.");
-  }),
-);
-
-it.effect("automatic pull only updates enabled, behind, clean default-branch checkouts", () =>
-  Effect.gen(function* () {
-    const pulled: string[] = [];
-    const git = {
-      statusDetails: (cwd: string) =>
-        Effect.succeed({
-          isRepo: true,
-          isDefaultBranch: cwd !== "/feature",
-          hasUpstream: true,
-          hasWorkingTreeChanges: cwd === "/dirty",
-          aheadCount: cwd === "/ahead" ? 1 : 0,
-          behindCount: cwd === "/current" ? 0 : 1,
-        } as never),
-      pullCurrentBranch: (cwd: string) =>
-        Effect.sync(() => {
-          pulled.push(cwd);
-          return {
-            status: "pulled" as const,
-            refName: "main",
-            upstreamRef: "origin/main",
-          };
-        }),
-    } as unknown as GitVcsDriver.GitVcsDriver["Service"];
-    const project = (workspaceRoot: string) =>
-      ({ id: ProjectId.make(workspaceRoot), workspaceRoot }) as never;
-    const overrides = (entries: Record<string, boolean>) => ({
-      ...DEFAULT_SERVER_SETTINGS,
-      projectSettingsOverrides: Object.fromEntries(
-        Object.entries(entries).map(([root, defaultAutoPull]) => [
-          ProjectId.make(root),
-          { defaultAutoPull },
-        ]),
-      ),
-    });
-
-    yield* ServerRuntimeStartup.autoPullProjects(
-      [
-        project("/clean"),
-        project("/current"),
-        project("/dirty"),
-        project("/ahead"),
-        project("/feature"),
-        project("/disabled"),
-      ],
-      overrides({
-        "/clean": true,
-        "/current": true,
-        "/dirty": true,
-        "/ahead": true,
-        "/feature": true,
-        "/disabled": false,
-      }),
-    ).pipe(Effect.provideService(GitVcsDriver.GitVcsDriver, git));
-
-    assert.deepStrictEqual(pulled, ["/clean"]);
-
-    pulled.length = 0;
-    yield* ServerRuntimeStartup.autoPullProjects(
-      [project("/inherited"), project("/opted-out"), project("/dirty")],
-      { ...overrides({ "/opted-out": false }), defaultAutoPull: true },
-    ).pipe(Effect.provideService(GitVcsDriver.GitVcsDriver, git));
-    assert.deepStrictEqual(pulled, ["/inherited"]);
   }),
 );

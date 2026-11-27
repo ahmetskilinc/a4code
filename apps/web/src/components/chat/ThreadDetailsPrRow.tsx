@@ -1,27 +1,25 @@
-import { resolvePullRequestDetailChecks } from "@t3tools/client-runtime/pull-request-checks";
-import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
+import { resolvePullRequestDetailChecks } from "@a4code/client-runtime/pull-request-checks";
+import { sourceControlClients } from "@a4code/client-runtime/source-control-clients";
 import { changeRequestTermKind } from "../pullRequest/changeRequestTerm";
 import { T, useGT, useMessages, Var } from "gt-react";
 import { PullRequestChangeBreakdownRows } from "../pullRequest/PullRequestChangeBreakdownStat";
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
 import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
-import { selectEnvironmentQueryData } from "@t3tools/client-runtime/state/runtime";
-import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
-import type { EnvironmentId, ProjectId, PullRequestRef } from "@t3tools/contracts";
+import { selectEnvironmentQueryData } from "@a4code/client-runtime/state/runtime";
+import type { EnvironmentProject } from "@a4code/client-runtime/state/shell";
+import type { EnvironmentId, ProjectId, PullRequestRef } from "@a4code/contracts";
 import {
   ArrowUpRightIcon,
   EyeIcon,
   EyeOffIcon,
   FileDiffIcon,
+  RefreshCwIcon,
   GitBranchIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import { AsyncResult } from "effect/reactivity";
 import { useState, type MouseEvent as ReactMouseEvent } from "react";
 
 import type { ComposerThreadTarget } from "~/composerDraftStore";
-import { useLiveRefresh } from "~/hooks/useLiveRefresh";
-import { usePullRequestChecksRefresh } from "~/hooks/usePullRequestChecksRefresh";
 import { cn } from "~/lib/utils";
 import { useServerConfigs } from "~/state/entities";
 import { pullRequestEnvironment } from "~/state/pullRequests";
@@ -82,10 +80,6 @@ import {
   THREAD_DETAILS_PANEL_SPLIT_SEPARATOR_CLASS,
 } from "./threadDetailsPanelStyles";
 
-// A null checks response is settled; polling cannot find checks.
-const isSettledWithoutChecks = (result: AsyncResult.AsyncResult<unknown, unknown>) =>
-  result._tag === "Success" && result.value === null;
-
 export function ThreadDetailsPrRow({
   environmentId,
   pr,
@@ -125,8 +119,10 @@ export function ThreadDetailsPrRow({
           ? { projectId: project.id as ProjectId, repository, number }
           : null
       : null;
+  const referenceKey = JSON.stringify([environmentId, reference]);
+  const [requestedReference, setRequestedReference] = useState<string | null>(null);
   const detailAtom =
-    reference === null
+    requestedReference !== referenceKey || reference === null
       ? null
       : pullRequestEnvironment.detail({
           environmentId,
@@ -142,7 +138,6 @@ export function ThreadDetailsPrRow({
       ? pullRequestEnvironment.checks({ environmentId, input: reference })
       : null;
   const checksData = useEnvironmentQuerySelector(checksAtom, selectEnvironmentQueryData);
-  const checksSettledEmpty = useEnvironmentQuerySelector(checksAtom, isSettledWithoutChecks);
   const checksQuery = useEnvironmentQueryRefresh(checksAtom);
   const checksAreNewer = useEnvironmentQueryIsNewer(checksAtom, detailAtom);
   const detail = resolvePullRequestDetailChecks(detailData, checksData, checksAreNewer);
@@ -150,22 +145,6 @@ export function ThreadDetailsPrRow({
     detail?.provider ?? project?.repositoryIdentity?.provider,
   ).changeRequest;
   const term = changeRequestTermKind(terminology);
-  const open = reference !== null && (detail?.state ?? pr?.state) === "open";
-  const refreshKey = `${environmentId}:${project?.id}:${reference?.host}:${reference?.repository}:${number}`;
-  useLiveRefresh(
-    () => {
-      if (!detailQuery.isPending()) detailQuery.refresh();
-    },
-    { enabled: open, key: `workspace-pr:${refreshKey}`, intervalMs: 10 * 60_000 },
-  );
-  usePullRequestChecksRefresh({
-    refresh: () => {
-      if (!checksQuery.isPending() && !detailQuery.isPending()) checksQuery.refresh();
-    },
-    enabled: open && supportsChecks && !checksSettledEmpty,
-    key: `workspace-pr-checks:${refreshKey}`,
-    checks: detail?.checks ?? [],
-  });
 
   const [armedMergeHead, setArmedMergeHead] = useState<string>();
   const { actionPending, pendingAction, perform } = usePullRequestActionRunner({
@@ -577,6 +556,28 @@ export function ThreadDetailsPrRow({
           {openRow(label, "primary")}
           <span aria-hidden="true" className={THREAD_DETAILS_PANEL_SPLIT_SEPARATOR_CLASS} />
           {watchControl("secondary")}
+        </div>
+      ) : reference !== null ? (
+        <div className={THREAD_DETAILS_PANEL_SPLIT_GROUP_CLASS}>
+          {openRow(label, "primary")}
+          <SharedTooltipTrigger
+            label={gt("Refresh")}
+            render={
+              <ThreadDetailsControl
+                type="button"
+                variant="ghost"
+                size="sm"
+                part="secondary"
+                aria-label={gt("Refresh")}
+                onClick={() => {
+                  if (requestedReference === referenceKey) detailQuery.refresh();
+                  else setRequestedReference(referenceKey);
+                }}
+              />
+            }
+          >
+            <RefreshCwIcon aria-hidden className="size-3.5" />
+          </SharedTooltipTrigger>
         </div>
       ) : (
         openRow(label, "row")

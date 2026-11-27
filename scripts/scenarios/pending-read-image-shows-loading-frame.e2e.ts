@@ -6,8 +6,8 @@ import { expect } from "e2e";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 
-import { T3_HOME } from "../e2e.config.ts";
-import { makeState, rpcClient, runPromise, test, WEB } from "./t3.ts";
+import { A4_HOME } from "../e2e.config.ts";
+import { makeState, rpcClient, runPromise, test, WEB } from "./a4code.ts";
 
 const REPLY = "The screenshot is a blue frame.";
 // A 320x180 blue PNG.
@@ -68,13 +68,13 @@ for await (const line of createInterface({ input: process.stdin })) {
 test(
   "An image a running Read is opening shows a loading frame, not Image unavailable, then the image",
   WEB,
-  async ({ t3, app, screen, browser }) => {
-    const project = await t3.project("demo");
+  async ({ a4code, app, screen, browser }) => {
+    const project = await a4code.project("demo");
     const script = NodePath.join(project, "pending-read-acp.mjs");
-    const settingsPath = NodePath.join(T3_HOME, "userdata/settings.json");
+    const settingsPath = NodePath.join(A4_HOME, "userdata/settings.json");
     const originalSettings = await NodeFSP.readFile(settingsPath, "utf8");
     const settings = JSON.parse(originalSettings);
-    const signals = await NodeFSP.mkdtemp(NodePath.join(T3_HOME, "pending-read-"));
+    const signals = await NodeFSP.mkdtemp(NodePath.join(A4_HOME, "pending-read-"));
     await NodeFSP.writeFile(script, acp(NodePath.join(project, "later.png"), signals));
     settings.providerInstances["pending-read-agent"] = {
       driver: "acpRegistry",
@@ -87,7 +87,7 @@ test(
       // The settings watcher registers the agent asynchronously; start once the server lists it.
       await runPromise(
         Effect.gen(function* () {
-          const client = yield* rpcClient(T3_HOME, app.baseUrl ?? "");
+          const client = yield* rpcClient(A4_HOME, app.baseUrl ?? "");
           yield* client.subscribeServerConfig({}).pipe(
             Stream.filter((event) =>
               (event.type === "snapshot"
@@ -101,7 +101,7 @@ test(
           );
         }).pipe(Effect.scoped),
       );
-      const { cli } = makeState(T3_HOME);
+      const { cli } = makeState(A4_HOME);
       const started = await runPromise(
         cli([
           "thread",
@@ -119,7 +119,7 @@ test(
       );
       const { threadId } = JSON.parse(started.stdout) as { threadId: string };
 
-      await t3.open({ threadId });
+      await a4code.open({ threadId });
       await screen.getByText("Read demo/later.png", { exact: true }).waitFor({ timeout: 60_000 });
       // The strip's frame shows either state; the bug is which one it is while the Read runs.
       const frame = browser.locator('[data-image-gallery] :is([role="status"], [role="alert"])');

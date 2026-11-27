@@ -3,10 +3,10 @@ import * as NodeChildProcess from "node:child_process";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { it } from "@effect/vitest";
-import { DEFAULT_TERMINAL_ID, type TerminalSessionSnapshot } from "@t3tools/contracts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import type { PtyExitEvent, PtyProcess } from "@t3tools/shared/PtyAdapter";
-import { SpawnExecutableResolution } from "@t3tools/shared/shell";
+import { DEFAULT_TERMINAL_ID, type TerminalSessionSnapshot } from "@a4code/contracts";
+import * as HostProcess from "@a4code/shared/HostProcess";
+import type { PtyExitEvent, PtyProcess } from "@a4code/shared/PtyAdapter";
+import { SpawnExecutableResolution } from "@a4code/shared/shell";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -47,7 +47,7 @@ it.layer(services, { excludeTestServices: true })("terminal startup deadlines", 
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-terminal-probes-" });
+        const root = yield* fs.makeTempDirectoryScoped({ prefix: "a4-terminal-probes-" });
         const first = yield* Deferred.make<void>();
         const second = yield* Deferred.make<void>();
         const stalled: NodeChildProcess.ChildProcess[] = [];
@@ -73,7 +73,7 @@ it.layer(services, { excludeTestServices: true })("terminal startup deadlines", 
         });
         const manager = yield* makeWithOptions({
           logsDir: path.join(root, "logs"),
-          env: { T3CODE_TERMINAL_SHELL: configured, SHELL: fallback },
+          env: { A4CODE_TERMINAL_SHELL: configured, SHELL: fallback },
           shellResolver: () => preferred,
           ptyAdapter: { spawn: () => Effect.sync(fakePtyProcess) },
         });
@@ -111,7 +111,7 @@ it.layer(services, { excludeTestServices: true })("terminal startup deadlines", 
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "t3-terminal-startup-" });
+      const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "a4-terminal-startup-" });
       const cacheDir = path.join(cwd, "cache");
       const receiptsDir = path.join(cacheDir, "acp-registry", "package-installs");
       const waiting = yield* Deferred.make<void>();
@@ -153,7 +153,7 @@ it.layer(services, { excludeTestServices: true })("terminal startup deadlines", 
         cwd,
         threadId: "thread",
         terminalId: DEFAULT_TERMINAL_ID,
-        ...(stalled === "lookup" ? { env: { T3CODE_TERMINAL_SHELL: "stalled-shell" } } : {}),
+        ...(stalled === "lookup" ? { env: { A4CODE_TERMINAL_SHELL: "stalled-shell" } } : {}),
       };
       const opening = yield* manager.open(input).pipe(Effect.forkChild({ startImmediately: true }));
       yield* Deferred.await(waiting);

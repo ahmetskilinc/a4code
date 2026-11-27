@@ -1,13 +1,13 @@
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 test(
   "A project added from the draft's project picker takes the draft's prompt with it",
   WEB,
-  async ({ t3, app, screen, browser }) => {
-    const workspace = await t3.project("demo", { "next/README.md": "" });
-    await t3.open();
+  async ({ a4code, app, screen, browser }) => {
+    const workspace = await a4code.project("demo", { "next/README.md": "" });
+    await a4code.open();
 
     const composer = screen.getByRole("textbox");
     await composer.fill("Plan the next project");

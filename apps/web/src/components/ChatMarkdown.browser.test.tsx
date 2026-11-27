@@ -1,5 +1,5 @@
-import { MISSING_FILE_ACCESS_MESSAGE } from "@t3tools/client-runtime/state/assets";
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { MISSING_FILE_ACCESS_MESSAGE } from "@a4code/client-runtime/state/assets";
+import { EnvironmentId, ThreadId } from "@a4code/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -15,8 +15,7 @@ import {
   useRightPanelStore,
 } from "../rightPanelStore";
 import type { MarkdownExtensions } from "../markdown/wordsHast";
-import { setMarkdownTaskChecked } from "@t3tools/shared/markdownTaskEdits";
-import { HostImageUrlContext } from "./chat/hostImageUrl";
+import { setMarkdownTaskChecked } from "@a4code/shared/markdownTaskEdits";
 import { getSyntaxHighlighterPromise } from "~/lib/syntaxHighlighting";
 
 const { workspaceSearch, filesystemMetadata } = vi.hoisted(() => ({
@@ -79,7 +78,7 @@ vi.mock(import("../state/server"), async (original) => {
   };
 });
 vi.mock(import("../state/session"), async (original) => {
-  const { AuthStandardClientScopes } = await import("@t3tools/contracts");
+  const { AuthStandardClientScopes } = await import("@a4code/contracts");
   const granted = new Set<string>(AuthStandardClientScopes);
   const hasScope = (environmentId: unknown, scope: string) =>
     environmentId !== null && granted.has(scope);
@@ -239,6 +238,18 @@ it("keeps decimal markers in nested user lists while documents keep their counte
   ).toEqual(["decimal", "lower-alpha", "lower-roman"]);
 });
 
+it.each(["png", "mp3", "mp4"])(
+  "waits for a click before loading authored %s media",
+  async (extension) => {
+    setup();
+    const url = new URL("/test-media." + extension, window.location.origin).href;
+    await using screen = await renderText(`![Preview](${url})`);
+    expect(screen.container.querySelector("img[src], audio[src], video[src]")).toBeNull();
+    await screen.getByRole("button", { name: "Load remote media: Preview" }).click();
+    await expect.poll(() => screen.container.querySelector('[src="' + url + '"]')).not.toBeNull();
+  },
+);
+
 it("shows unavailable audio when a workspace embed has no thread", async () => {
   setup();
   await using screen = await renderText("![recording](clip.wav)");
@@ -247,66 +258,37 @@ it("shows unavailable audio when a workspace embed has no thread", async () => {
   expect(screen.container.querySelector("audio")).toBeNull();
 });
 
-it("loads a host image through the page's own route when there is no environment", async () => {
+it("loads the <picture> source for the current theme", async () => {
   setup();
-  const pixel =
-    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
-  const hostImageUrl = vi.fn((_path: string) => pixel);
+  const pixel = new URL("/favicon-32x32.png", window.location.origin).href;
   await using screen = await render(
-    <HostImageUrlContext value={hostImageUrl}>
-      <ChatMarkdown cwd={undefined} text="![Shot](</work/my shot.png>)" />
-    </HostImageUrlContext>,
+    <ChatMarkdown
+      cwd={undefined}
+      text={`<picture><source media="(prefers-color-scheme: dark)" srcset="${pixel}#dark"><img src="${pixel}#light" alt="Shot"></picture>`}
+    />,
   );
-  await expect.element(screen.getByAltText("Shot")).toHaveAttribute("src", pixel);
-  expect(new Set(hostImageUrl.mock.calls.map(([path]) => path))).toEqual(
-    new Set(["/work/my shot.png"]),
-  );
-});
-
-it("loads the <picture> source for the current theme through the image route", async () => {
-  setup();
-  const pixel =
-    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
-  const hostImageUrl = (path: string) => `${pixel}#${path}`;
-  await using screen = await render(
-    <HostImageUrlContext value={hostImageUrl}>
-      <ChatMarkdown
-        cwd={undefined}
-        text={
-          '<picture><source media="(prefers-color-scheme: dark)" srcset="/work/dark.png"><img src="/work/light.png" alt="Shot"></picture>'
-        }
-      />
-    </HostImageUrlContext>,
-  );
-  await expect
-    .element(screen.getByAltText("Shot"))
-    .toHaveAttribute("src", `${pixel}#/work/light.png`);
+  await screen.getByRole("button", { name: "Load remote media: Shot" }).click();
+  await expect.element(screen.getByAltText("Shot")).toHaveAttribute("src", `${pixel}#light`);
 
   await act(() => {
     appearance.value = "dark";
     for (const listener of appearance.listeners) listener();
   });
-  await expect
-    .element(screen.getByAltText("Shot"))
-    .toHaveAttribute("src", `${pixel}#/work/dark.png`);
+  await screen.getByRole("button", { name: "Load remote media: Shot" }).click();
+  await expect.element(screen.getByAltText("Shot")).toHaveAttribute("src", `${pixel}#dark`);
 });
 
 it("sizes a raw HTML image by width and height written with px units", async () => {
   setup();
-  const largeImage = `data:image/svg+xml,${encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"/>',
-  )}`;
+  const largeImage = new URL("/icon-192x192.png", window.location.origin).href;
   await using screen = await render(
-    <HostImageUrlContext value={() => largeImage}>
-      <ChatMarkdown
-        cwd={undefined}
-        parseRawHtml
-        text={
-          '### PR Review in progress <img src="/work/spinner.gif" alt="spinner" width="14px" height="7px" />'
-        }
-      />
-    </HostImageUrlContext>,
+    <ChatMarkdown
+      cwd={undefined}
+      parseRawHtml
+      text={`### PR Review in progress <img src="${largeImage}" alt="spinner" width="14px" height="7px" />`}
+    />,
   );
+  await screen.getByRole("button", { name: "Load remote media: spinner" }).click();
   const image = screen.getByAltText("spinner");
   await expect.element(image).toHaveAttribute("src", largeImage);
   const element = image.element() as HTMLImageElement;
@@ -387,21 +369,19 @@ it("highlights a code block's own source when an earlier block of the same lengt
 });
 
 describe("ChatMarkdown favicon privacy", () => {
-  it("suppresses private link images while preserving public links across updates", async () => {
+  it("renders public and private link icons without fetching images", async () => {
     setup();
     const markdown = (url: string) => <ChatMarkdown cwd="/tmp/project" text={`[Link](${url})`} />;
     await using screen = await render(markdown("https://example.com"));
     const { container, rerender } = screen;
-    expect([...container.querySelectorAll("img")].map((image) => image.src)).toEqual([
-      "https://www.google.com/s2/favicons?domain=example.com&sz=32",
-    ]);
+    expect(container.querySelectorAll("img")).toHaveLength(0);
     for (const url of ["http://192.168.1.10:8080", "http://localhost:3000", "http://home.arpa"]) {
       await rerender(markdown(url));
       expect(container.querySelectorAll("img")).toHaveLength(0);
     }
     await rerender(markdown("https://example.com"));
-    expect(container.querySelectorAll("img")).toHaveLength(1);
-    await rerender(markdown("https://github.com/pingdotgg/t3code/pull/1"));
+    expect(container.querySelectorAll("img")).toHaveLength(0);
+    await rerender(markdown("https://github.com/example/demo/pull/1"));
     expect(container.querySelectorAll("img")).toHaveLength(0);
     expect(container.querySelector("a svg")).not.toBeNull();
   });

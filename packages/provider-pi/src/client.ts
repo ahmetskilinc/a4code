@@ -1,5 +1,5 @@
-import { ProviderDriverKind } from "@t3tools/contracts";
-import { defineProviderClient } from "@t3tools/provider-core/client";
+import { ProviderDriverKind } from "@a4code/contracts";
+import { defineProviderClient } from "@a4code/provider-core/client";
 
 import { PiSettings } from "./settings.ts";
 

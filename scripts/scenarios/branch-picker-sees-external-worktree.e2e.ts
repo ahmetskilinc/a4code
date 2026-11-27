@@ -3,13 +3,13 @@ import { expect } from "e2e";
 import * as Effect from "effect/Effect";
 
 import { run } from "./shell.ts";
-import { runPromise, test, WEB } from "./t3.ts";
+import { runPromise, test, WEB } from "./a4code.ts";
 
 test(
-  "Reopening the branch picker shows a worktree created outside T3 Code",
+  "Reopening the branch picker shows a worktree created outside a4code",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    const project = await t3.project("demo");
+  async ({ a4code, app, browser, screen }) => {
+    const project = await a4code.project("demo");
     const git = (...args: string[]) => runPromise(run("git", args, { cwd: project }));
     await git("branch", "feature");
     await browser.setViewport({ width: 1280, height: 800 });
@@ -46,7 +46,7 @@ test(
       };
     });
 
-    await t3.open("/");
+    await a4code.open("/");
     const branchPicker = browser
       .locator('[data-slot="combobox-trigger"][aria-label^="Branch:"]:visible')
       .first();

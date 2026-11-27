@@ -1,8 +1,8 @@
 import type { DraftId } from "~/composerDraftStore";
 import { useComposerDraftStore } from "~/composerDraftStore";
-import { resolveEnvironmentMachineKind, type ScopedProjectRef } from "@t3tools/contracts";
-import { scopedProjectKey, scopeProjectRef } from "@t3tools/client-runtime/environment";
-import { isScratchProject } from "@t3tools/client-runtime/state/projects";
+import { resolveEnvironmentMachineKind, type ScopedProjectRef } from "@a4code/contracts";
+import { scopedProjectKey, scopeProjectRef } from "@a4code/client-runtime/environment";
+import { isScratchProject } from "@a4code/client-runtime/state/projects";
 import { T, useGT, Var } from "gt-react";
 import { FolderPlusIcon } from "lucide-react";
 import { useAtomValue } from "@effect/atom-react";
@@ -16,8 +16,7 @@ import { useOrderWhileOpen } from "~/hooks/useOrderWhileOpen";
 import { moveDraftToProject } from "~/lib/moveDraftToProject";
 import { useProjectPin } from "~/hooks/useProjectGroupUpdate";
 import { useScratchProject } from "~/hooks/useScratchProject";
-import { isTriagePrompt } from "@t3tools/shared/triagePrompt";
-import { pickableProjectGroups } from "@t3tools/client-runtime/state/project-grouping";
+import { pickableProjectGroups } from "@a4code/client-runtime/state/project-grouping";
 import {
   buildSidebarProjectPickerEntries,
   projectGroupsSpanEnvironments,
@@ -43,7 +42,6 @@ import { SharedTooltipTrigger } from "../ui/shared-tooltip";
 import { InlineButton } from "../ui/button";
 import { DraftProjectName } from "./DraftProjectName";
 import { DraftHeroProjectHeading } from "./DraftHeroProjectHeading";
-import { TriageDraftHero } from "./TriageDraftHero";
 
 const ADD_PROJECT_VALUE = "add-project";
 
@@ -67,10 +65,6 @@ export function DraftHeroHeadline({
   const projects = useProjects();
   const { environments } = useEnvironments();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
-  // A boolean, so typing in a draft does not re-render the hero.
-  const isTriageDraftPrompt = useComposerDraftStore((store) =>
-    draftId ? isTriagePrompt(store.getComposerDraft(draftId)?.prompt ?? "") : false,
-  );
   const openAddProject = () => openCommandPalette({ open: "add-project", draftId });
   const { scratchEnvironmentId, scratchWorkspaceRootFor, openScratchProject } = useScratchProject();
   const openProjectDraft = useNewThreadHandler();
@@ -334,18 +328,6 @@ export function DraftHeroHeadline({
         {noProjectShortcut ? <TooltipPopup side="bottom">{noProjectShortcut}</TooltipPopup> : null}
       </Tooltip>
     ) : null;
-
-  if (isScratchDraft && isTriageDraftPrompt) {
-    const environment = environments.find(
-      (entry) => entry.environmentId === activeProject.environmentId,
-    );
-    return (
-      <TriageDraftHero
-        machineLabel={environment?.label ?? null}
-        serverVersion={environment?.serverConfig?.environment.serverVersion ?? null}
-      />
-    );
-  }
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col items-center">

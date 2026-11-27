@@ -1,13 +1,14 @@
+import { SpawnExecutableResolution } from "@a4code/shared/shell";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
-import { ProviderInstanceId } from "@t3tools/contracts";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
-import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
-import * as TestProviderHost from "@t3tools/provider-testing/TestProviderHost";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import { ProviderInstanceId } from "@a4code/contracts";
+import * as IdAllocator from "@a4code/provider-core/server/IdAllocator";
+import * as McpProviderSessions from "@a4code/provider-core/server/McpProviderSessions";
+import * as ProviderEventLoggers from "@a4code/provider-core/server/ProviderEventLoggers";
+import * as ProviderLatestVersions from "@a4code/provider-core/server/ProviderLatestVersions";
+import * as TestProviderHost from "@a4code/provider-testing/TestProviderHost";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/http/HttpClient";
 import * as Layer from "effect/Layer";
@@ -67,9 +68,10 @@ function recordingSpawner(launches: Array<string>) {
 }
 
 it.layer(layerTest)("FxDriver binary path", (it) => {
-  it.effect("probes a ~/ binary path from the home directory", () =>
+  it.effect("checks a home-relative executable without starting it", () =>
     Effect.gen(function* () {
       const path = yield* Path.Path;
+      const inspected: string[] = [];
       const launches: Array<string> = [];
       const instance = yield* FxDriver.create({
         instanceId: ProviderInstanceId.make("fx-home"),
@@ -81,9 +83,14 @@ it.layer(layerTest)("FxDriver binary path", (it) => {
         Effect.provideService(HostProcess.HomeDirectory, "/test-home"),
         Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, recordingSpawner(launches)),
       );
-      const snapshot = yield* instance.snapshot.refresh;
-      assert.isNotEmpty(launches);
-      assert.deepEqual([...new Set(launches)], [path.join("/test-home", ".local", "bin", "fx")]);
+      const snapshot = yield* instance.snapshot.refresh.pipe(
+        Effect.provideService(SpawnExecutableResolution, (command) => {
+          inspected.push(command);
+          return command;
+        }),
+      );
+      assert.deepEqual(launches, []);
+      assert.deepEqual(inspected, [path.join("/test-home", ".local", "bin", "fx")]);
       assert.isTrue(snapshot.installed);
     }),
   );

@@ -194,7 +194,7 @@ mod mac_process_identities {
     }
 
     unsafe extern "C" {
-        fn t3_process_identities(
+        fn a4_process_identities(
             context: *mut c_void,
             visit: extern "C" fn(*mut c_void, i32, i32, i32, i64, *const c_char),
         ) -> i32;
@@ -223,7 +223,7 @@ mod mac_process_identities {
 
     pub fn read() -> Vec<Identity> {
         let mut rows = Vec::<Identity>::new();
-        if unsafe { t3_process_identities((&raw mut rows).cast(), visit) } != 0 {
+        if unsafe { a4_process_identities((&raw mut rows).cast(), visit) } != 0 {
             rows.clear();
         }
         rows
@@ -525,7 +525,7 @@ impl Collector {
     }
 
     // sysinfo opens every process it lists with PROCESS_VM_READ, which anti-cheat
-    // software flags. List with Toolhelp instead and open only possible T3 descendants.
+    // software flags. List with Toolhelp instead and open only possible a4code descendants.
     #[cfg(target_os = "windows")]
     fn discovery_rows(&mut self, config: &CollectorConfig) -> (Vec<(u32, u32, u64)>, usize) {
         let listed = windows_processes::list();

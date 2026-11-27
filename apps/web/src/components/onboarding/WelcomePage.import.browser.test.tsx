@@ -2,8 +2,6 @@ import { RegistryContext } from "@effect/atom-react";
 import {
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
-  AuthRelayReadScope,
-  AuthRelayWriteScope,
   AuthTerminalOperateScope,
   EnvironmentId,
   ProjectId,
@@ -12,9 +10,8 @@ import {
   type AgentSessionProjectCandidate,
   type AuthEnvironmentScope,
   type AuthSessionState,
-  type EnvironmentCloudLinkStateResult,
   type ServerProvider,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -41,11 +38,6 @@ const state = vi.hoisted(() => ({
   scan: vi.fn(),
   refreshScan: vi.fn(),
   waitForProject: vi.fn(),
-  cloud: false,
-  auth: { isLoaded: true, isSignedIn: false, userId: null as string | null },
-  linkState: null as unknown,
-  linkError: null as string | null,
-  refreshLinkState: vi.fn(),
   scanError: null as string | null,
   scanPending: false,
   runningTerminalIds: null as unknown,
@@ -54,41 +46,13 @@ const state = vi.hoisted(() => ({
   closeTerminal: vi.fn(),
 }));
 
-vi.mock(import("@t3tools/client-runtime/state/session"), async (original) => {
+vi.mock(import("@a4code/client-runtime/state/session"), async (original) => {
   const actual = await original();
   return {
     ...actual,
     createEnvironmentSessionAtoms: ((runtime: never) => ({
       ...actual.createEnvironmentSessionAtoms(runtime),
       sessionStateAtom: (id: EnvironmentId) => state.sessions.get(id),
-    })) as never,
-  };
-});
-vi.mock(import("../../cloud/publicConfig"), async (original) => ({
-  ...(await original()),
-  hasCloudPublicConfig: () => state.cloud,
-}));
-vi.mock(import("@clerk/react"), async (original) => ({
-  ...(await original()),
-  useAuth: (() => state.auth) as never,
-}));
-vi.mock(import("../clerk/clerkLoadFailure"), async (original) => ({
-  ...(await original()),
-  useClerkLoadFailed: () => false,
-}));
-vi.mock(import("../clerk/useT3ConnectAuthPrompt"), async (original) => ({
-  ...(await original()),
-  useT3ConnectAuthPrompt: (() => ({ openAuthPrompt: () => {} })) as never,
-}));
-vi.mock(import("../../cloud/cloudLinkState"), async (original) => {
-  const { useAtomValue } = await import("@effect/atom-react");
-  return {
-    ...(await original()),
-    useCloudLinkState: (() => ({
-      data: useAtomValue(state.linkState as Atom.Atom<EnvironmentCloudLinkStateResult | null>),
-      error: state.linkError,
-      isPending: false,
-      refresh: state.refreshLinkState,
     })) as never,
   };
 });
@@ -219,7 +183,7 @@ function session(scopes: ReadonlyArray<AuthEnvironmentScope>): AuthSessionState 
       policy: "remote-reachable",
       bootstrapMethods: ["one-time-token"],
       sessionMethods: ["bearer-access-token"],
-      sessionCookieName: "t3_session",
+      sessionCookieName: "a4_session",
     },
   };
 }
@@ -356,11 +320,6 @@ function setup() {
   state.scan.mockReset();
   state.refreshScan.mockReset();
   state.waitForProject.mockReset().mockImplementation(waitForRecordedProject);
-  state.cloud = false;
-  state.auth = { isLoaded: true, isSignedIn: false, userId: null };
-  state.linkState = Atom.make<EnvironmentCloudLinkStateResult | null>(null).pipe(Atom.keepAlive);
-  state.linkError = null;
-  state.refreshLinkState.mockReset();
   state.scanError = null;
   state.scanPending = false;
   state.runningTerminalIds = Atom.make<ReadonlyArray<string>>([]).pipe(Atom.keepAlive);
@@ -569,7 +528,7 @@ it("stays busy while setup saves after an import with nothing to open", async ()
   expect(state.createProject).toHaveBeenCalledOnce();
 });
 
-it("leaves projects already in T3 Code out of the default import, unless the box is checked", async () => {
+it("leaves projects already in a4code out of the default import, unless the box is checked", async () => {
   using _now = setup();
   const existing = ProjectId.make("existing");
   const justAdded = ProjectId.make("just-added");
@@ -588,7 +547,7 @@ it("leaves projects already in T3 Code out of the default import, unless the box
     await vi.waitFor(() => expect(pageText()).toContain("Import 1 project and their threads"));
   }
 
-  // With every project already in T3 Code, checking the box still picks them.
+  // With every project already in a4code, checking the box still picks them.
   appAtomRegistry.set(candidatesAtom(), appAtomRegistry.get(candidatesAtom()).slice(0, 2));
   await using _screen = await mountWelcome();
   const importProjects = document.querySelector<HTMLElement>('[role="checkbox"]');
@@ -608,7 +567,7 @@ it("keeps the started projects checked when the page opens again after a quit", 
     await click("Import 2 projects and start");
     await vi.waitFor(() => expect(state.importThreads).toHaveBeenCalledOnce());
   }
-  // The app quit during the first project's history; it now exists in T3 Code.
+  // The app quit during the first project's history; it now exists in a4code.
   const [first] = appAtomRegistry.get(projectsAtom());
   appAtomRegistry.set(candidatesAtom(), [
     candidate("/projects/first", { alreadyImported: true, projectId: first!.id }),
@@ -751,66 +710,4 @@ it("starts without importing when this connection cannot import projects", async
   await click("Start");
   await vi.waitFor(() => expect(state.onDone).toHaveBeenCalledOnce());
   expect(state.createProject).not.toHaveBeenCalled();
-});
-
-it("says the phone is set up only once this computer is shared with the signed-in account", async () => {
-  using _now = setup();
-  state.cloud = true;
-  state.auth = { isLoaded: true, isSignedIn: true, userId: "user_1" };
-  appAtomRegistry.set(
-    sessionAtom(primaryId),
-    AsyncResult.success(
-      session([AuthOrchestrationOperateScope, AuthRelayReadScope, AuthRelayWriteScope]),
-    ),
-  );
-  state.linkError = "Could not read T3 Connect link state.";
-  await using _screen = await mountWelcome();
-  await click("Set up");
-  // A failed read says so instead of asking to share the computer again.
-  await vi.waitFor(() => expect(pageText()).toContain("Could not check T3 Connect."));
-  expect(pageText()).not.toContain("Set up T3 Connect");
-
-  state.linkError = null;
-  await act(async () =>
-    appAtomRegistry.set(state.linkState as Atom.Writable<EnvironmentCloudLinkStateResult | null>, {
-      linked: false,
-      cloudUserId: null,
-      relayUrl: null,
-      relayIssuer: null,
-      publishAgentActivity: false,
-    }),
-  );
-  // Signed in, but "Not now" on the share step left this computer unreachable.
-  await vi.waitFor(() => expect(pageText()).toContain("Set up T3 Connect"));
-
-  const share = (reachability: EnvironmentCloudLinkStateResult["reachability"]) =>
-    act(async () =>
-      appAtomRegistry.set(
-        state.linkState as Atom.Writable<EnvironmentCloudLinkStateResult | null>,
-        {
-          linked: true,
-          cloudUserId: "user_1",
-          relayUrl: null,
-          relayIssuer: null,
-          managedTunnelActive: true,
-          publishAgentActivity: true,
-          reachability,
-        },
-      ),
-    );
-  const checkedAt = "2026-01-01T00:00:00.000Z";
-  await share({
-    status: "unreachable",
-    checkedAt,
-    cause: "connector_not_running",
-    reason: "The tunnel is not running.",
-    hint: null,
-    fix: "Turn T3 Connect off and on.",
-  });
-  await vi.waitFor(() => expect(pageText()).toContain("Check T3 Connect"));
-  expect(pageText()).not.toContain("Your phone can reach this computer.");
-
-  await share({ status: "reachable", checkedAt, readyConnections: 4, protocol: "quic" });
-  await vi.waitFor(() => expect(pageText()).toContain("Your phone can reach this computer."));
-  expect(pageText()).not.toContain("Check T3 Connect");
 });

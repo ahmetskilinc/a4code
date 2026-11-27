@@ -1,8 +1,6 @@
 # Remote architecture
 
-Each connection joins a client to one environment over HTTP and WebSocket. Direct access, Tailscale,
-SSH, and T3 Connect change how the client reaches the server; they do not introduce a different
-execution model.
+Each connection joins a client to one environment over HTTP and WebSocket. Paired LAN connections, Tailscale endpoints and SSH port forwarding all use the same environment protocol.
 
 ## Identity is independent of the route
 
@@ -22,11 +20,11 @@ execution model.
 ## Peer links
 
 A [peer link](../../apps/server/src/peer/PeerLinks.ts) lets one environment's agents work in another
-by signing in to the target's `/mcp` as an ordinary OAuth client (`t3code-peer-link`). The receiving
+by signing in to the target's `/mcp` as an ordinary OAuth client (`a4code-peer-link`). The receiving
 side lists and revokes it in Sharing & access like any other session, and owns its expiry/renewal.
 
 - **Mode ceilings always narrow.** Forwarded calls carry the calling agent's modes in
-  `T3-Mode-Limit`, which the receiving `/mcp` can only intersect downward with the link's approved
+  `a4code-Mode-Limit`, which the receiving `/mcp` can only intersect downward with the link's approved
   access.
 - **Non-full-access links are fenced by `linkOrigin`.** Threads launched by a peer link (and their
   derived forks, subagents, and spawned threads) carry an immutable `linkOrigin` stamp enforced in
@@ -44,13 +42,6 @@ side lists and revokes it in Sharing & access like any other session, and owns i
 - **Clients read linked threads as standard thread streams.**
   [`PeerThreadRelay`](../../apps/server/src/peer/PeerThreadRelay.ts) proxies the same stream format
   read-only so there is no second transcript schema to maintain.
-
-## Hosted web is a client
-
-The hosted web app stores its connection catalog in the browser and connects directly to each
-environment without proxying traffic. A [hosted pairing URL](../../apps/web/src/hostedPairing.ts)
-puts the backend target in the query and the pairing secret in the URL fragment so the secret never
-reaches the hosted origin, then strips it from history.
 
 ## Desktop previews tunnel loopback
 
@@ -74,5 +65,4 @@ through `/api/preview/tunnel` on the environment's own origin:
 - [SSH cleanup](../../packages/ssh/src/tunnel.ts) stops a remote server only if the launcher started
   it; a server discovered already running must survive client disconnect.
 - Remote servers outlive client releases. Clients negotiate features via advertised capabilities
-  rather than assuming version parity. Process replacement uses the
-  [update protocol](./07_server-updates.md).
+  across versions.

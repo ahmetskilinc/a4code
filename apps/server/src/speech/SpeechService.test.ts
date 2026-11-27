@@ -11,8 +11,8 @@ import * as Scheduler from "effect/Scheduler";
 import * as Scope from "effect/Scope";
 import * as Exit from "effect/Exit";
 import * as PlatformError from "effect/PlatformError";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { DEFAULT_SPEECH_TRANSCRIPTION_OPTIONS } from "@t3tools/contracts";
+import * as HostProcess from "@a4code/shared/HostProcess";
+import { DEFAULT_SPEECH_TRANSCRIPTION_OPTIONS } from "@a4code/contracts";
 import * as ServerSettings from "../serverSettings.ts";
 import { listNativeSpeechGpuDevices } from "./native.ts";
 import * as SpeechModelStore from "./SpeechModelStore.ts";
@@ -500,7 +500,7 @@ it.effect("honors exact aliases and phrase boundaries in batch and streamed text
         { term: "C#", aliases: [] },
         { term: "React", aliases: ["瑞安特"] },
         { term: "Kubernetes", aliases: [] },
-        { term: "T3 Code", aliases: [] },
+        { term: "a4code", aliases: [] },
         { term: "VSCode", aliases: [] },
         { term: "iOS", aliases: [] },
       ],
@@ -514,7 +514,7 @@ it.effect("honors exact aliases and phrase boundaries in batch and streamed text
       "a test with AI and AI. Bob, Roberts. O'Reilly and the publisher. (GitHub), git (hub). " +
       "GitHub's API, GitHub’s API, git’s hub, McDonald’s menu, King’s Cross. vitamin c and plan c. " +
       "我用GitHub和React，部署到Kubernetes上。Bob用GitHub。GitHubで管理する。" +
-      "Open T3 Code and VSCode. I use iOS, not VSCODE or VSCODE's.";
+      "Open a4code and VSCode. I use iOS, not VSCODE or VSCODE's.";
     native.transcribe.mockResolvedValueOnce({ text: spoken });
     native.finish.mockResolvedValueOnce(spoken);
     expect(yield* speech.transcribe(pcm(), options)).toBe(expected);
@@ -537,12 +537,12 @@ it.effect("uses vocabulary only for supported transcription and always applies a
             speechCustomWords: [
               { term: "GitHub", aliases: [] },
               { term: "Bob", aliases: ["Robert"] },
-              { term: "T3 Code", aliases: [] },
+              { term: "a4code", aliases: [] },
             ],
             speechHints: ["Server"],
           };
           const vocabulary =
-            supportsVocabulary && !translate ? ["Server", "GitHub", "Bob", "T3 Code"] : undefined;
+            supportsVocabulary && !translate ? ["Server", "GitHub", "Bob", "a4code"] : undefined;
           native.transcribe.mockResolvedValueOnce({ text: "git hub and Robert on the server" });
           expect(yield* speech.transcribe(pcm(), options)).toBe(
             vocabulary ? "git hub and Bob on the server" : "GitHub and Bob on the server",

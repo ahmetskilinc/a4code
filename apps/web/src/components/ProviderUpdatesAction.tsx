@@ -1,11 +1,11 @@
 import { m } from "../i18n/messages";
-import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
-import { AuthProvidersManageScope, PROVIDER_DISPLAY_NAMES } from "@t3tools/contracts";
+import { thrownErrorMessage } from "@a4code/client-runtime/errors";
+import { AuthProvidersManageScope, PROVIDER_DISPLAY_NAMES } from "@a4code/contracts";
 import {
   isAtomCommandInterrupted,
   settlePromise,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@a4code/client-runtime/state/runtime";
 import { useRef, useState } from "react";
 import { T, useGT } from "gt-react";
 

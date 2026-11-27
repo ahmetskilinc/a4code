@@ -1,6 +1,6 @@
 import { RegistryContext } from "@effect/atom-react";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
+import { scopeThreadRef } from "@a4code/client-runtime/environment";
+import { EnvironmentId, ProjectId, ThreadId } from "@a4code/contracts";
 import * as Cause from "effect/Cause";
 import { AsyncResult, Atom, AtomRegistry } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
@@ -307,7 +307,7 @@ it("keeps a linked environment thread label when copying a table", async () => {
   const table = screen.container.querySelector("table")!;
   expect(serializeTableElementToCsv(table)).toBe("Thread,Status\nLinked thread,ready");
   expect(serializeTableElementToMarkdown(table)).toBe(
-    "| Thread | Status |\n| --- | --- |\n| [Linked thread](https://app.t3.codes/threads/linked-vm/there) | ready |",
+    "| Thread | Status |\n| --- | --- |\n| [Linked thread](a4code://threads/linked-vm/there) | ready |",
   );
   expect(serializeTableElementToHtml(table)).toContain(">Linked thread</td>");
 });

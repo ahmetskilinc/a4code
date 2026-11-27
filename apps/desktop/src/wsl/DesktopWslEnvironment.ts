@@ -11,9 +11,9 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { buildRemoteNodeEnvScript } from "@t3tools/ssh/tunnel";
-import { satisfiesSemverRange } from "@t3tools/shared/semver";
+import * as HostProcess from "@a4code/shared/HostProcess";
+import { buildRemoteNodeEnvScript } from "@a4code/ssh/tunnel";
+import { satisfiesSemverRange } from "@a4code/shared/semver";
 
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as DesktopManagedPolicy from "../app/DesktopManagedPolicy.ts";
@@ -60,7 +60,7 @@ export type EnsureWslNodePtyResult =
       readonly ok: true;
       readonly nodePath: string;
       readonly resolvedPath: string;
-      readonly t3Home: string | null;
+      readonly a4Home: string | null;
     }
   | {
       readonly ok: false;
@@ -73,7 +73,7 @@ export type ProbeWslRuntimeResult =
   | {
       readonly ok: true;
       readonly resolvedPath: string;
-      readonly t3Home: string | null;
+      readonly a4Home: string | null;
     }
   | {
       readonly ok: false;
@@ -106,16 +106,16 @@ export class DesktopWslEnvironment extends Context.Service<
     readonly getUserHome: (distro: string | null) => Effect.Effect<Option.Option<string>>;
     // Use the distro IP to avoid unreliable wslhost localhost forwarding.
     readonly getDistroIp: (distro: string | null) => Effect.Effect<Option.Option<string>>;
-    // A null t3Home means the distro's login shell has no absolute T3CODE_HOME, so ~/.t3 applies.
+    // A null a4Home means the distro's login shell has no absolute A4CODE_HOME, so ~/.a4code applies.
     readonly prepareRuntime: (
       distro: string | null,
       archive: WslRuntimeArchive,
-      t3Home: string | null,
+      a4Home: string | null,
     ) => Effect.Effect<PrepareWslRuntimeResult>;
     readonly pruneRuntimes: (
       distro: string | null,
       runtimeId: string,
-      t3Home: string | null,
+      a4Home: string | null,
     ) => Effect.Effect<void>;
     readonly probeRuntime: (distro: string | null) => Effect.Effect<ProbeWslRuntimeResult>;
     readonly ensureNodePty: (
@@ -124,7 +124,7 @@ export class DesktopWslEnvironment extends Context.Service<
       options?: EnsureWslNodePtyOptions,
     ) => Effect.Effect<EnsureWslNodePtyResult>;
   }
->()("@t3tools/desktop/wsl/DesktopWslEnvironment") {}
+>()("@a4code/desktop/wsl/DesktopWslEnvironment") {}
 
 const buildDistroArgs = (distro: string | null): ReadonlyArray<string> =>
   distro ? ["-d", distro] : [];
@@ -265,36 +265,36 @@ const runWslShell = (
 
 const shellQuote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
 
-const WSL_RUNTIME_READY_MARKER = ".t3code-wsl-runtime-ready";
-const WSL_RUNTIME_SELECTED_MARKER = ".t3code-wsl-runtime-selected";
+const WSL_RUNTIME_READY_MARKER = ".a4code-wsl-runtime-ready";
+const WSL_RUNTIME_SELECTED_MARKER = ".a4code-wsl-runtime-selected";
 const WSL_RUNTIME_SELECTION_GRACE_MINUTES = 5;
 
 const sanitizeWslRuntimeId = (value: string): string => value.replace(/[^A-Za-z0-9._-]/g, "_");
 
-const runtimeParentAssignment = (t3Home: string | null): string =>
-  t3Home === null
-    ? 'runtime_parent="$HOME/.t3/wsl-runtime"'
-    : `runtime_parent=${shellQuote(`${t3Home}/wsl-runtime`)}`;
+const runtimeParentAssignment = (a4Home: string | null): string =>
+  a4Home === null
+    ? 'runtime_parent="$HOME/.a4code/wsl-runtime"'
+    : `runtime_parent=${shellQuote(`${a4Home}/wsl-runtime`)}`;
 
 // A null archive path asks for a staging directory to copy the archive into, unless the cache is ready.
 export const buildWslRuntimeInstallScript = (
   linuxArchivePath: string | null,
   runtimeId: string,
   archiveSha256: string,
-  t3Home: string | null,
+  a4Home: string | null,
 ): string => {
   const safeRuntimeId = sanitizeWslRuntimeId(runtimeId);
   const readyCheck = [
     "set -eu",
-    runtimeParentAssignment(t3Home),
+    runtimeParentAssignment(a4Home),
     `runtime_root="$runtime_parent/${safeRuntimeId}"`,
     `ready_marker="$runtime_root/${WSL_RUNTIME_READY_MARKER}"`,
     "runtime_entry_runs() {",
-    '  [ -x "$1/t3" ] && "$1/t3" --version >/dev/null',
+    '  [ -x "$1/a4code" ] && "$1/a4code" --version >/dev/null',
     "}",
     // Hash the entry to detect a swapped or partially written executable, even if it still runs.
     "runtime_server_entry_digest() {",
-    `  sha256sum "$1/t3" 2>/dev/null | cut -d ' ' -f 1`,
+    `  sha256sum "$1/a4code" 2>/dev/null | cut -d ' ' -f 1`,
     "}",
     "runtime_is_ready() {",
     '  [ -f "$ready_marker" ] &&',
@@ -357,7 +357,7 @@ export const buildWslRuntimeInstallScript = (
     "trap cleanup_runtime_install EXIT",
     `tar -xzf ${shellQuote(linuxArchivePath)} -C "$runtime_tmp" --strip-components=1`,
     'if ! runtime_entry_runs "$runtime_tmp"; then',
-    "  printf 'WSL runtime archive does not contain a working t3 executable\\n' >&2",
+    "  printf 'WSL runtime archive does not contain a working a4code executable\\n' >&2",
     "  exit 1",
     "fi",
     'installed_entry_digest=$(runtime_server_entry_digest "$runtime_tmp")',
@@ -382,11 +382,11 @@ export const buildWslRuntimeInstallScript = (
 // Two hours exceeds cold-install time while bounding orphan retention.
 const ORPHANED_RUNTIME_SCRATCH_MAX_AGE_MINUTES = 120;
 
-export const buildWslRuntimePruneScript = (runtimeId: string, t3Home: string | null): string => {
+export const buildWslRuntimePruneScript = (runtimeId: string, a4Home: string | null): string => {
   const safeRuntimeId = sanitizeWslRuntimeId(runtimeId);
   return [
     "set -eu",
-    runtimeParentAssignment(t3Home),
+    runtimeParentAssignment(a4Home),
     `current_runtime="$runtime_parent/${safeRuntimeId}"`,
     '[ -d "$runtime_parent" ] || exit 0',
     // Serialize pruning so backends cannot select and delete different previous caches.
@@ -447,20 +447,20 @@ const NODE_PTY_BINARY_MISSING_EXIT_CODE = 4;
 
 const formatNodePtyProbeFailureReason = (exitCode: number): string | null =>
   exitCode === NODE_PTY_BINARY_MISSING_EXIT_CODE
-    ? "WSL support is missing from this T3 Code build: the packaged Linux node-pty binary was not included. Install a build that includes WSL support."
+    ? "WSL support is missing from this a4code build: the packaged Linux node-pty binary was not included. Install a build that includes WSL support."
     : null;
 
 // Capture login-shell PATH because the server launches provider CLIs by name.
 const RESOLVED_PATH_LINE = `printf 'resolvedPath:%s\\n' "$PATH"`;
-// wsl.exe --exec skips the profile, so the server only sees a profile-exported T3CODE_HOME if passed on.
-const T3_HOME_LINE = `printf 't3Home:%s\\n' "\${T3CODE_HOME:-}"`;
+// wsl.exe --exec skips the profile, so the server only sees a profile-exported A4CODE_HOME if passed on.
+const A4_HOME_LINE = `printf 'a4Home:%s\\n' "\${A4CODE_HOME:-}"`;
 
 const NODE_PTY_PROBE_SCRIPT = (
   linuxServerDir: string,
 ) => `printf 'nodePath:%s\\n' "$(command -v node 2>/dev/null)"
 printf 'nodeVersion:%s\\n' "$(node -p 'process.versions.node' 2>/dev/null)"
 ${RESOLVED_PATH_LINE}
-${T3_HOME_LINE}
+${A4_HOME_LINE}
 cd ${shellQuote(linuxServerDir)} && node <<'NODE' >/dev/null 2>&1
 // The WSL Node can't read inside app.asar, so confirm what the server needs is
 // unpacked on the real filesystem before reporting the backend healthy. Exit 3
@@ -487,9 +487,9 @@ require("node-pty");
 NODE`;
 
 // Resolve version-managed Node for providers without making runtime readiness depend on it.
-// The install script already ran the staged t3, so running it again here only adds a second startup.
+// The install script already ran the staged a4code, so running it again here only adds a second startup.
 export const buildWslRuntimeProbeScript = () =>
-  `bash -lc ${shellQuote(`${buildWslNodeEnvPreamble()}${RESOLVED_PATH_LINE}\n${T3_HOME_LINE}`)} 2>/dev/null || ${RESOLVED_PATH_LINE}`;
+  `bash -lc ${shellQuote(`${buildWslNodeEnvPreamble()}${RESOLVED_PATH_LINE}\n${A4_HOME_LINE}`)} 2>/dev/null || ${RESOLVED_PATH_LINE}`;
 
 const TOOLCHAIN_CHECK_SCRIPT = [
   "for tool in node make g++ python3; do",
@@ -561,8 +561,8 @@ export const parseResolvedPath = (stdout: string): string | null => {
 };
 
 // Relative values are ignored: the runtime scripts and the server would resolve them from different cwds.
-export const parseT3Home = (stdout: string): string | null =>
-  parseAbsolutePathField(stdout, "t3Home");
+export const parseA4Home = (stdout: string): string | null =>
+  parseAbsolutePathField(stdout, "a4Home");
 
 const formatMissingToolsReason = (
   report: ToolchainReport,
@@ -625,7 +625,7 @@ const probeWslRuntimeImpl = Effect.fn("DesktopWslEnvironment.probeWslRuntimeImpl
       reason: "WSL login-shell PATH could not be resolved during backend preflight.",
     } as const;
   }
-  return { ok: true, resolvedPath, t3Home: parseT3Home(probe.stdout) } as const;
+  return { ok: true, resolvedPath, a4Home: parseA4Home(probe.stdout) } as const;
 });
 
 const ensureNodePtyImpl = Effect.fn("DesktopWslEnvironment.ensureNodePtyImpl")(function* (
@@ -645,7 +645,7 @@ const ensureNodePtyImpl = Effect.fn("DesktopWslEnvironment.ensureNodePtyImpl")(f
   );
   const nodePath = parseNodePath(probe.stdout);
   const resolvedPath = parseResolvedPath(probe.stdout);
-  const t3Home = parseT3Home(probe.stdout);
+  const a4Home = parseA4Home(probe.stdout);
 
   const transportFailureReason = formatWslShellTransportFailureReason(probe.transportFailure);
   if (transportFailureReason !== null) {
@@ -712,7 +712,7 @@ const ensureNodePtyImpl = Effect.fn("DesktopWslEnvironment.ensureNodePtyImpl")(f
         fatal: true,
       } as const;
     }
-    return { ok: true, nodePath, resolvedPath, t3Home } as const;
+    return { ok: true, nodePath, resolvedPath, a4Home } as const;
   }
 
   if (options.allowBuild !== true) {
@@ -785,7 +785,7 @@ const ensureNodePtyImpl = Effect.fn("DesktopWslEnvironment.ensureNodePtyImpl")(f
       retryLimit: BUILD_TRANSPORT_RETRY_LIMIT,
     } as const;
   }
-  if (build.exitCode === 0) return { ok: true, nodePath, resolvedPath, t3Home } as const;
+  if (build.exitCode === 0) return { ok: true, nodePath, resolvedPath, a4Home } as const;
   const trimmedTail = `${build.stdout}${build.stderr}`.trim().slice(-500);
   return {
     ok: false,
@@ -801,12 +801,12 @@ type WslRuntimeInstallOutcome =
 const runWslRuntimeInstall = Effect.fn("desktop.wsl.runRuntimeInstall")(function* (
   distro: string | null,
   archive: WslRuntimeArchive,
-  t3Home: string | null,
+  a4Home: string | null,
   linuxArchivePath: string | null,
 ): Effect.fn.Return<WslRuntimeInstallOutcome, never, ChildProcessSpawner.ChildProcessSpawner> {
   const install = yield* runWslShell(
     distro,
-    buildWslRuntimeInstallScript(linuxArchivePath, archive.runtimeId, archive.sha256, t3Home),
+    buildWslRuntimeInstallScript(linuxArchivePath, archive.runtimeId, archive.sha256, a4Home),
     RUNTIME_INSTALL_TIMEOUT,
     { resolveNode: false },
   );
@@ -845,10 +845,10 @@ const installWslRuntimeFromHostCopy = Effect.fn("desktop.wsl.installRuntimeFromH
   function* (
     distro: string | null,
     archive: WslRuntimeArchive,
-    t3Home: string | null,
+    a4Home: string | null,
     archiveBytes: Stream.Stream<Uint8Array, PlatformError.PlatformError>,
   ): Effect.fn.Return<PrepareWslRuntimeResult, never, ChildProcessSpawner.ChildProcessSpawner> {
-    const staged = yield* runWslRuntimeInstall(distro, archive, t3Home, null);
+    const staged = yield* runWslRuntimeInstall(distro, archive, a4Home, null);
     if (!staged.ok || parseWslRuntimeRoot(staged.stdout) !== null) {
       return toPrepareWslRuntimeResult(staged);
     }
@@ -889,7 +889,7 @@ const installWslRuntimeFromHostCopy = Effect.fn("desktop.wsl.installRuntimeFromH
         } as const;
       }
       return toPrepareWslRuntimeResult(
-        yield* runWslRuntimeInstall(distro, archive, t3Home, linuxArchivePath),
+        yield* runWslRuntimeInstall(distro, archive, a4Home, linuxArchivePath),
       );
     });
 
@@ -906,7 +906,7 @@ const installWslRuntimeFromHostCopy = Effect.fn("desktop.wsl.installRuntimeFromH
 const prepareWslRuntimeImpl = Effect.fn("desktop.wsl.prepareRuntimeImpl")(function* (
   distro: string | null,
   archive: WslRuntimeArchive,
-  t3Home: string | null,
+  a4Home: string | null,
   windowsToWslPath: (
     distro: string | null,
     windowsPath: string,
@@ -922,23 +922,23 @@ const prepareWslRuntimeImpl = Effect.fn("desktop.wsl.prepareRuntimeImpl")(functi
     return yield* installWslRuntimeFromHostCopy(
       distro,
       archive,
-      t3Home,
+      a4Home,
       fileSystem.stream(archive.windowsPath),
     );
   }
   return toPrepareWslRuntimeResult(
-    yield* runWslRuntimeInstall(distro, archive, t3Home, linuxArchivePath.value),
+    yield* runWslRuntimeInstall(distro, archive, a4Home, linuxArchivePath.value),
   );
 });
 
 const pruneWslRuntimesImpl = Effect.fn("desktop.wsl.pruneRuntimesImpl")(function* (
   distro: string | null,
   runtimeId: string,
-  t3Home: string | null,
+  a4Home: string | null,
 ): Effect.fn.Return<void, never, ChildProcessSpawner.ChildProcessSpawner> {
   const result = yield* runWslShell(
     distro,
-    buildWslRuntimePruneScript(runtimeId, t3Home),
+    buildWslRuntimePruneScript(runtimeId, a4Home),
     RUNTIME_PRUNE_TIMEOUT,
     { resolveNode: false },
   );
@@ -1196,12 +1196,12 @@ export interface DesktopWslEnvironmentTestStub {
   readonly prepareRuntime?: (
     distro: string | null,
     archive: WslRuntimeArchive,
-    t3Home: string | null,
+    a4Home: string | null,
   ) => PrepareWslRuntimeResult;
   readonly pruneRuntimes?: (
     distro: string | null,
     runtimeId: string,
-    t3Home: string | null,
+    a4Home: string | null,
   ) => Effect.Effect<void>;
   readonly probeRuntime?: (distro: string | null) => ProbeWslRuntimeResult;
   readonly ensureNodePty?: (
@@ -1235,9 +1235,9 @@ export const layerTest = (stub: DesktopWslEnvironmentTestStub = {}) => {
         return Effect.succeed(stub.getDistroIp?.(distro) ?? Option.none<string>());
       }),
       prepareRuntime: Effect.fn("DesktopWslEnvironment.prepareRuntime")(
-        function (distro, archive, t3Home) {
+        function (distro, archive, a4Home) {
           return Effect.succeed(
-            stub.prepareRuntime?.(distro, archive, t3Home) ?? {
+            stub.prepareRuntime?.(distro, archive, a4Home) ?? {
               ok: false,
               reason: "prepareRuntime stub not configured",
             },
@@ -1245,8 +1245,8 @@ export const layerTest = (stub: DesktopWslEnvironmentTestStub = {}) => {
         },
       ),
       pruneRuntimes: Effect.fn("DesktopWslEnvironment.pruneRuntimes")(
-        function (distro, runtimeId, t3Home) {
-          return stub.pruneRuntimes?.(distro, runtimeId, t3Home) ?? Effect.void;
+        function (distro, runtimeId, a4Home) {
+          return stub.pruneRuntimes?.(distro, runtimeId, a4Home) ?? Effect.void;
         },
       ),
       probeRuntime: Effect.fn("DesktopWslEnvironment.probeRuntime")(function (distro) {
@@ -1254,7 +1254,7 @@ export const layerTest = (stub: DesktopWslEnvironmentTestStub = {}) => {
           stub.probeRuntime?.(distro) ?? {
             ok: true,
             resolvedPath: "/usr/bin:/bin",
-            t3Home: null,
+            a4Home: null,
           },
         );
       }),
@@ -1335,15 +1335,15 @@ export const layer = Layer.effect(
       windowsToWslPath,
       getUserHome,
       getDistroIp,
-      prepareRuntime: Effect.fn("desktop.wsl.prepareRuntime")(function (distro, archive, t3Home) {
+      prepareRuntime: Effect.fn("desktop.wsl.prepareRuntime")(function (distro, archive, a4Home) {
         return provideSpawner(
-          prepareWslRuntimeImpl(distro, archive, t3Home, windowsToWslPath).pipe(
+          prepareWslRuntimeImpl(distro, archive, a4Home, windowsToWslPath).pipe(
             Effect.provideService(FileSystem.FileSystem, fileSystem),
           ),
         );
       }),
-      pruneRuntimes: Effect.fn("desktop.wsl.pruneRuntimes")(function (distro, runtimeId, t3Home) {
-        return provideSpawner(pruneWslRuntimesImpl(distro, runtimeId, t3Home));
+      pruneRuntimes: Effect.fn("desktop.wsl.pruneRuntimes")(function (distro, runtimeId, a4Home) {
+        return provideSpawner(pruneWslRuntimesImpl(distro, runtimeId, a4Home));
       }),
       probeRuntime: Effect.fn("desktop.wsl.probeRuntime")(function (distro) {
         return provideSpawner(probeWslRuntimeImpl(distro));

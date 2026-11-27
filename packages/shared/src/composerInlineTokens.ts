@@ -112,7 +112,7 @@ function collectMentionTokens(text: string): ComposerInlineToken[] {
 
 /**
  * Formulas in composer text, ignoring `$` and `\[` inside file links such as `posts.$postId.tsx`
- * and `t3-context://` references. Links are masked with letters, not spaces, so a leading link
+ * and `a4-context://` references. Links are masked with letters, not spaces, so a leading link
  * cannot become an indented code block. Bare `@path` mentions stay unmasked so `@README.md$` can
  * still close a formula.
  */

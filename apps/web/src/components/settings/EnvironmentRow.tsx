@@ -3,8 +3,8 @@ import {
   connectionRouteId,
   connectionRouteLabelText,
   connectionRoutes,
-} from "@t3tools/client-runtime/connection";
-import type { DesktopSshEnvironmentTarget, EnvironmentMachineKind } from "@t3tools/contracts";
+} from "@a4code/client-runtime/connection";
+import type { DesktopSshEnvironmentTarget, EnvironmentMachineKind } from "@a4code/contracts";
 import * as Option from "effect/Option";
 import { msg, useMessages } from "gt-react";
 import type { ReactNode } from "react";
@@ -15,8 +15,6 @@ import { usePreparedConnection } from "~/state/session";
 import { isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { m, type MessageResolver } from "../../i18n/messages";
-
-const T3_CONNECT_NAME = "T3 Connect";
 
 export function formatDesktopSshTarget(target: DesktopSshEnvironmentTarget): string {
   const authority = target.username ? `${target.username}@${target.hostname}` : target.hostname;
@@ -42,7 +40,6 @@ export function environmentTransportLabel(
       ? connectionRouteLabelText(routes[0]!, resolve)
       : resolve(msg("via {route}", { route: connectionRouteLabelText(active, resolve) }));
   }
-  if (environment.relayManaged) return T3_CONNECT_NAME;
   if (isDesktopLocalConnectionTarget(entry.target)) return "WSL";
   if (
     entry.target._tag === "SshConnectionTarget" &&

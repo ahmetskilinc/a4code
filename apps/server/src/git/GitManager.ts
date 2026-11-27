@@ -46,22 +46,22 @@ import {
   type ThreadPullRequestKey,
   type VcsCreateWorktreeInput,
   type VcsCreateWorktreeResult,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import {
   hasProjectSettingsOverrides,
   resolveProjectSettings,
-} from "@t3tools/shared/projectSettings";
+} from "@a4code/shared/projectSettings";
 import {
   mergeGitStatusParts,
   resolveAutoFeatureBranchName,
   sanitizeBranchFragment,
   sanitizeFeatureBranchName,
-} from "@t3tools/shared/git";
-import { isSshRemoteUrl } from "@t3tools/shared/sourceControl";
+} from "@a4code/shared/git";
+import { isSshRemoteUrl } from "@a4code/shared/sourceControl";
 import {
   type ChangeRequestTerminology,
   UNKNOWN_SOURCE_CONTROL_CLIENT,
-} from "@t3tools/source-control-core/shared/definition";
+} from "@a4code/source-control-core/shared/definition";
 import {
   normalizeThreadPullRequestKey,
   threadPullRequestKeyOf,
@@ -72,12 +72,12 @@ import {
   GitManagerError,
   GitPullRequestMaterializationError,
   trimAsciiWhitespace,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import {
   historicalMessage,
   renderHistory,
   selectHistory,
-} from "@t3tools/provider-core/server/handoffBudget";
+} from "@a4code/provider-core/server/handoffBudget";
 import * as TextGeneration from "../textGeneration/TextGeneration.ts";
 import {
   conventionalCommitsTextGenerationPolicy,
@@ -93,13 +93,13 @@ import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import { extractBranchNameFromRemoteRef } from "./remoteRefs.ts";
 import { detachStackFrame } from "./detachStackFrame.ts";
 import * as ServerSettings from "../serverSettings.ts";
-import type { GitManagerServiceError } from "@t3tools/contracts";
+import type { GitManagerServiceError } from "@a4code/contracts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import { isNonRepositoryGitStderr } from "../vcs/GitVcsDriverCore.ts";
-import * as SourceControlProvider from "@t3tools/source-control-core/server/SourceControlProvider";
-import * as SourceControlRateLimit from "@t3tools/source-control-core/server/SourceControlRateLimit";
+import * as SourceControlProvider from "@a4code/source-control-core/server/SourceControlProvider";
+import * as SourceControlRateLimit from "@a4code/source-control-core/server/SourceControlRateLimit";
 import * as SourceControlProviderRegistry from "../sourceControl/SourceControlProviderRegistry.ts";
-import type { ChangeRequest } from "@t3tools/contracts";
+import type { ChangeRequest } from "@a4code/contracts";
 
 export interface GitActionProgressReporter {
   readonly publish: (event: GitActionProgressEvent) => Effect.Effect<void, never>;
@@ -195,7 +195,7 @@ export class GitManager extends Context.Service<
         readonly includeHeadRepository?: boolean;
       },
     ) => Effect.Effect<GitBranchPullRequest | null, GitManagerServiceError>;
-    /** Whether T3 checked this pull request out onto the branch, which ties it to later threads. */
+    /** Whether a4code checked this pull request out onto the branch, which ties it to later threads. */
     readonly checkedOutPullRequest: (input: {
       readonly cwd: string;
       readonly branch: string;
@@ -244,7 +244,7 @@ export class GitManager extends Context.Service<
       Scope.Scope
     >;
   }
->()("t3/git/GitManager") {}
+>()("a4code/git/GitManager") {}
 
 const COMMIT_TIMEOUT_MS = 10 * 60_000;
 const MAX_PROGRESS_TEXT_LENGTH = 500;
@@ -304,7 +304,7 @@ interface SharedPrLookupGitReads {
 }
 
 const prLookupGitReads = Context.Reference<SharedPrLookupGitReads | null>(
-  "t3/GitManager/prLookupGitReads",
+  "a4code/GitManager/prLookupGitReads",
   { defaultValue: () => null },
 );
 
@@ -379,7 +379,7 @@ function resolveHeadRepositoryNameWithOwner(pullRequest: PullRequestHeadRemoteIn
 
 // Both names `resolvePullRequestWorktreeLocalBranchName` gives a fork pull request's branch.
 function isPullRequestWorktreeLocalBranchName(branch: string): boolean {
-  return /^t3code[/-]pr-\d+[/-]/u.test(branch);
+  return /^a4code[/-]pr-\d+[/-]/u.test(branch);
 }
 
 function resolvePullRequestWorktreeLocalBranchName(
@@ -392,18 +392,18 @@ function resolvePullRequestWorktreeLocalBranchName(
 
   const sanitizedHeadBranch = sanitizeBranchFragment(pullRequest.headBranch).trim();
   const suffix = sanitizedHeadBranch.length > 0 ? sanitizedHeadBranch : "head";
-  // Git cannot create a ref whose path is a parent or child of an existing one (`t3code` blocks `t3code/...`).
+  // Git cannot create a ref whose path is a parent or child of an existing one (`a4code` blocks `a4code/...`).
   const isCreatable = (name: string) =>
     !name
       .split("/")
       .slice(0, -1)
       .some((_, index, segments) => localBranches.has(segments.slice(0, index + 1).join("/"))) &&
     ![...localBranches].some((branch) => branch.startsWith(`${name}/`));
-  const preferred = `t3code/pr-${pullRequest.number}/${suffix}`;
+  const preferred = `a4code/pr-${pullRequest.number}/${suffix}`;
   if (isCreatable(preferred)) {
     return preferred;
   }
-  const flat = `t3code-pr-${pullRequest.number}-${suffix.replaceAll("/", "-")}`;
+  const flat = `a4code-pr-${pullRequest.number}-${suffix.replaceAll("/", "-")}`;
   for (let attempt = 1; ; attempt++) {
     const candidate = attempt === 1 ? flat : `${flat}-${attempt}`;
     if (isCreatable(candidate)) {
@@ -943,8 +943,8 @@ export const make = Effect.gen(function* () {
         ),
       ),
   );
-  // Hands the base T3 recorded for a branch to the host, whose own tools may keep it elsewhere.
-  // Best-effort: nothing T3 does reads it back from there.
+  // Hands the base a4code recorded for a branch to the host, whose own tools may keep it elsewhere.
+  // Best-effort: nothing a4code does reads it back from there.
   const shareBranchBase = Effect.fn("GitManager.shareBranchBase")(function* (
     cwd: string,
     branch: string,
@@ -1686,15 +1686,18 @@ export const make = Effect.gen(function* () {
     // Upstream changes must not orphan the same branch's fallback value.
     const branchKey = `${cwd}\u0000${details.branch}`;
     const cacheKey = prLookupCacheKey(cwd, details);
-    if (refreshMissingPullRequest) {
-      const cached = yield* Cache.getOption(prLookupCache, cacheKey).pipe(
-        Effect.orElseSucceed(() => Option.none()),
-      );
-      if (Option.isSome(cached) && cached.value.latest === null) {
-        yield* Cache.invalidate(prLookupCache, cacheKey);
-      }
+    const cached = yield* Cache.getOption(prLookupCache, cacheKey).pipe(
+      Effect.orElseSucceed(() => Option.none()),
+    );
+    if (!refreshMissingPullRequest && Option.isNone(cached)) return { pr: null, headSha: null };
+    if (refreshMissingPullRequest && Option.isSome(cached) && cached.value.latest === null) {
+      yield* Cache.invalidate(prLookupCache, cacheKey);
     }
-    return yield* getPrLookup(cacheKey).pipe(
+    const result =
+      !refreshMissingPullRequest && Option.isSome(cached)
+        ? Effect.succeed(cached.value)
+        : getPrLookup(cacheKey);
+    return yield* result.pipe(
       Effect.map(({ latest, headContext }) => {
         if (!latest) return { pr: null, headSha: null, headContext };
         // Merged/closed matches are usually reverse-merge history, not the thread's PR context.
@@ -1762,7 +1765,7 @@ export const make = Effect.gen(function* () {
     const details =
       options?.statusDetails ??
       (yield* gitCore
-        .statusDetailsRemote(cwd, options)
+        .statusDetailsRemote(cwd, { ...options, refreshUpstream: false })
         .pipe(Effect.catchIf(isNotGitRepositoryError, () => Effect.succeed(null))));
     if (details === null || !details.isRepo) {
       return null;
@@ -1925,15 +1928,7 @@ export const make = Effect.gen(function* () {
       (yield* readRemoteUrlNullable(cwd, preferredRemoteName)) ??
       (yield* readRemoteUrlNullable(cwd, "origin"));
 
-    const provider = remoteUrl ? sourceControlDefinitions.recognizeRemote(remoteUrl) : null;
-    if (!remoteUrl || provider?.kind !== "unknown") return provider;
-    const handle = yield* sourceControlProviders
-      .resolveHandle({
-        cwd,
-        context: { provider, remoteName: preferredRemoteName, remoteUrl },
-      })
-      .pipe(Effect.orElseSucceed(() => null));
-    return handle?.context?.provider ?? provider;
+    return remoteUrl ? sourceControlDefinitions.recognizeRemote(remoteUrl) : null;
   });
   const resolveHostingProviderForLocalStatus = (cwd: string, branch: string | null) =>
     Effect.suspend(() => {
@@ -2524,7 +2519,7 @@ export const make = Effect.gen(function* () {
     upstreamRef: string | null,
     headContext: Pick<BranchHeadContext, "isCrossRepository" | "remoteName">,
   ) {
-    const configuredRef = yield* gitCore.readConfigValue(cwd, `branch.${branch}.t3-merge-base-ref`);
+    const configuredRef = yield* gitCore.readConfigValue(cwd, `branch.${branch}.a4-merge-base-ref`);
     if (configuredRef?.startsWith("refs/heads/") || configuredRef?.startsWith("refs/remotes/")) {
       const configuredBranch = yield* gitCore.resolveBranchName(cwd, configuredRef);
       if (configuredBranch) return { baseBranch: configuredBranch, baseRef: configuredRef };
@@ -2887,7 +2882,7 @@ export const make = Effect.gen(function* () {
     });
     const bodyFile = path.join(
       tempDir,
-      `t3code-pr-body-${process.pid}-${yield* randomUUIDv4(cwd)}.md`,
+      `a4code-pr-body-${process.pid}-${yield* randomUUIDv4(cwd)}.md`,
     );
     yield* fileSystem.writeFileString(bodyFile, generated.body).pipe(
       Effect.mapError(
@@ -3046,7 +3041,7 @@ export const make = Effect.gen(function* () {
       preferredName: companion.repository.split("/")[0] || "private",
       url: companion.url,
     });
-    // Recorded before the push, so a later push of this branch, by T3 or by plain `git push`,
+    // Recorded before the push, so a later push of this branch, by a4code or by plain `git push`,
     // goes to the companion too and never publishes the branch.
     const pushRemoteKey = `branch.${branch}.pushRemote`;
     const readPushRemote = gitCore
@@ -3115,7 +3110,7 @@ export const make = Effect.gen(function* () {
     }
     const bodyFile = path.join(
       tempDir,
-      `t3code-pr-body-${process.pid}-${yield* randomUUIDv4(cwd)}.md`,
+      `a4code-pr-body-${process.pid}-${yield* randomUUIDv4(cwd)}.md`,
     );
     yield* fileSystem
       .writeFileString(bodyFile, input.body)
@@ -3314,7 +3309,7 @@ export const make = Effect.gen(function* () {
     ) {
       return remembered.value;
     }
-    // invalidateStatus bumps the epoch. A read that started before a T3 git
+    // invalidateStatus bumps the epoch. A read that started before a a4code git
     // action, or before a newer read finished, must not replace their state.
     const epoch = prLookupEpoch(cwd);
     const useMemoized =
@@ -3616,7 +3611,7 @@ export const make = Effect.gen(function* () {
     };
   }, withBranchPullRequestGitReads);
 
-  const checkedOutPullRequestKey = (branch: string) => `branch.${branch}.t3-pull-request`;
+  const checkedOutPullRequestKey = (branch: string) => `branch.${branch}.a4-pull-request`;
 
   const branchPullRequest: GitManager["Service"]["branchPullRequest"] = Effect.fn(
     "branchPullRequest",

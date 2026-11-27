@@ -1,13 +1,5 @@
-// Occurrence indices are fetch-local; replace entire refetched ranges to prevent key collisions.
 import { cursorRateModel } from "./accountUsage.ts";
-import type { UsageRecord } from "@t3tools/provider-core/server/usage";
-
-export type CursorCredentialSource = { readonly kind: "apiKey"; readonly apiKey: string };
-
-export const CURSOR_ACCOUNT_TTL_MS = 60 * 1000;
-
-/** Dashboard events can be finalized after they were first read. */
-const REFETCH_OVERLAP_MS = 60 * 60 * 1000;
+import type { UsageRecord } from "@a4code/provider-core/server/usage";
 
 export interface CursorAccountCache {
   readonly accountKey: string;
@@ -17,99 +9,6 @@ export interface CursorAccountCache {
   readonly records: readonly UsageRecord[];
 }
 
-interface CursorFetchRange {
-  readonly sinceMs: number;
-  readonly untilMs: number;
-}
-
-export function isCursorCacheFresh(
-  cache: CursorAccountCache | undefined,
-  nowMs: number,
-  retentionStartMs: number,
-): cache is CursorAccountCache {
-  return (
-    cache !== undefined &&
-    cache.sinceMs <= retentionStartMs &&
-    nowMs - cache.fetchedAtMs < CURSOR_ACCOUNT_TTL_MS
-  );
-}
-
-/** Narrowest read a refresh falls back to after failed reads of wider ranges. */
-export const CURSOR_MIN_FETCH_SPAN_MS = 60 * 1000;
-
-/**
- * The next range to read, at most `maxSpanMs` wide unless it only tops up a complete cache:
- * the newest history first, then older history down to the retention start.
- */
-export function cursorFetchRange(
-  cache: CursorAccountCache | undefined,
-  retentionStartMs: number,
-  nowMs: number,
-  maxSpanMs = Number.POSITIVE_INFINITY,
-): CursorFetchRange {
-  if (cache === undefined || cache.untilMs - REFETCH_OVERLAP_MS < retentionStartMs) {
-    return { sinceMs: Math.max(retentionStartMs, nowMs - maxSpanMs), untilMs: nowMs };
-  }
-  if (cache.untilMs < nowMs || cache.sinceMs <= retentionStartMs) {
-    // Overlap at most half the span so a narrow read still moves forward.
-    const sinceMs = cache.untilMs - Math.min(REFETCH_OVERLAP_MS, maxSpanMs / 2);
-    return { sinceMs, untilMs: Math.min(nowMs, sinceMs + maxSpanMs) };
-  }
-  return {
-    sinceMs: Math.max(retentionStartMs, cache.sinceMs - maxSpanMs),
-    untilMs: cache.sinceMs,
-  };
-}
-
-export function mergeCursorFetch(
-  cache: CursorAccountCache | undefined,
-  accountKey: string,
-  range: CursorFetchRange,
-  fetched: readonly UsageRecord[],
-  nowMs: number,
-  retentionStartMs: number,
-) {
-  const inRange = (record: UsageRecord) =>
-    record.timestampMs >= range.sinceMs && record.timestampMs <= range.untilMs;
-  const base =
-    cache !== undefined && range.sinceMs <= cache.untilMs && range.untilMs >= cache.sinceMs
-      ? cache
-      : undefined;
-  const older = base !== undefined && range.untilMs <= base.sinceMs;
-  const previous = base?.records ?? [];
-  const added = fetched.filter(inRange);
-  const replacedKeys = new Set<string | null>();
-  let pruned = false;
-  for (const record of previous) {
-    if (inRange(record)) replacedKeys.add(record.dedupeKey);
-    else if (record.timestampMs < retentionStartMs) pruned = true;
-  }
-  const changed =
-    base === undefined ||
-    base.sinceMs > retentionStartMs ||
-    pruned ||
-    replacedKeys.size !== added.length ||
-    added.some((record) => !replacedKeys.has(record.dedupeKey));
-  let records = previous;
-  if (changed) {
-    const kept = previous.filter(
-      (record) => !inRange(record) && record.timestampMs >= retentionStartMs,
-    );
-    records = older ? added.concat(kept) : kept.concat(added);
-  }
-  return {
-    changed,
-    cache: {
-      accountKey,
-      sinceMs: Math.max(retentionStartMs, Math.min(base?.sinceMs ?? range.sinceMs, range.sinceMs)),
-      untilMs: older ? base.untilMs : range.untilMs,
-      fetchedAtMs: nowMs,
-      records,
-    } satisfies CursorAccountCache,
-  };
-}
-
-/** Versioned files isolate caches for different server versions sharing a state directory. */
 export const CURSOR_ACCOUNT_CACHE_FILE_NAME = "usage-cursor-account-cache-v2.json";
 const CURSOR_ACCOUNT_CACHE_VERSION = 2;
 
@@ -131,41 +30,6 @@ interface SerializedAccount {
   readonly untilMs: number;
   readonly fetchedAtMs: number;
   readonly records: readonly SerializedRecord[];
-}
-
-export function encodeCursorAccountCaches(caches: ReadonlyMap<string, CursorAccountCache>): string {
-  const strings: string[] = [];
-  const indexes = new Map<string, number>();
-  const intern = (value: string) => {
-    let index = indexes.get(value);
-    if (index === undefined) {
-      index = strings.length;
-      strings.push(value);
-      indexes.set(value, index);
-    }
-    return index;
-  };
-  const accounts: Record<string, SerializedAccount> = {};
-  for (const [credentialKey, cache] of caches) {
-    accounts[credentialKey] = {
-      accountKey: cache.accountKey,
-      sinceMs: cache.sinceMs,
-      untilMs: cache.untilMs,
-      fetchedAtMs: cache.fetchedAtMs,
-      records: cache.records.map((record) => [
-        record.timestampMs,
-        intern(record.model),
-        intern(record.sessionId),
-        record.totals.uncachedInputTokens,
-        record.totals.cachedInputTokens,
-        record.totals.cacheCreationTokens,
-        record.totals.outputTokens,
-        record.reportedCostUsd,
-        record.dedupeKey,
-      ]),
-    };
-  }
-  return JSON.stringify({ version: CURSOR_ACCOUNT_CACHE_VERSION, strings, accounts });
 }
 
 const isFiniteNumber = (value: unknown): value is number =>

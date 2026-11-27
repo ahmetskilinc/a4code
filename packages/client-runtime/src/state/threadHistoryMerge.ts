@@ -2,8 +2,8 @@ import type {
   OrchestrationV2ProjectedTurnItem,
   OrchestrationV2Subagent,
   OrchestrationV2ThreadProjection,
-} from "@t3tools/contracts";
-import { isOrchestrationV2TurnItemVisible } from "@t3tools/shared/orchestrationV2Timeline";
+} from "@a4code/contracts";
+import { isOrchestrationV2TurnItemVisible } from "@a4code/shared/orchestrationV2Timeline";
 
 export type ThreadHistoryMeta = {
   readonly historyCursor: string | null;

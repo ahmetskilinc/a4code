@@ -6,7 +6,7 @@ import {
   type WorkflowRunReference,
   type WorkflowRunsSnapshot,
   type WorkflowStep,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { page as browserPage, userEvent } from "vite-plus/test/browser";
 
@@ -596,8 +596,8 @@ describe("WorkflowRunsView", () => {
             name: "wanted",
             kind: "ask",
             endedAt: at(1),
-            detail: "withdrawn by t3 CLI: settled elsewhere",
-            result: { withdrawn: { by: "t3 CLI", reason: "settled elsewhere" } },
+            detail: "withdrawn by a4code CLI: settled elsewhere",
+            result: { withdrawn: { by: "a4code CLI", reason: "settled elsewhere" } },
           }),
         ],
       },
@@ -605,11 +605,11 @@ describe("WorkflowRunsView", () => {
     await using screen = await render(page("ship"));
 
     const flow = screen.getByRole("navigation", { name: "Steps so far" });
-    await expect.element(flow).toMatchTextContent(/wanted.*withdrawn by t3 CLI/);
+    await expect.element(flow).toMatchTextContent(/wanted.*withdrawn by a4code CLI/);
     await flow.getByRole("button", { name: /wanted/ }).click();
     await expect
       .element(screen.getByRole("region", { name: "wanted" }))
-      .toMatchTextContent(/withdrawn · 1m 0s.*Withdrawn by t3 CLI: settled elsewhere/);
+      .toMatchTextContent(/withdrawn · 1m 0s.*Withdrawn by a4code CLI: settled elsewhere/);
   });
 
   it("opens an agent's thread on an environment this server links to", async () => {
@@ -738,7 +738,7 @@ describe("WorkflowRunsView", () => {
       .not.toMatchTextContent(/skipped/);
   });
 
-  const KIND_KEY = "t3code:workflows:question-kind";
+  const KIND_KEY = "a4code:workflows:question-kind";
   const asked = (runId: string, kind?: string): WorkflowQuestion => ({
     ...question,
     runId,

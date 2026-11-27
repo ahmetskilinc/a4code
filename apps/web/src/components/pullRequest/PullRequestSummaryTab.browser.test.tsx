@@ -2,8 +2,8 @@ import {
   DEFAULT_CLIENT_SETTINGS,
   SourceControlProviderKind,
   type ClientSettings,
-} from "@t3tools/contracts";
-import { EnvironmentId, ProjectId, type PullRequestDetailView } from "@t3tools/contracts";
+} from "@a4code/contracts";
+import { EnvironmentId, ProjectId, type PullRequestDetailView } from "@a4code/contracts";
 import { expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 
@@ -369,7 +369,7 @@ it("opens comment timestamps through the link-target setting, not a popup", asyn
   });
   // The dismissed review renders as a collapsed card; show it with the resolved filter on.
   localStorage.setItem(
-    "t3code:pull-request-comment-filter:v1",
+    "a4code:pull-request-comment-filter:v1",
     JSON.stringify({ bots: false, resolved: true }),
   );
   try {
@@ -391,7 +391,7 @@ it("opens comment timestamps through the link-target setting, not a popup", asyn
       expect(state.openLink).toHaveBeenCalledWith(href, { event: expect.anything() });
     }
   } finally {
-    localStorage.removeItem("t3code:pull-request-comment-filter:v1");
+    localStorage.removeItem("a4code:pull-request-comment-filter:v1");
   }
 });
 

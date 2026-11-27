@@ -1,7 +1,6 @@
 import * as NodePath from "@effect/platform-node/NodePath";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
-import { CLI_RELEASE_BASE_URL_ENV } from "@t3tools/shared/cliRelease";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -12,14 +11,14 @@ import { resolveDesktopSshCliRunner } from "./DesktopSshEnvironment.ts";
 const packagedEnvironment = DesktopEnvironment.DesktopEnvironment.pipe(
   Effect.provide(
     DesktopEnvironment.layer({
-      dirname: "/Applications/T3 Code.app/Contents/Resources/app.asar/dist-electron",
+      dirname: "/Applications/a4code.app/Contents/Resources/app.asar/dist-electron",
       homeDirectory: "/Users/alice",
       platform: "darwin",
       processArch: "arm64",
       appVersion: "0.0.22",
-      appPath: "/Applications/T3 Code.app/Contents/Resources/app.asar",
+      appPath: "/Applications/a4code.app/Contents/Resources/app.asar",
       isPackaged: true,
-      resourcesPath: "/Applications/T3 Code.app/Contents/Resources",
+      resourcesPath: "/Applications/a4code.app/Contents/Resources",
       runningUnderArm64Translation: false,
     }).pipe(
       Layer.provide(
@@ -30,17 +29,14 @@ const packagedEnvironment = DesktopEnvironment.DesktopEnvironment.pipe(
 );
 
 describe("resolveDesktopSshCliRunner", () => {
-  it.effect("downloads the remote runner from the release mirror", () =>
+  it.effect("requires the installed remote runner to match the desktop version", () =>
     Effect.gen(function* () {
       const environment = yield* packagedEnvironment;
 
-      const runner = resolveDesktopSshCliRunner(environment, {
-        [CLI_RELEASE_BASE_URL_ENV]: "https://mirror.example.com/t3code",
-      });
+      const runner = resolveDesktopSshCliRunner(environment);
 
       assert.deepStrictEqual(runner, {
         archiveVersion: "0.0.22",
-        releaseBaseUrl: "https://mirror.example.com/t3code",
       });
     }),
   );

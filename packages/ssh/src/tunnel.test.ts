@@ -8,8 +8,8 @@ import * as NodePath from "node:path";
 import { assert, describe, it } from "@effect/vitest";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import * as NetService from "@t3tools/shared/Net";
+import * as HostProcess from "@a4code/shared/HostProcess";
+import * as NetService from "@a4code/shared/Net";
 import * as Clock from "effect/Clock";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
@@ -101,11 +101,11 @@ function commandArgs(command: ChildProcess.Command): ReadonlyArray<string> {
 
 const ARCHIVE = { archiveVersion: "1.2.3-preview.20260911.4" } as const;
 
-// Emulates `t3 serve`: it takes the home owner lock at startup, then binds
+// Emulates `a4code serve`: it takes the home owner lock at startup, then binds
 // once a second server has tried the same home (or after 2s), so a concurrent
 // launch always sees the home still unclaimed. Like the real server, it
 // publishes server-runtime.json after it starts answering HTTP, if at all.
-const fakeT3Serve = (publishDelayMs: number | null) => `const fs = require("node:fs");
+const fakeA4Serve = (publishDelayMs: number | null) => `const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 const args = process.argv.slice(2);
@@ -177,7 +177,7 @@ describe("ssh tunnel scripts", () => {
   it.live("distinguishes an incompatible remote Node from a missing executable", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-ssh-node-" });
+      const home = yield* fs.makeTempDirectoryScoped({ prefix: "a4-ssh-node-" });
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
       for (const missing of [false, true]) {
         const nodeFixture = missing
@@ -227,9 +227,9 @@ describe("ssh tunnel scripts", () => {
   it.live("reports only the failed launch's own output, not an earlier launch's log", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-ssh-launch-log-" });
+      const home = yield* fs.makeTempDirectoryScoped({ prefix: "a4-ssh-launch-log-" });
       const target = { alias: "devbox", hostname: "devbox", username: null, port: null };
-      const stateDir = NodePath.join(home, ".t3", "ssh-launch", yield* remoteStateKey(target));
+      const stateDir = NodePath.join(home, ".a4code", "ssh-launch", yield* remoteStateKey(target));
       const bin = NodePath.join(home, "bin");
       yield* fs.makeDirectory(stateDir, { recursive: true });
       yield* fs.makeDirectory(bin);
@@ -294,206 +294,60 @@ describe("ssh tunnel scripts", () => {
       "v1.2.3",
     ]) {
       assert.throws(
-        () => SshTunnel.buildRemoteT3RunnerScript({ archiveVersion }),
+        () => SshTunnel.buildRemoteA4RunnerScript({ archiveVersion }),
         SshTunnel.SshInvalidArchiveVersionError,
         undefined,
         archiveVersion,
       );
     }
     assert.include(
-      SshTunnel.buildRemoteT3RunnerScript(ARCHIVE),
-      "T3_ARCHIVE_VERSION='1.2.3-preview.20260911.4'",
+      SshTunnel.buildRemoteA4RunnerScript(ARCHIVE),
+      "A4_ARCHIVE_VERSION='1.2.3-preview.20260911.4'",
     );
   });
-
-  it.each([
-    { host: "Darwin x86_64", system: "Darwin", machine: "x86_64", downloads: false },
-    { host: "Darwin arm64", system: "Darwin", machine: "arm64", downloads: true },
-  ])(
-    "only downloads a release archive the host can run: $host",
-    ({ system, machine, downloads }) => {
-      const root = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-ssh-runner-"));
-      try {
-        const bin = NodePath.join(root, "bin");
-        NodeFS.mkdirSync(bin);
-        NodeFS.mkdirSync(NodePath.join(root, "home"));
-        NodeFS.writeFileSync(
-          NodePath.join(bin, "uname"),
-          `#!/bin/sh\ncase "$1" in -s) echo ${system} ;; -m) echo ${machine} ;; esac\n`,
-          { mode: 0o755 },
-        );
-        NodeFS.writeFileSync(
-          NodePath.join(bin, "curl"),
-          "#!/bin/sh\necho 'download attempt' >&2\necho 'curl: (6) Could not resolve host: github.com' >&2\nexit 6\n",
-          { mode: 0o755 },
-        );
-        const runner = NodePath.join(root, "run-t3.sh");
-        NodeFS.writeFileSync(runner, SshTunnel.buildRemoteT3RunnerScript(ARCHIVE));
-        const result = NodeChildProcess.spawnSync("sh", [runner, "--version"], {
-          encoding: "utf8",
-          env: { HOME: NodePath.join(root, "home"), PATH: `${bin}:${process.env.PATH ?? ""}` },
-        });
-        assert.notEqual(result.status, 0);
-        if (downloads) {
-          assert.include(result.stderr, "download attempt");
-          // A bare curl error does not tell the user that t3 itself could not be downloaded.
-          assert.include(result.stderr, ARCHIVE.archiveVersion);
-          assert.include(result.stderr, "https://github.com/pingdotgg/t3code/releases/download");
-        } else {
-          assert.notInclude(result.stderr, "download attempt");
-          assert.include(result.stderr, "has no t3 release archive.");
-        }
-      } finally {
-        NodeFS.rmSync(root, { recursive: true, force: true });
-      }
-    },
-  );
 
   it.each([
     { installed: ARCHIVE.archiveVersion, status: 0, reuses: true },
     { installed: ARCHIVE.archiveVersion, status: 1, reuses: false },
     { installed: "9.9.9", status: 0, reuses: false },
+    { installed: null, status: 0, reuses: false },
   ])(
-    "reuses a host t3 only at exactly the requested version: installed $installed, status $status",
+    "requires a preinstalled SSH CLI with version $installed and exit status $status",
     ({ installed, status, reuses }) => {
-      const root = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-ssh-runner-"));
+      const root = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "a4code-ssh-runner-"));
       try {
-        const bin = NodePath.join(root, "bin");
-        NodeFS.mkdirSync(bin);
-        NodeFS.mkdirSync(NodePath.join(root, "home"));
-        // A host the release archive cannot run on, so only reuse can succeed.
-        NodeFS.writeFileSync(
-          NodePath.join(bin, "uname"),
-          `#!/bin/sh\ncase "$1" in -s) echo Darwin ;; -m) echo x86_64 ;; esac\n`,
-          { mode: 0o755 },
-        );
-        NodeFS.writeFileSync(
-          NodePath.join(bin, "t3"),
-          `#!/bin/sh\ncase "$1" in --version) echo "t3 v${installed}"; exit ${status} ;; *) echo "host t3 $*" ;; esac\n`,
-          { mode: 0o755 },
-        );
-        const runner = NodePath.join(root, "run-t3.sh");
-        NodeFS.writeFileSync(runner, SshTunnel.buildRemoteT3RunnerScript(ARCHIVE));
-        const result = NodeChildProcess.spawnSync("sh", [runner, "serve"], {
+        if (installed !== null) {
+          NodeFS.writeFileSync(
+            NodePath.join(root, "a4code"),
+            `#!/bin/sh\ncase "$1" in --version) echo "a4code v${installed}"; exit ${status} ;; *) echo "host a4code $*" ;; esac\n`,
+            { mode: 0o755 },
+          );
+        }
+        for (const downloader of ["curl", "wget"]) {
+          NodeFS.writeFileSync(
+            NodePath.join(root, downloader),
+            '#!/bin/sh\necho called > "$HOME/fetched"\nexit 1\n',
+            { mode: 0o755 },
+          );
+        }
+        const result = NodeChildProcess.spawnSync("sh", ["-s", "--", "serve"], {
+          input: `PATH="$HOME"\n${SshTunnel.buildRemoteA4RunnerScript(ARCHIVE)}`,
           encoding: "utf8",
-          env: { HOME: NodePath.join(root, "home"), PATH: `${bin}:${process.env.PATH ?? ""}` },
+          env: { ...process.env, HOME: root },
         });
         if (reuses) {
           assert.equal(result.status, 0);
-          assert.equal(result.stdout, "host t3 serve\n");
+          assert.equal(result.stdout, "host a4code serve\n");
         } else {
           assert.notEqual(result.status, 0);
-          assert.include(result.stderr, "has no t3 release archive.");
+          assert.include(result.stderr, `Install a4code v${ARCHIVE.archiveVersion}`);
         }
+        assert.isFalse(NodeFS.existsSync(NodePath.join(root, "fetched")));
       } finally {
         NodeFS.rmSync(root, { recursive: true, force: true });
       }
     },
   );
-
-  // sha256sum and shasum escape a newline in a file name they print, so the home path has one.
-  const checksumTools =
-    NodeChildProcess.spawnSync("sh", ["-c", 'command -v "$1"', "sh", "shasum"]).status === 0
-      ? ["sha256sum", "shasum"]
-      : ["sha256sum"];
-  it.each(checksumTools)("names missing gzip after verifying with %s", (checksum) => {
-    const root = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-ssh-runner-"));
-    try {
-      const bin = NodePath.join(root, "bin");
-      const release = NodePath.join(root, "release");
-      const home = NodePath.join(root, "home\ncache");
-      const archive = `t3-${ARCHIVE.archiveVersion}-linux-x64.tar.gz`;
-      NodeFS.mkdirSync(bin);
-      NodeFS.mkdirSync(home);
-      NodeFS.mkdirSync(NodePath.join(release, "t3"), { recursive: true });
-      NodeFS.writeFileSync(NodePath.join(release, "t3", "t3"), "#!/bin/sh\necho ok\n", {
-        mode: 0o755,
-      });
-      NodeChildProcess.execFileSync("tar", ["-czf", archive, "t3"], { cwd: release });
-      NodeChildProcess.execFileSync("sh", ["-c", `sha256sum ${archive} > SHA256SUMS`], {
-        cwd: release,
-      });
-      for (const tool of [
-        "sh",
-        "mkdir",
-        "mktemp",
-        "cat",
-        "rm",
-        "grep",
-        "cut",
-        checksum,
-        "tar",
-        "mv",
-      ]) {
-        NodeFS.symlinkSync(
-          NodeChildProcess.execFileSync("sh", ["-c", `command -v ${tool}`], {
-            encoding: "utf8",
-          }).trim(),
-          NodePath.join(bin, tool),
-        );
-      }
-      NodeFS.writeFileSync(
-        NodePath.join(bin, "uname"),
-        '#!/bin/sh\ncase "$1" in -s) echo Linux ;; -m) echo x86_64 ;; esac\n',
-        { mode: 0o755 },
-      );
-      NodeFS.writeFileSync(
-        NodePath.join(bin, "curl"),
-        `#!/bin/sh\nfor last; do :; done\nfor a; do case "$a" in http*) src="${release}/\${a##*/}" ;; esac; done\nexec cat "$src" > "$last"\n`,
-        { mode: 0o755 },
-      );
-      const runner = NodePath.join(root, "run-t3.sh");
-      NodeFS.writeFileSync(runner, SshTunnel.buildRemoteT3RunnerScript(ARCHIVE));
-      const result = NodeChildProcess.spawnSync(NodePath.join(bin, "sh"), [runner, "--version"], {
-        encoding: "utf8",
-        env: { HOME: home, PATH: bin },
-      });
-      assert.notEqual(result.status, 0);
-      assert.match(result.stderr, /(missing|needs) gzip/);
-      assert.notInclude(result.stderr, "Cannot exec");
-    } finally {
-      NodeFS.rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  it("names missing tar before downloading the release archive", () => {
-    const root = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-ssh-runner-"));
-    try {
-      const bin = NodePath.join(root, "bin");
-      const home = NodePath.join(root, "home");
-      NodeFS.mkdirSync(bin);
-      NodeFS.mkdirSync(home);
-      for (const tool of ["sh", "mkdir", "mktemp", "cat", "rm"]) {
-        NodeFS.symlinkSync(
-          NodeChildProcess.execFileSync("sh", ["-c", `command -v ${tool}`], {
-            encoding: "utf8",
-          }).trim(),
-          NodePath.join(bin, tool),
-        );
-      }
-      NodeFS.writeFileSync(
-        NodePath.join(bin, "uname"),
-        '#!/bin/sh\ncase "$1" in -s) echo Linux ;; -m) echo x86_64 ;; esac\n',
-        { mode: 0o755 },
-      );
-      NodeFS.writeFileSync(
-        NodePath.join(bin, "curl"),
-        '#!/bin/sh\necho "download attempt" >&2\nexit 1\n',
-        { mode: 0o755 },
-      );
-      const runner = NodePath.join(root, "run-t3.sh");
-      NodeFS.writeFileSync(runner, SshTunnel.buildRemoteT3RunnerScript(ARCHIVE));
-      const result = NodeChildProcess.spawnSync(NodePath.join(bin, "sh"), [runner, "--version"], {
-        encoding: "utf8",
-        env: { HOME: home, PATH: bin },
-      });
-      assert.notEqual(result.status, 0);
-      assert.include(result.stderr, "needs tar");
-      assert.notInclude(result.stderr, "download attempt");
-    } finally {
-      NodeFS.rmSync(root, { recursive: true, force: true });
-    }
-  });
 
   it.effect("accepts launch JSON after remote shell startup noise", () => {
     const target = {
@@ -522,7 +376,7 @@ describe("ssh tunnel scripts", () => {
     () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
-        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "t3-ssh-login-" });
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "a4-ssh-login-" });
         const startupFile = `${directory}/bash-env`;
         const bash = `${directory}/bash`;
         // System profiles can reset HOME. Suppress profile reads while BASH_ENV
@@ -531,7 +385,7 @@ describe("ssh tunnel scripts", () => {
         yield* fs.chmod(bash, 0o755);
         yield* fs.writeFileString(
           startupFile,
-          "if shopt -q login_shell; then export T3_SSH_LOGIN_ENV=loaded; fi\n",
+          "if shopt -q login_shell; then export A4_SSH_LOGIN_ENV=loaded; fi\n",
         );
         const target = { alias: "login-test", hostname: "login-test", username: null, port: null };
         const remoteCommands: string[] = [];
@@ -550,7 +404,7 @@ describe("ssh tunnel scripts", () => {
         );
         yield* fs.writeFileString(
           `${directory}/.zprofile`,
-          "if [[ -o login ]]; then export T3_SSH_LOGIN_ENV=loaded; fi\n",
+          "if [[ -o login ]]; then export A4_SSH_LOGIN_ENV=loaded; fi\n",
         );
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
         const cases = [
@@ -587,11 +441,11 @@ describe("ssh tunnel scripts", () => {
                 SHELL: shell,
                 BASH_ENV: startupFile,
                 ZDOTDIR: directory,
-                T3_SSH_LOGIN_ENV: "",
+                A4_SSH_LOGIN_ENV: "",
               },
               stdin: {
                 stream: Stream.make(
-                  new TextEncoder().encode('printf "%s:%s" "${T3_SSH_LOGIN_ENV:-missing}" "$1"'),
+                  new TextEncoder().encode('printf "%s:%s" "${A4_SSH_LOGIN_ENV:-missing}" "$1"'),
                 ),
                 endOnDone: true,
               },
@@ -1228,7 +1082,7 @@ describe("ssh tunnel scripts", () => {
             stderr: Stream.make(new TextEncoder().encode(stderr)),
           });
           if (args.includes("-G")) {
-            return makeSuccessfulProcess("hostname devbox\ncontrolpath /tmp/t3-cm\n");
+            return makeSuccessfulProcess("hostname devbox\ncontrolpath /tmp/a4-cm\n");
           }
           if (muxCommand === "check") {
             return masterLive
@@ -1293,7 +1147,7 @@ describe("ssh tunnel scripts", () => {
         const publishDelayMs = variant === "wrapper" ? 0 : variant;
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-ssh-launch-" });
+        const home = yield* fs.makeTempDirectoryScoped({ prefix: "a4-ssh-launch-" });
         const serversFile = path.join(home, "servers");
         yield* Effect.addFinalizer(() =>
           fs.readFileString(serversFile).pipe(
@@ -1307,8 +1161,8 @@ describe("ssh tunnel scripts", () => {
             Effect.ignore,
           ),
         );
-        const serverScript = path.join(home, "fake-t3.cjs");
-        yield* fs.writeFileString(serverScript, fakeT3Serve(publishDelayMs));
+        const serverScript = path.join(home, "fake-a4code.cjs");
+        yield* fs.writeFileString(serverScript, fakeA4Serve(publishDelayMs));
         const wrapperScript = path.join(home, "wrapper.cjs");
         yield* fs.writeFileString(
           wrapperScript,
@@ -1316,7 +1170,7 @@ describe("ssh tunnel scripts", () => {
 child.on("exit", (code) => process.exit(code ?? 1));`,
         );
         // A launch that died holding the lock must not block or double-admit later ones.
-        const launchLock = path.join(home, ".t3", "ssh-launch", ".launch.lock");
+        const launchLock = path.join(home, ".a4code", "ssh-launch", ".launch.lock");
         yield* fs.makeDirectory(path.dirname(launchLock), { recursive: true });
         yield* fs.writeFileString(launchLock, "999999999\n");
         const targets = [
@@ -1334,7 +1188,7 @@ child.on("exit", (code) => process.exit(code ?? 1));`,
         ).pipe(Effect.provide(localRemoteShellLayer(home)));
 
         const ownerPid = Number(
-          yield* fs.readFileString(path.join(home, ".t3", "userdata", "server.lock")),
+          yield* fs.readFileString(path.join(home, ".a4code", "userdata", "server.lock")),
         );
         assert.sameMembers(
           launches.map((launch) => launch.remoteServerKind),
@@ -1348,7 +1202,7 @@ child.on("exit", (code) => process.exit(code ?? 1));`,
           if (launch.remoteServerKind !== "managed") continue;
           const stateKey = yield* remoteStateKey(targets[index]!);
           const recordedPid = yield* fs.readFileString(
-            path.join(home, ".t3", "ssh-launch", stateKey, "pid"),
+            path.join(home, ".a4code", "ssh-launch", stateKey, "pid"),
           );
           assert.equal(
             Number(recordedPid.trim()),
@@ -1406,9 +1260,9 @@ server.listen(Number(flag("--port") ?? 0), "127.0.0.1", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const realSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-      const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-stale-pid-" });
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "a4-stale-pid-" });
       const home = `${root}/home`;
-      const fakeServer = `${root}/fake-t3.cjs`;
+      const fakeServer = `${root}/fake-a4code.cjs`;
       yield* fs.makeDirectory(home, { recursive: true });
       yield* fs.writeFileString(fakeServer, FAKE_SERVER);
       // Runs the remote command locally under the temp HOME. setsid keeps a launched server alive
@@ -1451,7 +1305,7 @@ server.listen(Number(flag("--port") ?? 0), "127.0.0.1", () => {
         holderPort,
         sshAsLocalShell,
         staleId: staleId === "an unrelated process" ? holder.pid : tid,
-        stateDir: `${home}/.t3/ssh-launch/${yield* remoteStateKey(target)}`,
+        stateDir: `${home}/.a4code/ssh-launch/${yield* remoteStateKey(target)}`,
       };
     });
 
@@ -1485,7 +1339,7 @@ server.listen(Number(flag("--port") ?? 0), "127.0.0.1", () => {
       // Reboot: our server is gone and its recorded PID now names something that
       // answers on the recorded port.
       process.kill(firstPid, "SIGKILL");
-      yield* fs.remove(`${home}/.t3/userdata/server-runtime.json`);
+      yield* fs.remove(`${home}/.a4code/userdata/server-runtime.json`);
       yield* fs.writeFileString(`${stateDir}/pid`, `${staleId}\n`);
       yield* fs.writeFileString(`${stateDir}/port`, `${holderPort}\n`);
 
@@ -1525,7 +1379,7 @@ server.listen(Number(flag("--port") ?? 0), "127.0.0.1", () => {
       const error = yield* Effect.flip(launch);
       assert.include(
         error.message,
-        `The previous remote T3 server (PID ${pid}) is still shutting down.`,
+        `The previous remote a4code server (PID ${pid}) is still shutting down.`,
       );
       assert.isTrue(yield* isRunning(pid), "the launcher signalled the stopping server");
     }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
@@ -1535,7 +1389,7 @@ server.listen(Number(flag("--port") ?? 0), "127.0.0.1", () => {
     Effect.gen(function* () {
       const { fs, home, fakeServer, sshAsLocalShell, stateDir } =
         yield* prepare("an unrelated process");
-      const updatedServer = `${home}/fake-t3-next.cjs`;
+      const updatedServer = `${home}/fake-a4-next.cjs`;
       yield* fs.writeFileString(updatedServer, FAKE_SERVER);
       const renamed = { ...target, alias: "devbox-renamed" };
       const launch = (
@@ -1550,7 +1404,7 @@ server.listen(Number(flag("--port") ?? 0), "127.0.0.1", () => {
           launcherId,
         ).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, sshAsLocalShell));
       const runtimePid = fs
-        .readFileString(`${home}/.t3/userdata/server-runtime.json`)
+        .readFileString(`${home}/.a4code/userdata/server-runtime.json`)
         .pipe(Effect.map((runtime) => Number(JSON.parse(runtime).pid)));
       const launchedPids: Array<number> = [];
       yield* Effect.addFinalizer(() =>
@@ -1627,7 +1481,7 @@ server.listen(Number(flag("--port") ?? 0), "127.0.0.1", () => {
             launcherId,
           ).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, sshAsLocalShell));
         const runtimePid = fs
-          .readFileString(`${home}/.t3/userdata/server-runtime.json`)
+          .readFileString(`${home}/.a4code/userdata/server-runtime.json`)
           .pipe(Effect.map((runtime) => Number(JSON.parse(runtime).pid)));
 
         assert.equal((yield* launch("a".repeat(32))).remoteServerKind, "managed");
@@ -1699,7 +1553,7 @@ server.listen(Number(flag("--port") ?? 0), "127.0.0.1", () => {
 
 // Reuse decisions live in generated shell, so drive the real launch script in
 // a temporary HOME. Each archive version gets a pre-installed fake runtime
-// whose server writes the default runtime file the way `t3 serve` does.
+// whose server writes the default runtime file the way `a4code serve` does.
 describe("archive launch script", () => {
   const windowsHost = HostProcess.Platform.defaultValue() === "win32";
   const FAKE_T3 = `const fs = require("node:fs");
@@ -1724,7 +1578,7 @@ const canBind = (port) =>
     server.listen(port, "127.0.0.1", () => server.close(() => resolve(true)));
   });
 (async () => {
-  if (args[0] === "--version") return console.log(version);
+  if (args[0] === "--version") return console.log("a4code v" + version);
   if (args[0] === "serve") {
     const server = http.createServer((_request, response) => response.end("ok"));
     server.listen(Number(flag("--port")), "127.0.0.1", () => {
@@ -1806,35 +1660,32 @@ const canBind = (port) =>
       return { stdout, stderr, exitCode };
     });
 
-  // Installs a fake runtime per version so the runner never downloads. The
-  // seeded remembered port keeps the test off the default 3773, which a live
-  // T3 on this machine may own.
+  // Seed a remembered port to avoid a live server on the default port.
   const prepareLaunch = (versions: ReadonlyArray<string>) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-archive-launch-" });
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "a4-archive-launch-" });
       const home = `${root}/home`;
-      const stateDir = `${home}/.t3/ssh-launch/test-state`;
-      const fakeT3 = `${root}/fake-t3.cjs`;
+      const stateDir = `${home}/.a4code/ssh-launch/test-state`;
+      const fakeT3 = `${root}/fake-a4code.cjs`;
       yield* fs.makeDirectory(stateDir, { recursive: true });
       yield* fs.writeFileString(`${stateDir}/port`, `${yield* freeLoopbackPort}\n`);
       yield* fs.writeFileString(fakeT3, FAKE_T3);
       for (const version of versions) {
-        const runtimeDir = `${home}/.t3/runtime/versions/${version}`;
+        const runtimeDir = `${home}/.a4code/runtime/versions/${version}`;
         yield* fs.makeDirectory(runtimeDir, { recursive: true });
         // The runner gets only HOME, so `node` would resolve on sh's default PATH, which may not have it.
         yield* fs.writeFileString(
-          `${runtimeDir}/t3`,
+          `${runtimeDir}/a4code`,
           `#!/bin/sh\nexec '${process.execPath}' '${fakeT3}' '${version}' "$@"\n`,
         );
-        yield* fs.chmod(`${runtimeDir}/t3`, 0o755);
-        yield* fs.writeFileString(`${runtimeDir}/.install-complete`, `${version}\n`);
+        yield* fs.chmod(`${runtimeDir}/a4code`, 0o755);
       }
       const readManagedPid = fs
         .readFileString(`${stateDir}/pid`)
         .pipe(Effect.map((pid) => Number(pid.trim())));
       const readServerVersion = fs
-        .readFileString(`${home}/.t3/userdata/server-runtime.json`)
+        .readFileString(`${home}/.a4code/userdata/server-runtime.json`)
         .pipe(Effect.map((raw) => (JSON.parse(raw) as { serverVersion: string }).serverVersion));
       // Launched servers outlive the script, so stop each PID it recorded.
       const launchedPids = new Set<number>();
@@ -1880,22 +1731,19 @@ const canBind = (port) =>
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  // An NFS home can carry a ~/.t3 symlink whose target exists only on another host.
-  it.live.skipIf(windowsHost)("launches through a ~/.t3 symlink whose target is missing", () =>
+  // An NFS home can carry a ~/.a4code symlink whose target exists only on another host.
+  it.live.skipIf(windowsHost)("launches through a ~/.a4code symlink whose target is missing", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-dangling-home-" });
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "a4-dangling-home-" });
       const home = `${root}/home`;
-      const target = `${root}/shared/t3`;
+      const target = `${root}/shared/a4code`;
       yield* fs.makeDirectory(home, { recursive: true });
-      yield* fs.symlink(target, `${home}/.t3`);
+      yield* fs.symlink(target, `${home}/.a4code`);
       const launch = `${root}/launch.sh`;
       yield* fs.writeFileString(
         launch,
-        SshTunnel.buildRemoteLaunchScript({
-          archiveVersion: "0.1.6",
-          releaseBaseUrl: "http://127.0.0.1:9",
-        }),
+        SshTunnel.buildRemoteLaunchScript({ archiveVersion: "0.1.6" }),
       );
       const result = yield* runScript(home, [launch, "test-state"]);
       assert.notInclude(result.stderr, "File exists");

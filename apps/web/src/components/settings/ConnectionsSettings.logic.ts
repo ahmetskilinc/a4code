@@ -1,10 +1,9 @@
-import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
+import { thrownErrorMessage } from "@a4code/client-runtime/errors";
 import * as DateTime from "effect/DateTime";
 import { msg } from "gt-react";
 
-import { resolveDesktopPairingUrl, resolveHostedPairingUrl } from "./pairingUrls";
-import { getPairingTokenFromUrl, setPairingTokenOnUrl } from "@t3tools/shared/remote";
-import { readHostedPairingRequest } from "../../hostedPairing";
+import { resolveDesktopPairingUrl } from "./pairingUrls";
+import { getPairingTokenFromUrl, setPairingTokenOnUrl } from "@a4code/shared/remote";
 import { m, type MessageResolver } from "../../i18n/messages";
 import {
   isLoopbackHostname,
@@ -13,7 +12,6 @@ import {
 } from "~/environments/primary";
 import {
   type AdvertisedEndpoint,
-  type AuthClientMetadata,
   type AuthClientSession,
   type AuthGrantScope,
   type AuthPairingLink,
@@ -22,17 +20,11 @@ import {
   type DesktopBridge,
   type DesktopServerExposureState,
   type DesktopSshEnvironmentTarget,
-  type DesktopUpdateState,
   type DesktopWslState,
   type EnvironmentId,
   type ServerAuthPolicy,
   type ServerDirectEndpoint,
-} from "@t3tools/contracts";
-import {
-  getDesktopUpdateDownloadedVersion,
-  resolveDesktopUpdateButtonAction,
-} from "../desktopUpdate.logic";
-
+} from "@a4code/contracts";
 /** Keep terminal:read with terminal:operate to avoid creating unseen shells on every script run. */
 export function togglePairingScopeSelection(
   current: ReadonlyArray<AuthGrantScope>,
@@ -98,39 +90,6 @@ export function isWslSettingsRowVisible(input: {
 }): boolean {
   const { state, error } = input;
   return state ? state.available || state.enabled || state.wslOnly : error !== null;
-}
-
-/**
- * Once client/server versions match, this passive Version label follows the sidebar update action,
- * including retryable failures. Rechecks retain downloaded-update labels; `state` is null outside desktop.
- */
-export function resolveLocalVersionStatusLabel(
-  state: DesktopUpdateState | null,
-  resolve: MessageResolver = m,
-): string {
-  if (!state) return resolve(msg("Up to date"));
-  if (state.status === "downloading") {
-    return state.availableVersion
-      ? resolve(msg("Downloading update {version}", { version: state.availableVersion }))
-      : resolve(msg("Downloading update"));
-  }
-  const action = resolveDesktopUpdateButtonAction(state);
-  if (
-    action === "install" ||
-    state.status === "downloaded" ||
-    (state.status === "checking" && state.downloadedVersion !== null)
-  ) {
-    const version = getDesktopUpdateDownloadedVersion(state);
-    return version
-      ? resolve(msg("Update {version} downloaded", { version }))
-      : resolve(msg("Update downloaded"));
-  }
-  if (action === "download") {
-    return state.availableVersion
-      ? resolve(msg("Update {version} available", { version: state.availableVersion }))
-      : resolve(msg("Update available"));
-  }
-  return resolve(msg("Up to date"));
 }
 
 export type QrEndpointOption = {
@@ -258,18 +217,14 @@ export function parsePairingUrlFields(
         ? trimmed
         : `https://${trimmed}`;
     const url = new URL(urlLikeInput, window.location.origin);
-    const hostedPairingRequest = readHostedPairingRequest(url);
-    if (hostedPairingRequest) {
-      return {
-        host: hostedPairingRequest.host,
-        pairingCode: hostedPairingRequest.token,
-      };
-    }
 
+    const embeddedHost = url.searchParams.get("host");
+    const endpoint = embeddedHost === null ? url : new URL(embeddedHost);
+    if (endpoint.protocol !== "https:" && endpoint.protocol !== "http:") return null;
     const pairingCode = getPairingTokenFromUrl(url);
     if (!pairingCode) return null;
     return {
-      host: url.origin,
+      host: endpoint.origin,
       pairingCode,
     };
   } catch {
@@ -440,12 +395,6 @@ export function resolveAdvertisedEndpointPairingUrl(
   endpoint: AdvertisedEndpoint,
   credential: string,
 ): string {
-  if (endpoint.compatibility.hostedHttpsApp === "compatible") {
-    return (
-      resolveHostedPairingUrl(endpoint.httpBaseUrl, credential) ??
-      resolveDesktopPairingUrl(endpoint.httpBaseUrl, credential)
-    );
-  }
   return resolveDesktopPairingUrl(endpoint.httpBaseUrl, credential);
 }
 
@@ -454,30 +403,17 @@ export function resolveCurrentOriginPairingUrl(
   currentHref: string = window.location.href,
 ): string | null {
   const url = new URL("/pair", currentHref);
-  // The packaged desktop window loads from t3code://app, which no other device can open.
+  // The packaged desktop window loads from a4code://app, which no other device can open.
   if ((url.protocol !== "http:" && url.protocol !== "https:") || isLoopbackHostname(url.hostname)) {
     return null;
   }
   return setPairingTokenOnUrl(url, credential).toString();
 }
 
-export function isHostedAppPairingUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.pathname === "/pair" && url.searchParams.has("host");
-  } catch {
-    return false;
-  }
-}
-
 export function endpointShareHint(
   endpoint: AdvertisedEndpoint,
-  url: string,
   resolve: MessageResolver = m,
 ): string {
-  if (isHostedAppPairingUrl(url)) {
-    return resolve(msg("Opens the hosted app, no install needed"));
-  }
   switch (endpoint.reachability) {
     case "lan":
       return resolve(msg("Devices on the same network"));
@@ -507,31 +443,4 @@ export function resolveAccessEnvironmentId(input: {
     (input.environments.find((environment) => environment.connected) ?? input.environments[0])
       ?.environmentId ?? null
   );
-}
-
-/** A short name for a T3 Connect device: its label, or what it runs on. */
-export function connectDeviceName(
-  {
-    client,
-  }: {
-    readonly client?: AuthClientMetadata | undefined;
-  },
-  resolve: MessageResolver = m,
-): string {
-  return client?.label ?? client?.os ?? client?.browser ?? resolve(msg("this device"));
-}
-
-/** How a T3 Connect device describes itself. It can say anything, so the code is what to trust. */
-export function describeConnectDeviceClient(
-  {
-    client,
-  }: {
-    readonly client?: AuthClientMetadata | undefined;
-  },
-  resolve: MessageResolver = m,
-): string {
-  const bits = [client?.label, client?.os, client?.browser, client?.ipAddress].filter(
-    (value): value is string => typeof value === "string" && value.length > 0,
-  );
-  return bits.length > 0 ? [...new Set(bits)].join(" · ") : resolve(msg("Unknown device"));
 }

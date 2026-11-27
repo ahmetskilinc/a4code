@@ -1,4 +1,4 @@
-import { EnvironmentId, type PeerLinkSummary } from "@t3tools/contracts";
+import { EnvironmentId, type PeerLinkSummary } from "@a4code/contracts";
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -33,7 +33,6 @@ import {
   layoutFleetGraph,
   nextFleetNode,
   zoomFleetView,
-  type FleetConnectMachineInput,
   type FleetEnvironmentInput,
   type FleetLayout,
   type FleetRect,
@@ -83,17 +82,8 @@ const environment = (
   ...overrides,
 });
 
-const connectMachine = (name: string): FleetConnectMachineInput => ({
-  environmentId: id(name),
-  label: name,
-  machine: "server",
-  availability: "online",
-});
-
-const build = (
-  environments: ReadonlyArray<FleetEnvironmentInput>,
-  connectMachines: ReadonlyArray<FleetConnectMachineInput> = [],
-) => buildFleetGraph({ clientLabel: "This browser", environments, connectMachines, now });
+const build = (environments: ReadonlyArray<FleetEnvironmentInput>) =>
+  buildFleetGraph({ clientLabel: "This browser", environments, now });
 
 const vms = (count: number, prefix = "vm", overrides: Partial<PeerLinkSummary> = {}) =>
   Array.from({ length: count }, (_, index) => link(`${prefix}-${index + 1}`, overrides));
@@ -108,34 +98,32 @@ const routeStates = (graph: ReturnType<typeof build>, name: string) =>
 
 /** Six environments in every state, 45 link targets, 40 of them under one host. */
 const largeSetup = () =>
-  build(
-    [
-      environment(
-        "nucbox",
-        [...vms(40, "fs", { access: "full-access" }), link("ci"), link("cups", { access: "auto" })],
-        {
-          routes: [
-            { id: "tailnet", kind: "tailnet" },
-            { id: "lan", kind: "lan" },
-            { id: "relay", kind: "relay" },
-          ],
-        },
-      ),
-      environment("cups", [link("nucbox"), link("staging", { access: "read-only" }), link("ci")]),
-      environment("mbp", "unknown", { phase: "offline" }),
-      environment("win", "unknown", { phase: "error" }),
-      environment("vps", [
-        link("db-1"),
-        link("db-2"),
-        link("db-3"),
-        link("ci", { access: "read-only" }),
-        link("staging", { access: "auto" }),
-        link("cups", { access: "full-access" }),
-      ]),
-      environment("old", "unknown", { enabled: false, phase: "available" }),
-    ],
-    [connectMachine("gpu")],
-  );
+  build([
+    environment(
+      "nucbox",
+      [...vms(40, "fs", { access: "full-access" }), link("ci"), link("cups", { access: "auto" })],
+      {
+        routes: [
+          { id: "tailnet", kind: "tailnet" },
+          { id: "lan", kind: "lan" },
+          { id: "public", kind: "public" },
+        ],
+      },
+    ),
+    environment("cups", [link("nucbox"), link("staging", { access: "read-only" }), link("ci")]),
+    environment("mbp", "unknown", { phase: "offline" }),
+    environment("win", "unknown", { phase: "error" }),
+    environment("vps", [
+      link("db-1"),
+      link("db-2"),
+      link("db-3"),
+      link("ci", { access: "read-only" }),
+      link("staging", { access: "auto" }),
+      link("cups", { access: "full-access" }),
+    ]),
+    environment("old", "unknown", { enabled: false, phase: "available" }),
+    environment("gpu"),
+  ]);
 
 /** The brief's setup: two hosts share three machines, one has three more and links to the other. */
 const sharedSetup = () =>
@@ -238,10 +226,10 @@ describe("buildFleetGraph", () => {
     const routes = [
       { id: "tailnet", kind: "tailnet" as const },
       { id: "lan", kind: "lan" as const },
-      { id: "relay", kind: "relay" as const },
+      { id: "public", kind: "public" as const },
     ];
     const graph = build([
-      environment("up", [], { routes, activeRouteId: "lan", refusedRouteIds: ["relay"] }),
+      environment("up", [], { routes, activeRouteId: "lan", refusedRouteIds: ["public"] }),
       environment("dialling", "unknown", { routes, phase: "connecting", activeRouteId: null }),
       environment("gone", "unknown", { routes, phase: "error", activeRouteId: null }),
       environment("off", "unknown", { routes, enabled: false, phase: "available" }),
@@ -250,43 +238,30 @@ describe("buildFleetGraph", () => {
     expect(routeStates(graph, "up")).toEqual({
       tailnet: "standby",
       lan: "in-use",
-      relay: "refused",
+      public: "refused",
     });
     expect(routeStates(graph, "dialling")).toEqual({
       tailnet: "trying",
       lan: "trying",
-      relay: "trying",
+      public: "trying",
     });
-    expect(routeStates(graph, "gone")).toEqual({ tailnet: "down", lan: "down", relay: "down" });
-    expect(routeStates(graph, "off")).toEqual({ tailnet: "idle", lan: "idle", relay: "idle" });
-    expect(routeStates(graph, "old")).toEqual({ tailnet: "idle", lan: "idle", relay: "idle" });
-  });
-
-  it("adds T3 Connect machines the client has not saved, and only those", () => {
-    const graph = build([environment("cups")], [connectMachine("cups"), connectMachine("gpu")]);
-    expect(graph.nodes.map((entry) => `${entry.kind}:${entry.label}`)).toEqual([
-      "client:This browser",
-      "environment:cups",
-      "connect:gpu",
-    ]);
-    expect(routeStates(graph, "gpu")).toEqual({ offer: "offered" });
+    expect(routeStates(graph, "gone")).toEqual({ tailnet: "down", lan: "down", public: "down" });
+    expect(routeStates(graph, "off")).toEqual({ tailnet: "idle", lan: "idle", public: "idle" });
+    expect(routeStates(graph, "old")).toEqual({ tailnet: "idle", lan: "idle", public: "idle" });
   });
 
   it("keeps one node per machine and one edge per link, whatever names it twice", () => {
-    const graph = build(
-      [
-        environment("cups", [link("vps"), link("vps"), link("cups"), link("gpu"), link("nucbox")]),
-        environment("cups", [link("other")]),
-        environment("nucbox"),
-      ],
-      [connectMachine("gpu")],
-    );
+    const graph = build([
+      environment("cups", [link("vps"), link("vps"), link("cups"), link("gpu"), link("nucbox")]),
+      environment("cups", [link("other")]),
+      environment("nucbox"),
+    ]);
     expect(graph.nodes.map((entry) => `${entry.kind}:${entry.label}`)).toEqual([
       "client:This browser",
       "environment:cups",
       "environment:nucbox",
-      "connect:gpu",
       "target:vps",
+      "target:gpu",
     ]);
     expect(graph.edges.filter((edge) => edge.kind === "link").map((edge) => edge.id)).toEqual([
       `link:${node("cups")}>${node("vps")}`,
@@ -418,30 +393,27 @@ describe("fleetStacks", () => {
       ),
     );
     expect(fleetStacks(few, new Set())).toEqual([]);
-    const graph = build(
-      [
-        environment("nucbox", [link("linked-offline")]),
-        environment("linked-offline", "unknown", { phase: "offline" }),
-        environment("idle"),
-        environment("dialling", "unknown", { phase: "connecting" }),
-        ...Array.from({ length: 4 }, (_, index) =>
-          environment(`lab-${index + 1}`, "unknown", { phase: index === 0 ? "error" : "offline" }),
-        ),
-        ...Array.from({ length: 3 }, (_, index) =>
-          environment(`old-${index + 1}`, "unknown", { enabled: false, phase: "available" }),
-        ),
-        // Two is too few to be worth a stack.
-        environment("legacy-1", "unknown", { phase: "unsupported" }),
-        environment("legacy-2", "unknown", { phase: "unsupported" }),
-      ],
-      ["gpu-1", "gpu-2", "gpu-3"].map(connectMachine),
-    );
+    const graph = build([
+      environment("nucbox", [link("linked-offline")]),
+      environment("linked-offline", "unknown", { phase: "offline" }),
+      environment("idle"),
+      environment("dialling", "unknown", { phase: "connecting" }),
+      ...Array.from({ length: 4 }, (_, index) =>
+        environment(`lab-${index + 1}`, "unknown", { phase: index === 0 ? "error" : "offline" }),
+      ),
+      ...Array.from({ length: 3 }, (_, index) =>
+        environment(`old-${index + 1}`, "unknown", { enabled: false, phase: "available" }),
+      ),
+      ...["gpu-1", "gpu-2", "gpu-3"].map((name) => environment(name)),
+      // Two is too few to be worth a stack.
+      environment("legacy-1", "unknown", { phase: "unsupported" }),
+      environment("legacy-2", "unknown", { phase: "unsupported" }),
+    ]);
     expect(
       fleetStacks(graph, new Set()).map((stack) => [stack.kind, stack.group, stack.memberIds]),
     ).toEqual([
       ["environments", "offline", ["lab-1", "lab-2", "lab-3", "lab-4"].map(node)],
       ["environments", "off", ["old-1", "old-2", "old-3"].map(node)],
-      ["environments", "not-added", ["gpu-1", "gpu-2", "gpu-3"].map(node)],
     ]);
   });
 
@@ -456,17 +428,14 @@ describe("fleetStacks", () => {
 });
 
 describe("fleetLinkOffer", () => {
-  const graph = build(
-    [
-      environment("cups", [link("vm"), link("old", { status: "expired" }), link("nucbox")]),
-      environment("nucbox"),
-      environment("guest", [], { canWriteAccess: false }),
-      environment("nolabs", "off", { offersLinks: false }),
-      environment("ssh-only", [], { hasLinkAddress: false }),
-      environment("asleep", "unknown", { phase: "offline" }),
-    ],
-    [connectMachine("gpu")],
-  );
+  const graph = build([
+    environment("cups", [link("vm"), link("old", { status: "expired" }), link("nucbox")]),
+    environment("nucbox"),
+    environment("guest", [], { canWriteAccess: false }),
+    environment("nolabs", "off", { offersLinks: false }),
+    environment("ssh-only", [], { hasLinkAddress: false }),
+    environment("asleep", "unknown", { phase: "offline" }),
+  ]);
   const offer = (source: string, target: string) =>
     fleetLinkOffer(graph, node(source), target === "client" ? FLEET_CLIENT_NODE_ID : node(target));
 
@@ -479,7 +448,7 @@ describe("fleetLinkOffer", () => {
       target: { kind: "machine", environmentId: id("cups") },
     });
     expect(offer("cups", "nucbox")).toMatchObject({ path: "code-less", renews: true });
-    for (const target of ["guest", "ssh-only", "asleep", "gpu"]) {
+    for (const target of ["guest", "ssh-only", "asleep"]) {
       expect(offer("cups", target), target).toMatchObject({
         path: "pairing-code",
         target: { kind: "machine", environmentId: id(target) },
@@ -530,7 +499,7 @@ describe("fleetLinkOffer", () => {
     };
     expect(reason("cups", "cups")).toBe("same-machine");
     expect(reason("cups", "client")).toBe("not-an-environment");
-    expect(reason("gpu", "cups")).toBe("not-an-environment");
+
     expect(reason("vm", "cups")).toBe("not-an-environment");
     expect(reason("asleep", "cups")).toBe("source-disconnected");
     expect(reason("nolabs", "cups")).toBe("source-off");
@@ -731,7 +700,7 @@ describe("layoutFleetGraph", () => {
     const closed = fleetStacks(large, new Set());
     const layout = layoutFleetGraph(large, closed);
     expectNoOverlap(layout, membersOf(closed));
-    // Forty machines cost one node: 6 environments, the client, the Connect machine, 5 targets.
+    // Forty machines cost one node: 7 environments, the client, 5 targets.
     expect(layout.nodes.size).toBe(13);
     expect(layout.stacks.size).toBe(1);
     expect(layout.routes.size).toBe(9);
@@ -1156,12 +1125,12 @@ describe("layoutFleetGraph", () => {
   });
 
   it("gives up gutters before scale: a real setup stays legible from 560 to 1400 wide", () => {
-    const routes = (...kinds: ReadonlyArray<"lan" | "tailnet" | "relay">) =>
+    const routes = (...kinds: ReadonlyArray<"lan" | "tailnet" | "public">) =>
       kinds.map((kind, index) => ({ id: `${kind}-${index}`, kind }));
     const graph = build([
       environment("cups", "unknown", {
         phase: "offline",
-        routes: routes("tailnet", "tailnet", "relay"),
+        routes: routes("tailnet", "tailnet", "public"),
       }),
       environment(
         "nucbox-1",
@@ -1170,7 +1139,7 @@ describe("layoutFleetGraph", () => {
           ...vms(7, "fs", { access: "full-access" }),
           ...vms(37, "gs", { access: "full-access", status: "unreachable" }),
         ],
-        { routes: routes("lan", "tailnet", "tailnet", "relay"), activeRouteId: "lan-0" },
+        { routes: routes("lan", "tailnet", "tailnet", "public"), activeRouteId: "lan-0" },
       ),
       environment("Julius's MacBook Pro"),
     ]);
@@ -1312,7 +1281,7 @@ describe("fitting the view", () => {
     const closed = fleetStacks(graph, new Set());
     const stackId = closed[0]!.id;
     const open = fleetStacks(graph, new Set([stackId]));
-    const bounds = { min: 180, max: 840 };
+    const bounds = { min: 180, max: 1100 };
     const onScreen = (view: { x: number; y: number; scale: number }, rect: FleetRect) => ({
       x: rect.x * view.scale + view.x,
       y: rect.y * view.scale + view.y,

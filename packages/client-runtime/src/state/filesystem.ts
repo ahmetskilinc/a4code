@@ -4,8 +4,8 @@ import {
   WS_METHODS,
   sessionGrantsScope,
   type SessionGrantInput,
-} from "@t3tools/contracts";
-import { scoreQueryMatch } from "@t3tools/shared/searchRanking";
+} from "@a4code/contracts";
+import { scoreQueryMatch } from "@a4code/shared/searchRanking";
 import { Atom } from "effect/reactivity";
 
 import { mFallback, msg } from "gt-i18n";
@@ -264,7 +264,7 @@ export function createFilesystemEnvironmentAtoms<R, E>(
       label: "environment-data:workspace:add-task-folder-repository",
       tag: WS_METHODS.workspaceAddTaskFolderRepository,
     }),
-    /** A project's `worktreeLayout` commands as its `t3.json` holds them now, and whether each is approved. */
+    /** A project's `worktreeLayout` commands as its `a4code.json` holds them now, and whether each is approved. */
     layoutCommands: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:workspace:layout-commands",
       tag: WS_METHODS.workspaceLayoutCommands,

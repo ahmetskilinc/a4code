@@ -1,6 +1,6 @@
 import { Atom, AsyncResult } from "effect/reactivity";
 import * as Cause from "effect/Cause";
-import type { AtomCommandResult } from "@t3tools/client-runtime/state/runtime";
+import type { AtomCommandResult } from "@a4code/client-runtime/state/runtime";
 import { useState } from "react";
 import { page, userEvent } from "vite-plus/test/browser";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -34,7 +34,6 @@ vi.mock(import("~/state/query"), async (original) => ({
 }));
 vi.mock(import("~/state/environments"), async (original) => ({
   ...(await original()),
-  useRelayEnvironmentDiscovery: (() => ({ environments: new Map() })) as never,
 }));
 vi.mock(import("~/state/server"), async (original) => ({
   ...(await original()),

@@ -1,6 +1,6 @@
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import type { AtomCommandResult } from "@t3tools/client-runtime/state/runtime";
-import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
+import { scopeThreadRef } from "@a4code/client-runtime/environment";
+import type { AtomCommandResult } from "@a4code/client-runtime/state/runtime";
+import type { EnvironmentThreadShell } from "@a4code/client-runtime/state/shell";
 import {
   EnvironmentId,
   ProviderDriverKind,
@@ -8,9 +8,9 @@ import {
   RunId,
   ThreadId,
   type ServerProvider,
-} from "@t3tools/contracts";
-import { DEFAULT_UNIFIED_SETTINGS } from "@t3tools/contracts/settings";
-import { createModelSelection } from "@t3tools/shared/model";
+} from "@a4code/contracts";
+import { DEFAULT_UNIFIED_SETTINGS } from "@a4code/contracts/settings";
+import { createModelSelection } from "@a4code/shared/model";
 import * as Cause from "effect/Cause";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";

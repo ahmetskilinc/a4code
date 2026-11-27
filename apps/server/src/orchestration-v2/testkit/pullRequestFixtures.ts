@@ -6,7 +6,7 @@ import type {
   ThreadId,
   ThreadLinkedPullRequest,
   ThreadPullRequestLink,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as DateTime from "effect/DateTime";
 
 export interface PullRequestTestThread {

@@ -4,8 +4,8 @@ import {
   type ConnectionCatalogEntry,
   type ConnectionRoute,
   mergeLearnedRoutes,
-} from "@t3tools/client-runtime/connection";
-import { EnvironmentId } from "@t3tools/contracts";
+} from "@a4code/client-runtime/connection";
+import { EnvironmentId } from "@a4code/contracts";
 import * as Option from "effect/Option";
 import { expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
@@ -61,7 +61,6 @@ function routesList(routes: ReadonlyArray<ConnectionRoute>) {
     environmentId: ENVIRONMENT_ID,
     label: "Desk",
     displayUrl: null,
-    relayManaged: false,
     entry,
     connection: { phase: "available", error: null, traceId: null },
     serverConfig: null,

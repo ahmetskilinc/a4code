@@ -9,9 +9,9 @@ import {
   type OrchestrationV2ThreadStreamItem,
   type OrchestrationV2TurnItem,
   type ThreadId as ThreadIdType,
-} from "@t3tools/contracts";
-import { boundedSnapshotProjection } from "@t3tools/shared/orchestrationV2BoundedSnapshot";
-import { pendingBackgroundTurnItems } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
+} from "@a4code/contracts";
+import { boundedSnapshotProjection } from "@a4code/shared/orchestrationV2BoundedSnapshot";
+import { pendingBackgroundTurnItems } from "@a4code/shared/orchestrationV2PendingBackgroundWork";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as DateTime from "effect/DateTime";
@@ -36,7 +36,7 @@ import * as EnvironmentSupervisor from "../connection/supervisor.ts";
 import * as ConnectionWakeups from "../connection/wakeups.ts";
 import * as Persistence from "../platform/persistence.ts";
 import { runCachePersistence } from "./cachePersistence.ts";
-import * as ManagedRelay from "../relay/managedRelay.ts";
+import * as Dpop from "../authorization/dpopProof.ts";
 import {
   isAuthorizationFailure,
   request,
@@ -255,7 +255,7 @@ export const makeEnvironmentThreadState = Effect.fn("EnvironmentThreadState.make
     ThreadHistoryController.ThreadHistoryController,
   );
   const httpClient = yield* Effect.serviceOption(HttpClient.HttpClient);
-  const dpopSigner = yield* Effect.serviceOption(ManagedRelay.ManagedRelayDpopSigner);
+  const dpopSigner = yield* Effect.serviceOption(Dpop.DpopSigner);
   const remoteAuthorization = yield* Effect.serviceOption(
     RemoteEnvironmentAuthorization.RemoteEnvironmentAuthorization,
   );
@@ -1315,7 +1315,6 @@ export * from "./threadHistoryMerge.ts";
 export * from "./threadSnapshotHttp.ts";
 export * from "./composerPathSearch.ts";
 export * from "./threadCommands.ts";
-export * from "./threadFeedback.ts";
 export * from "./threadDetail.ts";
 export * from "./threadFamilies.ts";
 export * from "./olderSettledThreads.ts";

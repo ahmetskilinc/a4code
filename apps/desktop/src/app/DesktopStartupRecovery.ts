@@ -1,6 +1,4 @@
-import type { DesktopUpdateState } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import type * as Scope from "effect/Scope";
@@ -14,14 +12,11 @@ import * as ElectronShell from "../electron/ElectronShell.ts";
 import * as ElectronTheme from "../electron/ElectronTheme.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import { m } from "../i18n/messages.ts";
-import * as DesktopUpdates from "../updates/DesktopUpdates.ts";
 import type { BackendStartupFailure } from "../backend/DesktopBackendManager.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 import * as DesktopObservability from "./DesktopObservability.ts";
 import * as DesktopState from "./DesktopState.ts";
 
-const RELEASES_URL = "https://github.com/pingdotgg/t3code/releases";
-const LAST_STARTED_VERSION_FILE = "desktop-last-started-version";
 // Buttons are plain links to this host; will-navigate cancels them and runs the action.
 const ACTION_ORIGIN = "https://startup-recovery.invalid";
 
@@ -29,46 +24,8 @@ const { logInfo, logWarning } = DesktopObservability.makeComponentLogger(
   "desktop-startup-recovery",
 );
 
-export type StartupRecoveryOffer =
-  | { readonly _tag: "Checking" }
-  | { readonly _tag: "Update"; readonly version: string }
-  | { readonly _tag: "Downloading"; readonly version: string; readonly percent: number | null }
-  | { readonly _tag: "Reinstall"; readonly version: string }
-  | { readonly _tag: "Releases" }
-  | { readonly _tag: "ManagedPolicy" };
-
-const STARTUP_RECOVERY_ACTIONS = ["update", "reinstall", "releases", "copy", "quit"] as const;
+const STARTUP_RECOVERY_ACTIONS = ["copy", "quit"] as const;
 type StartupRecoveryAction = (typeof STARTUP_RECOVERY_ACTIONS)[number];
-
-/** Prefer a newer build, then the last build that started on this machine, then the releases page. */
-export function resolveStartupRecoveryOffer(
-  update: DesktopUpdateState,
-  lastStartedVersion: string | null,
-  managedPolicy = false,
-): StartupRecoveryOffer {
-  if (update.status === "downloading" && update.availableVersion !== null) {
-    return {
-      _tag: "Downloading",
-      version: update.availableVersion,
-      percent: update.downloadPercent,
-    };
-  }
-  const updateVersion =
-    update.downloadedVersion ?? (update.status === "available" ? update.availableVersion : null);
-  // A version that already failed to apply here would loop through install and relaunch.
-  if (updateVersion !== null && updateVersion !== update.notAppliedVersion) {
-    return { _tag: "Update", version: updateVersion };
-  }
-  // A newer release can know a key this one refuses; an older one or the releases page cannot help.
-  if (managedPolicy) return { _tag: "ManagedPolicy" };
-  if (update.enabled && (update.status === "idle" || update.status === "checking")) {
-    return { _tag: "Checking" };
-  }
-  if (lastStartedVersion !== null && lastStartedVersion !== update.currentVersion) {
-    return { _tag: "Reinstall", version: lastStartedVersion };
-  }
-  return { _tag: "Releases" };
-}
 
 const escapeHtml = (value: string) =>
   value.replace(
@@ -80,76 +37,13 @@ const escapeHtml = (value: string) =>
 const actionLink = (action: StartupRecoveryAction, label: string, primary = false) =>
   `<a class="button${primary ? " primary" : ""}" href="${ACTION_ORIGIN}/${action}">${escapeHtml(label)}</a>`;
 
-function describeOffer(offer: StartupRecoveryOffer): { text: string; action: string } {
-  switch (offer._tag) {
-    case "Checking":
-      return { text: m(msg("Checking for a newer version…")), action: "" };
-    case "Update":
-      return {
-        text: m(msg("Version {version} is available. It can contain a fix."), {
-          version: offer.version,
-        }),
-        action: actionLink(
-          "update",
-          m(msg("Update to {version}"), { version: offer.version }),
-          true,
-        ),
-      };
-    case "Downloading":
-      return {
-        text:
-          offer.percent === null
-            ? m(msg("Downloading {version}. T3 Code restarts when the download is done."), {
-                version: offer.version,
-              })
-            : m(
-                msg(
-                  "Downloading {version} ({percent}%). T3 Code restarts when the download is done.",
-                ),
-                { version: offer.version, percent: String(Math.floor(offer.percent / 10) * 10) },
-              ),
-        action: "",
-      };
-    case "Reinstall":
-      return {
-        text: m(
-          msg(
-            "Version {version} started correctly on this computer. Download it and install it to go back.",
-          ),
-          { version: offer.version },
-        ),
-        action: actionLink(
-          "reinstall",
-          m(msg("Download {version}"), { version: offer.version }),
-          true,
-        ),
-      };
-    case "Releases":
-      return {
-        text: m(msg("Get a different version from the releases page.")),
-        action: actionLink("releases", m(msg("Open releases")), true),
-      };
-    case "ManagedPolicy":
-      return {
-        text: m(
-          msg(
-            "Your organization's managed policy stopped T3 Code from starting. Send the details below to your IT administrator.",
-          ),
-        ),
-        action: "",
-      };
-  }
-}
-
 function buildStartupRecoveryHtml(input: {
   readonly appVersion: string;
   readonly failure: BackendStartupFailure;
-  readonly offer: StartupRecoveryOffer;
   readonly logDir: string;
 }): string {
-  const offer = describeOffer(input.offer);
   const output = input.failure.output.trim();
-  const title = escapeHtml(m(msg("T3 Code could not start")));
+  const title = escapeHtml(m(msg("a4code could not start")));
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>${title}</title><style>
 :root{color-scheme:light dark;--bg:#fff;--fg:#111;--muted:#666;--line:#ddd;--code:#f4f4f4}
 @media (prefers-color-scheme:dark){:root{--bg:#000;--fg:#fff;--muted:#999;--line:#333;--code:#111}}
@@ -163,10 +57,10 @@ pre{flex:1;min-height:60px;margin:0;overflow:auto;background:var(--code);border:
 </style></head><body>
 <h1>${title}</h1>
 <p>${escapeHtml(input.failure.reason)}</p>
-<p>${escapeHtml(offer.text)}</p>
-<div class="actions">${offer.action}${actionLink("copy", m(msg("Copy details")))}${actionLink("quit", m(msg("Quit", { $context: "button, quits the app" })))}</div>
+${input.failure.managedPolicy ? `<p>${escapeHtml(m(msg("Your organization's managed policy stopped a4code from starting. Send the details below to your IT administrator.")))}</p>` : ""}
+<div class="actions">${actionLink("copy", m(msg("Copy details")), true)}${actionLink("quit", m(msg("Quit", { $context: "button, quits the app" })))}</div>
 <pre>${escapeHtml(output.length > 0 ? output : m(msg("The server wrote no output.")))}</pre>
-<p class="muted">${escapeHtml(m(msg("Version {version}. T3 Code tries again in the background. Logs: {logDir}"), { version: input.appVersion, logDir: input.logDir }))}</p>
+<p class="muted">${escapeHtml(m(msg("Version {version}. a4code tries again in the background. Logs: {logDir}"), { version: input.appVersion, logDir: input.logDir }))}</p>
 </body></html>`;
 }
 
@@ -175,52 +69,26 @@ export const listen: Effect.Effect<
   void,
   never,
   | DesktopState.DesktopState
-  | DesktopUpdates.DesktopUpdates
   | DesktopEnvironment.DesktopEnvironment
   | ElectronApp.ElectronApp
   | ElectronShell.ElectronShell
   | ElectronTheme.ElectronTheme
   | ElectronWindow.ElectronWindow
-  | FileSystem.FileSystem
   | Scope.Scope
 > = Effect.gen(function* () {
   const { primaryBackendStartup, quitting } = yield* DesktopState.DesktopState;
-  const updates = yield* DesktopUpdates.DesktopUpdates;
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
   const electronApp = yield* ElectronApp.ElectronApp;
   const electronShell = yield* ElectronShell.ElectronShell;
   const electronTheme = yield* ElectronTheme.ElectronTheme;
   const electronWindow = yield* ElectronWindow.ElectronWindow;
-  const fileSystem = yield* FileSystem.FileSystem;
   const runFork = Effect.runForkWith(yield* Effect.context<never>());
-
-  const lastStartedVersionPath = environment.path.join(
-    environment.stateDir,
-    LAST_STARTED_VERSION_FILE,
-  );
-  const lastStartedVersion = yield* fileSystem.readFileString(lastStartedVersionPath).pipe(
-    Effect.map((text) => text.trim() || null),
-    Effect.orElseSucceed(() => null),
-  );
 
   const windowRef = yield* Ref.make(Option.none<Electron.BrowserWindow>());
   // The failure that opened the window; later restarts do not reload its details.
   const failureRef = yield* Ref.make(Option.none<BackendStartupFailure>());
   const renderedHtmlRef = yield* Ref.make("");
-  const checkedRef = yield* Ref.make(false);
   let backendHasStarted = false;
-  const { latest, changes: updateChanges } = yield* updates.subscribe;
-  const updateStateRef = yield* Ref.make(latest);
-
-  const offer = Effect.all([Ref.get(updateStateRef), Ref.get(failureRef)]).pipe(
-    Effect.map(([state, failure]) =>
-      resolveStartupRecoveryOffer(
-        state,
-        lastStartedVersion,
-        Option.exists(failure, ({ managedPolicy }) => managedPolicy),
-      ),
-    ),
-  );
 
   const render = Effect.gen(function* () {
     const window = yield* Ref.get(windowRef);
@@ -229,7 +97,6 @@ export const listen: Effect.Effect<
     const html = buildStartupRecoveryHtml({
       appVersion: environment.appVersion,
       failure: failure.value,
-      offer: yield* offer,
       logDir: environment.logDir,
     });
     if ((yield* Ref.getAndSet(renderedHtmlRef, html)) === html) return;
@@ -240,34 +107,12 @@ export const listen: Effect.Effect<
     action: StartupRecoveryAction,
   ) {
     yield* logInfo("startup recovery action", { action });
-    const current = yield* offer;
     switch (action) {
-      case "update": {
-        if (current._tag !== "Update") return;
-        let { downloadedVersion } = yield* updates.getState;
-        if (downloadedVersion === null) {
-          // The download re-checks first, so it can fetch a newer build than the one offered.
-          const download = yield* updates.download;
-          if (!download.completed) return;
-          downloadedVersion = download.state.downloadedVersion;
-        }
-        if (downloadedVersion === null) return;
-        yield* updates.installPrepared(downloadedVersion);
-        return;
-      }
-      case "reinstall":
-        if (current._tag === "Reinstall") {
-          yield* electronShell.openExternal(`${RELEASES_URL}/tag/v${current.version}`);
-        }
-        return;
-      case "releases":
-        yield* electronShell.openExternal(RELEASES_URL);
-        return;
       case "copy": {
         const failure = yield* Ref.get(failureRef);
         if (Option.isNone(failure)) return;
         yield* electronShell.copyText(
-          `T3 Code ${environment.appVersion} (${environment.platform} ${environment.processArch}) could not start.\n${failure.value.reason}\n\n${failure.value.output}`,
+          `a4code ${environment.appVersion} (${environment.platform} ${environment.processArch}) could not start.\n${failure.value.reason}\n\n${failure.value.output}`,
         );
         return;
       }
@@ -302,7 +147,7 @@ export const listen: Effect.Effect<
           minWidth: 420,
           minHeight: 320,
           show: false,
-          title: m(msg("T3 Code could not start")),
+          title: m(msg("a4code could not start")),
           autoHideMenuBar: true,
           backgroundColor: shouldUseDarkColors ? "#000000" : "#ffffff",
           webPreferences: {
@@ -355,20 +200,6 @@ export const listen: Effect.Effect<
     },
   );
 
-  const rememberStartedVersion = Effect.gen(function* () {
-    if (lastStartedVersion === environment.appVersion) return;
-    yield* fileSystem.writeFileString(lastStartedVersionPath, environment.appVersion);
-  }).pipe(
-    Effect.catch((error) =>
-      logWarning("could not record the started version", { errorTag: error._tag }),
-    ),
-  );
-
-  yield* updateChanges.pipe(
-    Stream.runForEach((state) => Ref.set(updateStateRef, state).pipe(Effect.andThen(render))),
-    Effect.forkScoped,
-  );
-
   yield* SubscriptionRef.changes(primaryBackendStartup).pipe(
     Stream.runForEach(
       Effect.fn("desktop.startupRecovery.onStartupChange")(function* (startup) {
@@ -376,7 +207,6 @@ export const listen: Effect.Effect<
           backendHasStarted = true;
           yield* Ref.set(failureRef, Option.none());
           yield* closeWhenMainReady;
-          yield* rememberStartedVersion;
           return;
         }
         if (startup._tag !== "Failing") return;
@@ -386,9 +216,6 @@ export const listen: Effect.Effect<
         // The backend manager already logs each failure's reason.
         yield* logWarning("primary backend failing to start");
         yield* show();
-        if (!(yield* Ref.getAndSet(checkedRef, true))) {
-          yield* updates.check("startup-recovery").pipe(Effect.forkScoped);
-        }
       }),
     ),
     Effect.catchCause((cause) =>

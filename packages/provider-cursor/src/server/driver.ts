@@ -1,10 +1,10 @@
+import type { ServerProvider } from "@a4code/contracts";
 import {
   ProviderDriverKind,
   ProviderSetupError,
   type ServerProviderModel,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { CursorSettings } from "../settings.ts";
-import type { SDKModel } from "@cursor/sdk";
 import * as Effect from "effect/Effect";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as FileSystem from "effect/FileSystem";
@@ -12,28 +12,26 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/http/HttpClient";
 import { cursorRateModel } from "./accountUsage.ts";
-import { readCursorUsageLimits } from "./usageLimits.ts";
 
-import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
+import * as ProviderHost from "@a4code/provider-core/server/ProviderHost";
 import { makeCursorTextGeneration } from "./textGeneration.ts";
 import { makeCursorAdapterV2, type CursorAdapterV2DriverEnv } from "./adapter.ts";
-import { ProviderDriverError } from "@t3tools/provider-core/server/errors";
-import { buildInitialCursorProviderSnapshot, checkCursorProviderStatus } from "./status.ts";
-import * as CursorSdkCatalog from "./CursorSdkCatalog.ts";
-import { makeManagedServerProvider } from "@t3tools/provider-core/server/managedProvider";
+import { ProviderDriverError } from "@a4code/provider-core/server/errors";
+import { buildInitialCursorProviderSnapshot } from "./status.ts";
+import { makeManagedServerProvider } from "@a4code/provider-core/server/managedProvider";
 import {
   defaultProviderContinuationIdentity,
   type ProviderDriver,
   type ProviderInstance,
-} from "@t3tools/provider-core/server/driver";
-import { withInstanceIdentity } from "@t3tools/provider-core/server/instanceIdentity";
-import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
-import { makeManualOnlyProviderMaintenanceCapabilities } from "@t3tools/provider-core/server/maintenanceResolver";
+} from "@a4code/provider-core/server/driver";
+import { withInstanceIdentity } from "@a4code/provider-core/server/instanceIdentity";
+import { mergeProviderInstanceEnvironment } from "@a4code/provider-core/server/instanceEnvironment";
+import { makeManualOnlyProviderMaintenanceCapabilities } from "@a4code/provider-core/server/maintenanceResolver";
 import {
   haveProviderSnapshotSettingsChanged,
   makeProviderSnapshotSettingsSource,
   type ProviderSnapshotSettings,
-} from "@t3tools/provider-core/server/snapshotSettings";
+} from "@a4code/provider-core/server/snapshotSettings";
 import { probeCursorSkills } from "./skills.ts";
 import { makeCursorAuth } from "./auth.ts";
 import * as CursorCredentialStore from "./credentialStore.ts";
@@ -75,14 +73,13 @@ export const CursorDriver: ProviderDriver<
     kind: "scan",
     provider: "cursor",
     rateModel: cursorRateModel,
-    scan: ({ instances, windowStartMs, retentionCutoffMs, awaitRefresh }) =>
+    scan: ({ instances, windowStartMs, retentionCutoffMs }) =>
       CursorUsageAccounts.CursorUsageAccounts.pipe(
         Effect.flatMap((accounts) =>
           accounts.scan({
             instances,
             windowStartMs,
             retentionCutoffMs,
-            awaitRefresh,
           }),
         ),
       ),
@@ -98,7 +95,6 @@ export const CursorDriver: ProviderDriver<
     const host = yield* ProviderHost.ProviderHost;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const httpClient = yield* HttpClient.HttpClient;
     const sdkRunner = yield* CursorAgentSdk.CursorAgentSdkRunner;
     const processEnv = yield* mergeProviderInstanceEnvironment(environment);
     const continuationIdentity = defaultProviderContinuationIdentity({
@@ -165,12 +161,12 @@ export const CursorDriver: ProviderDriver<
       });
 
     let catalogModels: ReadonlyArray<ServerProviderModel> = [];
-    let catalogSdkModels: ReadonlyArray<SDKModel> = [];
+
     const orchestrationAdapter = yield* makeCursorAdapterV2({
       instanceId,
       environment: processEnv,
       getModels: () => catalogModels,
-      getSdkModels: () => catalogSdkModels,
+      getSdkModels: () => [],
     }).pipe(
       Effect.provideService(CursorAgentSdk.CursorAgentSdkRunner, {
         ...sdkRunner,
@@ -214,73 +210,50 @@ export const CursorDriver: ProviderDriver<
       auth.requireApiKey,
       auth.withAccess,
       () => catalogModels,
-      () => catalogSdkModels,
+      () => [],
       sdkRunner,
     );
 
-    const checkProvider = auth.readApiKey.pipe(
-      Effect.orElseSucceed(() => undefined),
-      Effect.flatMap((apiKey) =>
-        checkCursorProviderStatus(
-          effectiveConfig,
-          {
-            ...processEnv,
-            CURSOR_API_KEY: apiKey,
-          },
-          auth.usesApiKey ? "api-key" : "browser",
-        ).pipe(
-          Effect.filterOrElse(
-            (snapshot) =>
-              !(
-                effectiveConfig.enabled &&
-                snapshot.installed &&
-                snapshot.auth.status === "authenticated"
-              ),
-            (snapshot) =>
-              readCursorUsageLimits(effectiveConfig, {
-                ...processEnv,
-                CURSOR_API_KEY: apiKey,
-              }).pipe(Effect.map((usageLimits) => ({ ...snapshot, usageLimits }))),
-          ),
-        ),
-      ),
-      Effect.provideService(FileSystem.FileSystem, fileSystem),
-      Effect.provideService(Path.Path, path),
+    const readLocalStatus = Effect.fn("CursorDriver.readLocalStatus")(function* (
+      draft: ServerProvider,
+    ) {
+      if (!draft.enabled) return draft;
+      const key = yield* auth.readApiKey.pipe(Effect.orElseSucceed(() => undefined));
+      const stored =
+        key && !auth.usesApiKey
+          ? yield* Effect.promise(async () => credentials.store.load().catch(() => undefined))
+          : undefined;
+      const { message: _pendingMessage, ...base } = draft;
+      catalogModels = [
+        { slug: "auto", name: "Auto", isCustom: false, isDefault: true, capabilities: null },
+        ...base.models.filter((model) => model.slug !== "auto"),
+      ];
+      return {
+        ...base,
+        status: key ? ("ready" as const) : ("warning" as const),
+        auth: {
+          ...base.auth,
+          type: auth.usesApiKey ? "api-key" : "browser",
+          ...(stored?.email ? { email: stored.email } : {}),
+          status: key ? ("authenticated" as const) : ("unauthenticated" as const),
+        },
+        models: catalogModels,
+        ...(!key ? { message: "Sign in to Cursor to run a turn." } : {}),
+      };
+    });
+    const checkLocalProvider = buildInitialCursorProviderSnapshot(effectiveConfig).pipe(
       Effect.map(stampSnapshot),
-      Effect.tap((provider) =>
-        Effect.sync(() => {
-          // A failed check lists only custom models, so keep the last loaded catalog.
-          if (provider.models.some((model) => !model.isCustom)) {
-            catalogModels = provider.models;
-          }
-        }),
-      ),
-      Effect.provideServiceEffect(
-        CursorSdkCatalog.CursorSdkCatalog,
-        Effect.map(CursorSdkCatalog.CursorSdkCatalog, (catalog) =>
-          CursorSdkCatalog.CursorSdkCatalog.of({
-            // Untraced: CursorSdkCatalog.read already spans this call.
-            read: Effect.fnUntraced(function* (apiKey) {
-              const snapshot = yield* catalog.read(apiKey);
-              if (snapshot.models.length > 0) catalogSdkModels = snapshot.models;
-              return snapshot;
-            }),
-          }),
-        ),
-      ),
-      Effect.provide(CursorSdkCatalog.layer),
-      Effect.provideService(HttpClient.HttpClient, httpClient),
+      Effect.flatMap(readLocalStatus),
     );
-
     const snapshotSettings = yield* makeProviderSnapshotSettingsSource(effectiveConfig);
     const snapshot = yield* makeManagedServerProvider<ProviderSnapshotSettings<CursorSettings>>({
       resolveMaintenance: () => Effect.succeed(MAINTENANCE_CAPABILITIES),
       getSettings: snapshotSettings.getSettings,
       streamSettings: snapshotSettings.streamSettings,
       haveSettingsChanged: haveProviderSnapshotSettingsChanged,
-      initialSnapshot: (settings) =>
-        buildInitialCursorProviderSnapshot(settings.provider).pipe(Effect.map(stampSnapshot)),
-      checkProvider,
+      initialSnapshot: () => checkLocalProvider,
+      checkProvider: checkLocalProvider,
+      refreshOnInterval: false,
     }).pipe(
       Effect.mapError(
         (cause) =>

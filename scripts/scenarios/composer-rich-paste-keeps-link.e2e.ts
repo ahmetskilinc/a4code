@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 const LABEL = "Setup guide";
 const URL = "https://example.com/setup";
@@ -10,10 +10,10 @@ const PREFIX = "See the ";
 test(
   "A hyperlink pasted into the composer keeps its destination",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    const project = await t3.project("demo");
-    const thread = await t3.thread({ project, title: "Rich text paste", messages: ["first"] });
-    await t3.open(thread);
+  async ({ a4code, app, browser, screen }) => {
+    const project = await a4code.project("demo");
+    const thread = await a4code.thread({ project, title: "Rich text paste", messages: ["first"] });
+    await a4code.open(thread);
     await screen.getByRole("textbox").tap();
 
     await browser.evaluate(

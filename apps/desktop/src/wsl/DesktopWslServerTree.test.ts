@@ -34,8 +34,8 @@ const layerEnvironment = (input: {
       Layer.mergeAll(
         NodeServices.layer,
         DesktopConfig.layerTest({
-          T3CODE_HOME: input.baseDir,
-          T3CODE_MODE: "desktop",
+          A4CODE_HOME: input.baseDir,
+          A4CODE_MODE: "desktop",
         }),
       ),
     ),
@@ -45,7 +45,7 @@ const withTempDir = <A, E, R>(run: (tempDir: string) => Effect.Effect<A, E, R>) 
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const tempDir = yield* fileSystem.makeTempDirectoryScoped({
-      prefix: "t3-wsl-server-tree-test-",
+      prefix: "a4-wsl-server-tree-test-",
     });
     return yield* run(tempDir);
   });
@@ -130,7 +130,7 @@ describe("DesktopWslServerTree", () => {
         const dep = yield* fileSystem.exists(path.join(root, "node_modules/effect/package.json"));
         assert.isTrue(dep);
         const marker = yield* fileSystem.readFileString(
-          path.join(root, "t3code-wsl-server-tree.json"),
+          path.join(root, "a4code-wsl-server-tree.json"),
         );
         assert.include(marker, '"version":"1.2.3"');
       }),

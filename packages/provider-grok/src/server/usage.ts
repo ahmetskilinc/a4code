@@ -1,18 +1,18 @@
-import type { UsageTokenTotals } from "@t3tools/contracts";
+import type { UsageTokenTotals } from "@a4code/contracts";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 
-import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
+import { expandHomePath } from "@a4code/provider-core/server/pathExpansion";
 import {
   tokenCount,
   totalTokens,
   type ProviderUsageReader,
   type TranscriptUsageFormat,
   type UsageRecord,
-} from "@t3tools/provider-core/server/usage";
+} from "@a4code/provider-core/server/usage";
 
 import type { GrokSettings } from "../settings.ts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@a4code/shared/HostProcess";
 
 export const GROK_COST_USD_TICKS_PER_DOLLAR = 10_000_000_000;
 
@@ -94,7 +94,7 @@ function parseGrokRecord(parsed: unknown): readonly UsageRecord[] {
   const usageRecord = usage as Record<string, unknown>;
 
   const sessionId = typeof paramsRecord["sessionId"] === "string" ? paramsRecord["sessionId"] : "";
-  // T3's prompt ids restart with each Grok process, so a resumed session reuses them.
+  // a4code's prompt ids restart with each Grok process, so a resumed session reuses them.
   const promptId = typeof updateRecord["prompt_id"] === "string" ? updateRecord["prompt_id"] : null;
 
   const meta = paramsRecord["_meta"];

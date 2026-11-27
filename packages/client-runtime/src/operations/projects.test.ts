@@ -1,6 +1,6 @@
-import { SourceControlProviderKind } from "@t3tools/contracts";
+import { SourceControlProviderKind } from "@a4code/contracts";
 import { describe, expect, it } from "vite-plus/test";
-import { EnvironmentId, ProjectId } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId } from "@a4code/contracts";
 
 import {
   findExistingAddProject,
@@ -38,10 +38,10 @@ describe("add project shared logic", () => {
 
   it("asks for a repository name when GitHub input is only an owner path", () => {
     const github = SourceControlProviderKind.make("github");
-    expect(githubIncompleteOwnerRepositoryMessage(github, "pingdotgg/")).toBe(
+    expect(githubIncompleteOwnerRepositoryMessage(github, "a4code/")).toBe(
       "Enter the full owner/repository name.",
     );
-    expect(githubIncompleteOwnerRepositoryMessage(github, "  pingdotgg//  ")).toBe(
+    expect(githubIncompleteOwnerRepositoryMessage(github, "  a4code//  ")).toBe(
       "Enter the full owner/repository name.",
     );
     expect(githubIncompleteOwnerRepositoryMessage(github, "mona-cat_octo/")).toBe(
@@ -49,11 +49,11 @@ describe("add project shared logic", () => {
     );
 
     for (const input of [
-      "pingdotgg/t3code",
+      "a4code/a4code",
       "mona-cat_octo/repo",
-      "pingdotgg",
-      "https://github.com/pingdotgg/t3code.git",
-      "git@github.com:pingdotgg/t3code.git",
+      "a4code",
+      "https://github.com/a4code/a4code.git",
+      "git@github.com:a4code/a4code.git",
     ]) {
       expect(githubIncompleteOwnerRepositoryMessage(github, input)).toBeNull();
     }
@@ -70,8 +70,8 @@ describe("add project shared logic", () => {
     expect(normalizePastedCloneUrl("imputnet/helium")).toBe(
       "https://github.com/imputnet/helium.git",
     );
-    expect(normalizePastedCloneUrl("  pingdotgg/t3code  ")).toBe(
-      "https://github.com/pingdotgg/t3code.git",
+    expect(normalizePastedCloneUrl("  a4code/a4code  ")).toBe(
+      "https://github.com/a4code/a4code.git",
     );
   });
 
@@ -97,12 +97,12 @@ describe("add project shared logic", () => {
 
   it("clones the repository when given a page URL copied from the browser", () => {
     for (const [pageUrl, pageRoute, repository] of [
-      ["https://github.com/pingdotgg/t3code/tree/main", "/tree/", "t3code"],
+      ["https://github.com/a4code/a4code/tree/main", "/tree/", "a4code"],
       ["https://gitlab.com/gitlab-org/gitlab-runner/-/tree/main", "/-/", "gitlab-runner"],
-      ["https://git.cafe/pingdotgg/t3code/tree/main", "/tree/", "t3code"],
+      ["https://git.cafe/a4code/a4code/tree/main", "/tree/", "a4code"],
       ["https://gitlab.example.test/g/p/-/blob/main/src/branch/x", "/-/", "p"],
       ["https://code.company.test/g/p/-/tree/main", "/-/", "p"],
-      ["https://github.com/pingdotgg/t3code/tree/release.git", "/tree/", "t3code"],
+      ["https://github.com/a4code/a4code/tree/release.git", "/tree/", "a4code"],
     ] as const) {
       const cloneUrl = normalizePastedCloneUrl(pageUrl);
       expect(cloneUrl).not.toContain(pageRoute);

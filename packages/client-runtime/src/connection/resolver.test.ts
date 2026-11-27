@@ -2,7 +2,7 @@ import {
   EnvironmentId,
   ORCHESTRATION_PROTOCOL_VERSION,
   type DesktopSshEnvironmentTarget,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -14,6 +14,7 @@ import * as ClientCapabilities from "../platform/capabilities.ts";
 import * as RemoteEnvironmentAuthorization from "../authorization/service.ts";
 import {
   BearerConnectionCredential,
+  BearerConnectionProfile,
   type ConnectionCatalogEntry,
   SshConnectionProfile,
   type ConnectionCredential,
@@ -22,6 +23,7 @@ import {
 import * as ConnectionCredentialStore from "./credentialStore.ts";
 import {
   ConnectionTransientError,
+  BearerConnectionTarget,
   PrimaryConnectionTarget,
   SshConnectionTarget,
   type ConnectionTarget,
@@ -35,10 +37,6 @@ import {
 } from "./pullRequestRoutingPermissions.ts";
 
 const ENVIRONMENT_ID = EnvironmentId.make("environment-1");
-const ENDPOINT = {
-  httpBaseUrl: "https://environment.example.test",
-  wsBaseUrl: "wss://environment.example.test",
-};
 const SSH_TARGET: DesktopSshEnvironmentTarget = {
   alias: "development",
   hostname: "development.example.test",
@@ -58,7 +56,6 @@ const makeDependencies = Effect.fn("TestConnectionResolver.makeDependencies")((o
   readonly profileStore?: ConnectionProfileStore.ConnectionProfileStore["Service"];
   readonly credentials?: ReadonlyArray<readonly [string, ConnectionCredential]>;
   readonly authorizeBearer?: RemoteEnvironmentAuthorization.RemoteEnvironmentAuthorization["Service"]["authorizeBearer"];
-  readonly authorizeDpop?: RemoteEnvironmentAuthorization.RemoteEnvironmentAuthorization["Service"]["authorizeDpop"];
   readonly primaryBearerToken?: string;
   readonly prepareSsh?: ClientCapabilities.SshEnvironmentGateway["Service"]["prepare"];
   readonly descriptorProtocolVersion?: number | null | undefined;
@@ -93,21 +90,6 @@ const makeDependencies = Effect.fn("TestConnectionResolver.makeDependencies")((o
             token: input.bearerToken,
           },
         })),
-    authorizeDpop:
-      options?.authorizeDpop ??
-      ((input) =>
-        Effect.succeed({
-          environmentId: input.expectedEnvironmentId,
-          label: "Authorized relay environment",
-          httpBaseUrl: ENDPOINT.httpBaseUrl,
-          socketUrl: "wss://authorized.example.test/ws?wsTicket=dpop",
-          httpAuthorization: {
-            _tag: "Dpop" as const,
-            accessToken: "dpop-access-token",
-            expiresAtEpochMs: Number.MAX_SAFE_INTEGER,
-          },
-        })),
-    authorizeDpopHttp: () => Effect.die("unused"),
     authorizeDirectDpop: () => Effect.die("unused"),
     authorizeDirectDpopHttp: () => Effect.die("unused"),
     rememberCheckedDescriptor: () => Effect.void,
@@ -185,8 +167,39 @@ describe("ConnectionResolver", () => {
       const error = yield* Effect.flip(broker.prepare(catalogEntry(target)));
 
       expect(error).toMatchObject({ reason: "unsupported" });
-      expect(error.message).toContain("Update T3 Code on Compatible environment");
+      expect(error.message).toContain("Update a4code on Compatible environment");
     }),
+  );
+
+  it.effect.each(["t3-connect", "a4-connect"] as const)(
+    "never authorizes a saved route with a retired %s grant",
+    (authorization) =>
+      Effect.gen(function* () {
+        const target = new BearerConnectionTarget({
+          environmentId: ENVIRONMENT_ID,
+          label: "Retired",
+          connectionId: "retired",
+        });
+        const profile = new BearerConnectionProfile({
+          environmentId: target.environmentId,
+          connectionId: target.connectionId,
+          label: target.label,
+          httpBaseUrl: "https://retired.example.test/",
+          wsBaseUrl: "wss://retired.example.test/",
+          authorization,
+        });
+        const dependencies = yield* makeDependencies({
+          credentials: [[target.connectionId, new BearerConnectionCredential({ token: "old" })]],
+          authorizeBearer: () => Effect.die("A retired route attempted authorization."),
+        });
+        const resolver = yield* ConnectionResolver.ConnectionResolver.pipe(
+          Effect.provide(dependencies),
+        );
+        const error = yield* resolver
+          .prepare(catalogEntry(target, Option.some(profile)))
+          .pipe(Effect.flip);
+        expect(error).toMatchObject({ _tag: "ConnectionBlockedError", reason: "configuration" });
+      }),
   );
 
   it.effect("prepares a primary environment without remote capabilities", () =>

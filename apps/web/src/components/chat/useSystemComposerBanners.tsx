@@ -1,16 +1,15 @@
-import { T, msg, useGT, useMessages } from "gt-react";
-import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
+import { T, msg, useGT } from "gt-react";
+import { thrownErrorMessage } from "@a4code/client-runtime/errors";
 import { m } from "~/i18n/messages";
 import { useStableCallback } from "../../hooks/useStableCallback";
-import { type EnvironmentId } from "@t3tools/contracts";
-import { type EnvironmentConnectionPresentation } from "@t3tools/client-runtime/connection";
-import { useAtomValue } from "@effect/atom-react";
+import { type EnvironmentId } from "@a4code/contracts";
+import { type EnvironmentConnectionPresentation } from "@a4code/client-runtime/connection";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@a4code/client-runtime/state/runtime";
 import { WifiOffIcon } from "lucide-react";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { environmentCatalog } from "../../connection/catalog";
@@ -20,23 +19,11 @@ import {
   useEnvironmentDisconnectDelay,
   useEnvironmentStateHeldFor,
 } from "../../hooks/useEnvironmentDisconnectDelay";
-import { serverEnvironment } from "../../state/server";
 import { type EnvironmentPresentation } from "../../state/environments";
 import type { ComposerBannerStackItem } from "./ComposerBannerStack";
 import { ENVIRONMENT_RECONNECT_WARNING_GRACE_MS } from "../ChatView.logic";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
-import { ServerUpdateAction, serverUpdateStageLabel } from "../ServerUpdateAction";
-import { useAutoBalanceUpdateBanner } from "./useAutoBalanceUpdateBanner";
-import { ComposerServerUpdateIcon } from "./ComposerServerUpdateStatus";
-import {
-  dismissServerUpdateFailure,
-  isServerUpdateFailureDismissed,
-  resolveServerConfigVersionMismatch,
-  resolveServerSelfUpdateCapability,
-  supportsDesktopAppUpdate,
-} from "../../versionSkew";
-
 export type EnvironmentUnavailableState = {
   readonly environmentId: EnvironmentId;
   readonly label: string;
@@ -47,30 +34,12 @@ interface SystemComposerBannersInput {
   readonly activeEnvironment: EnvironmentPresentation | null;
   readonly activeEnvironmentUnavailable: boolean;
   readonly activeEnvironmentUnavailableState: EnvironmentUnavailableState | null;
-  readonly activeThreadEnvironmentId: EnvironmentId | null;
-  readonly serverConfig: EnvironmentPresentation["serverConfig"] | null;
-  readonly hasMultipleRegisteredEnvironments: boolean;
-  readonly automaticEnvironment: boolean;
-  readonly autoUpdateEnvironments: ReadonlyArray<EnvironmentPresentation>;
 }
 
-/**
- * The composer banners about the machine itself: offline or reconnecting,
- * a server update, and auto-balanced machines that need one.
- */
 export function useSystemComposerBanners(input: SystemComposerBannersInput) {
-  const {
-    activeEnvironment,
-    activeEnvironmentUnavailable,
-    activeEnvironmentUnavailableState,
-    activeThreadEnvironmentId,
-    serverConfig,
-    hasMultipleRegisteredEnvironments,
-    automaticEnvironment,
-    autoUpdateEnvironments,
-  } = input;
+  const { activeEnvironment, activeEnvironmentUnavailable, activeEnvironmentUnavailableState } =
+    input;
   const gt = useGT();
-  const messages = useMessages();
   const navigate = useNavigate();
   const retryEnvironment = useAtomCommand(environmentCatalog.retryNow, { reportFailure: false });
   const setEnvironmentEnabled = useAtomCommand(environmentCatalog.setEnabled, {
@@ -139,32 +108,8 @@ export function useSystemComposerBanners(input: SystemComposerBannersInput) {
   const handleDisconnectActiveEnvironmentStable = useStableCallback(
     handleDisconnectActiveEnvironment,
   );
-  const autoBalanceUpdateBanner = useAutoBalanceUpdateBanner(autoUpdateEnvironments);
-  const versionMismatch = resolveServerConfigVersionMismatch(serverConfig, messages);
-  const versionMismatchServerName =
-    hasMultipleRegisteredEnvironments && activeThreadEnvironmentId !== null
-      ? (activeEnvironment?.label ?? serverConfig?.environment.label ?? activeThreadEnvironmentId)
-      : null;
-  const versionMismatchServerLabel =
-    versionMismatchServerName !== null
-      ? gt("{environment} server", { environment: versionMismatchServerName })
-      : gt("server", { $context: "noun, the T3 Code server" });
-  const serverUpdateEnvironmentId = activeThreadEnvironmentId;
-  const versionMismatchSelfUpdate = resolveServerSelfUpdateCapability(serverConfig);
-  const versionMismatchInstallation = serverConfig?.environment.capabilities.serverInstallation;
-  const versionMismatchDesktopAppUpdate = supportsDesktopAppUpdate(serverConfig);
-  const serverUpdateState = useAtomValue(
-    serverEnvironment.updateStateAtom(serverUpdateEnvironmentId),
-  );
-  const [dismissedServerUpdateState, setDismissedServerUpdateState] = useState<
-    typeof serverUpdateState | null
-  >(null);
-  const serverUpdateFailureDismissed =
-    serverUpdateState === dismissedServerUpdateState ||
-    isServerUpdateFailureDismissed(serverUpdateState);
   return (() => {
     const items: ComposerBannerStackItem[] = [];
-    const updateRunning = serverUpdateState.status === "running";
     const unavailableConnection = activeEnvironmentUnavailableState?.connection ?? null;
     const disconnectAction =
       canDisconnectActiveEnvironment && activeEnvironmentUnavailableState ? (
@@ -186,11 +131,7 @@ export function useSystemComposerBanners(input: SystemComposerBannersInput) {
       unavailableConnection !== null &&
       (unavailableConnection.phase === "connecting" ||
         unavailableConnection.phase === "reconnecting");
-    const awaitingApproval = unavailableConnection?.awaitingApproval === true;
-    const suppressUnavailableBanner =
-      environmentReconnecting &&
-      !awaitingApproval &&
-      (updateRunning || !reconnectWarningGraceElapsed);
+    const suppressUnavailableBanner = environmentReconnecting && !reconnectWarningGraceElapsed;
     const showUnavailableBanner =
       activeEnvironmentUnavailableState !== null &&
       unavailableConnection !== null &&
@@ -201,20 +142,14 @@ export function useSystemComposerBanners(input: SystemComposerBannersInput) {
         variant: unavailableConnection.phase === "error" ? "error" : "warning",
         group: "environment",
         icon: <WifiOffIcon />,
-        title: awaitingApproval
-          ? gt("{environment} is waiting to approve this device", {
+        title: environmentReconnecting
+          ? gt("{environment} is reconnecting", {
               environment: activeEnvironmentUnavailableState.label,
             })
-          : environmentReconnecting
-            ? gt("{environment} is reconnecting", {
-                environment: activeEnvironmentUnavailableState.label,
-              })
-            : gt("{environment} is offline", {
-                environment: activeEnvironmentUnavailableState.label,
-              }),
-        description: awaitingApproval ? (
-          (unavailableConnection.error ?? undefined)
-        ) : activeEnvironment ? (
+          : gt("{environment} is offline", {
+              environment: activeEnvironmentUnavailableState.label,
+            }),
+        description: activeEnvironment ? (
           <ConnectionDiagnosisHeadline environment={activeEnvironment} />
         ) : undefined,
         actions: (
@@ -237,62 +172,6 @@ export function useSystemComposerBanners(input: SystemComposerBannersInput) {
         ),
       });
     }
-    // An available update is offered by the sidebar's update pill; the composer only shows one
-    // that is running or failed, since either explains what this thread's server is doing.
-    if (
-      !automaticEnvironment &&
-      serverUpdateEnvironmentId &&
-      serverUpdateState.status !== "idle" &&
-      !serverUpdateFailureDismissed
-    ) {
-      const updateFailed = serverUpdateState.status === "failed";
-      items.push({
-        id: `server-version:${serverUpdateEnvironmentId}`,
-        variant: updateFailed ? "error" : "default",
-        group: "environment",
-        icon: <ComposerServerUpdateIcon status={serverUpdateState.status} />,
-        title:
-          versionMismatchServerName !== null
-            ? updateFailed
-              ? gt("Could not update {environment} server", {
-                  environment: versionMismatchServerName,
-                })
-              : gt("Updating {environment} server", { environment: versionMismatchServerName })
-            : updateFailed
-              ? gt("Could not update server")
-              : gt("Updating server"),
-        description:
-          serverUpdateState.status === "failed"
-            ? serverUpdateState.message
-            : serverUpdateStageLabel(serverUpdateState.stage, messages),
-        actions: !updateFailed ? (
-          disconnectAction
-        ) : !versionMismatch ||
-          (versionMismatchSelfUpdate === "desktop-managed" &&
-            !versionMismatchDesktopAppUpdate) ? undefined : (
-          <ServerUpdateAction
-            environmentId={serverUpdateEnvironmentId}
-            serverLabel={versionMismatchServerLabel}
-            selfUpdate={versionMismatchSelfUpdate}
-            installation={versionMismatchInstallation}
-            desktopAppUpdate={versionMismatchDesktopAppUpdate}
-            targetVersion={versionMismatch.clientVersion}
-            label={gt("Retry", { $context: "verb, retries the server update" })}
-            variant="ghost"
-          />
-        ),
-        ...(updateFailed
-          ? {
-              dismissLabel: gt("Dismiss update notice"),
-              onDismiss: () => {
-                dismissServerUpdateFailure(serverUpdateState);
-                setDismissedServerUpdateState(serverUpdateState);
-              },
-            }
-          : {}),
-      });
-    }
-    if (autoBalanceUpdateBanner) items.push(autoBalanceUpdateBanner);
     return items;
   })() as ComposerBannerStackItem[];
 }

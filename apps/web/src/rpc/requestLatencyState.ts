@@ -1,4 +1,4 @@
-import { WS_METHODS } from "@t3tools/contracts";
+import { WS_METHODS } from "@a4code/contracts";
 import { Atom } from "effect/reactivity";
 
 import { appAtomRegistry } from "./atomRegistry";
@@ -37,7 +37,6 @@ const untrackedRpcAckMethods = new Set<string>([
 const longRunningRpcAckMethods = new Set<string>([
   WS_METHODS.serverUpdateProvider,
   WS_METHODS.serverRefreshProviders,
-  WS_METHODS.serverUpdateServer,
   WS_METHODS.vcsRefreshStatus,
 ]);
 

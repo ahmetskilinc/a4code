@@ -1,6 +1,6 @@
-import { ProviderDriverKind, type ServerProvider } from "@t3tools/contracts";
+import { ProviderDriverKind, type ServerProvider } from "@a4code/contracts";
 import { MuseSettings } from "../settings.ts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Ref from "effect/Ref";
@@ -10,40 +10,42 @@ import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/http/HttpClient";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
-import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
-import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
+import * as ProviderLatestVersions from "@a4code/provider-core/server/ProviderLatestVersions";
+import * as ProviderHost from "@a4code/provider-core/server/ProviderHost";
+import * as McpProviderSessions from "@a4code/provider-core/server/McpProviderSessions";
+import { expandHomePath } from "@a4code/provider-core/server/pathExpansion";
 import { makeMuseTextGeneration } from "./textGeneration.ts";
-import { ProviderDriverError } from "@t3tools/provider-core/server/errors";
+import { ProviderDriverError } from "@a4code/provider-core/server/errors";
 import { makeMuseAdapterV2 } from "./adapter.ts";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
-import * as ProviderContinuationRequests from "@t3tools/provider-core/server/ProviderContinuationRequests";
-import { checkMuseProviderStatus, makePendingMuseProvider } from "./status.ts";
-import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
-import { makeManagedServerProvider } from "@t3tools/provider-core/server/managedProvider";
-import type { ProviderUsageLimitsReport } from "@t3tools/provider-core/server/snapshot";
-import { makeUsageLimits } from "@t3tools/provider-core/server/usageLimits";
-import { enrichMuseSnapshot, latestMuseVersion, museMaintenance } from "./maintenance.ts";
+import * as IdAllocator from "@a4code/provider-core/server/IdAllocator";
+import * as ProviderContinuationRequests from "@a4code/provider-core/server/ProviderContinuationRequests";
+import { makePendingMuseProvider } from "./status.ts";
+import * as ProviderEventLoggers from "@a4code/provider-core/server/ProviderEventLoggers";
+import {
+  makeManagedServerProvider,
+  readLocalCliStatus,
+} from "@a4code/provider-core/server/managedProvider";
+import type { ProviderUsageLimitsReport } from "@a4code/provider-core/server/snapshot";
+import { makeUsageLimits } from "@a4code/provider-core/server/usageLimits";
+import { latestMuseVersion, museMaintenance } from "./maintenance.ts";
 import { makeMuseEnvironment } from "./sdk.ts";
 import { museUsageReader } from "./usage.ts";
-import type * as MuseUsageHome from "./MuseUsageHome.ts";
 import {
   defaultProviderContinuationIdentity,
   type ProviderDriver,
   type ProviderInstance,
-} from "@t3tools/provider-core/server/driver";
-import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
+} from "@a4code/provider-core/server/driver";
+import { mergeProviderInstanceEnvironment } from "@a4code/provider-core/server/instanceEnvironment";
 import {
   makeCachedProviderMaintenanceResolution,
   resolveProviderMaintenanceCapabilitiesEffect,
-} from "@t3tools/provider-core/server/maintenanceResolver";
+} from "@a4code/provider-core/server/maintenanceResolver";
 import {
   haveProviderSnapshotSettingsChanged,
   makeProviderSnapshotSettingsSource,
   type ProviderSnapshotSettings,
-} from "@t3tools/provider-core/server/snapshotSettings";
-import { withInstanceIdentity } from "@t3tools/provider-core/server/instanceIdentity";
+} from "@a4code/provider-core/server/snapshotSettings";
+import { withInstanceIdentity } from "@a4code/provider-core/server/instanceIdentity";
 
 const DRIVER_KIND = ProviderDriverKind.make("muse");
 const decodeMuseSettings = Schema.decodeSync(MuseSettings);
@@ -59,11 +61,7 @@ export type MuseDriverEnv =
   | Path.Path
   | ProviderEventLoggers.ProviderEventLoggers;
 
-export const MuseDriver: ProviderDriver<
-  MuseSettings,
-  MuseDriverEnv,
-  Path.Path | MuseUsageHome.MuseUsageHome
-> = {
+export const MuseDriver: ProviderDriver<MuseSettings, MuseDriverEnv, Path.Path> = {
   driverKind: DRIVER_KIND,
   metadata: { displayName: "Muse Code", supportsMultipleInstances: true },
   usage: museUsageReader,
@@ -128,6 +126,16 @@ export const MuseDriver: ProviderDriver<
             : provider,
         ),
       );
+    const checkLocalProvider = makePendingMuseProvider(effectiveConfig).pipe(
+      Effect.map(stampIdentity),
+      Effect.flatMap(
+        readLocalCliStatus({
+          binaryPath: effectiveConfig.binaryPath,
+          environment: processEnvironment,
+        }),
+      ),
+      Effect.flatMap(withLatestUsage),
+    );
     const snapshotSettings = yield* makeProviderSnapshotSettingsSource(effectiveConfig);
     const resolveInstallation = yield* makeCachedProviderMaintenanceResolution(
       resolveProviderMaintenanceCapabilitiesEffect(museMaintenance, {
@@ -157,41 +165,13 @@ export const MuseDriver: ProviderDriver<
     });
     const snapshot = yield* makeManagedServerProvider<ProviderSnapshotSettings<MuseSettings>>({
       // Status refresh respects update checks; explicit updates use the resolver below.
-      resolveMaintenance: (options) =>
-        host.settings.get.pipe(
-          Effect.orDie,
-          Effect.flatMap((settings) =>
-            settings.enableProviderUpdateChecks
-              ? resolveMaintenance(options)
-              : resolveInstallation(options),
-          ),
-        ),
+      resolveMaintenance: resolveInstallation,
       getSettings: snapshotSettings.getSettings,
       streamSettings: snapshotSettings.streamSettings,
       haveSettingsChanged: haveProviderSnapshotSettingsChanged,
-      initialSnapshot: (settings) =>
-        makePendingMuseProvider(settings.provider).pipe(Effect.map(stampIdentity)),
-      checkProvider: checkMuseProviderStatus(effectiveConfig, processEnvironment, cwd).pipe(
-        Effect.map(stampIdentity),
-        Effect.flatMap(withLatestUsage),
-        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-        Effect.provideService(FileSystem.FileSystem, fileSystem),
-        Effect.provideService(Path.Path, path),
-      ),
-      enrichSnapshot: ({ settings, snapshot: currentSnapshot, publishSnapshot }) =>
-        resolveMaintenance().pipe(
-          Effect.flatMap((maintenanceCapabilities) =>
-            enrichMuseSnapshot({
-              snapshot: currentSnapshot,
-              maintenanceCapabilities,
-              enableProviderUpdateChecks: settings.enableProviderUpdateChecks,
-              environment: processEnvironment,
-            }),
-          ),
-          Effect.provideService(HttpClient.HttpClient, httpClient),
-          Effect.provideService(ProviderLatestVersions.ProviderLatestVersions, latestVersions),
-          Effect.flatMap(publishSnapshot),
-        ),
+      initialSnapshot: () => checkLocalProvider,
+      checkProvider: checkLocalProvider,
+      refreshOnInterval: false,
     }).pipe(
       Effect.mapError(
         (cause) =>

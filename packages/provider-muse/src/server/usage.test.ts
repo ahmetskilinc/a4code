@@ -1,22 +1,14 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { ProviderInstanceId } from "@t3tools/contracts";
-import { totalTokens } from "@t3tools/provider-core/server/usage";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { SpawnExecutableResolution } from "@t3tools/shared/shell";
+import { ProviderInstanceId } from "@a4code/contracts";
+import { totalTokens } from "@a4code/provider-core/server/usage";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import * as Effect from "effect/Effect";
-import * as Deferred from "effect/Deferred";
-import * as Fiber from "effect/Fiber";
-import * as TestClock from "effect/testing/TestClock";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { it } from "@effect/vitest";
-import { describe, expect, vi } from "vite-plus/test";
+import { describe, expect } from "vite-plus/test";
 import { MuseSettings } from "../settings.ts";
-import * as MuseSdk from "./sdk.ts";
-import * as MuseUsageHome from "./MuseUsageHome.ts";
 import { museUsageFormat, museUsageReader } from "./usage.ts";
-
-vi.mock("./sdk.ts", { spy: true });
 
 const entry = () => ({
   schema_version: 1,
@@ -191,283 +183,32 @@ it("handles malformed and partial data and rejects unsupported timestamps or sch
   ).toEqual([]);
 });
 
-const AWAIT_REFRESH = { awaitRefresh: true };
-const onPath = Effect.provideService(SpawnExecutableResolution, (command: string) => command);
-
 describe("Muse history discovery", () => {
-  it.effect.each([undefined, "/custom/xdg-data"])(
-    "uses the initialized home with XDG_DATA_HOME=%s and closes without starting a session",
+  it.effect.each([undefined, "/custom/data"])(
+    "reads the local data directory with XDG_DATA_HOME=%s",
     (xdg) =>
       Effect.gen(function* () {
         const path = yield* Path.Path;
-        const close = vi.fn(async () => {});
-        using create = vi.spyOn(MuseSdk, "createMuseSdkHostEffect").mockReturnValue(
-          Effect.succeed({
-            initializeResult: { grantedCapabilities: [], museHome: "/native/configured-home" },
-            close,
-          } as unknown as MuseSdk.MuseSdkHost),
-        );
         if (museUsageReader.kind !== "transcripts") throw new Error("Expected a transcript reader");
         const directories = yield* museUsageReader.directories(
           {
-            instanceId: ProviderInstanceId.make("muse-other"),
+            instanceId: ProviderInstanceId.make("muse"),
             configured: true,
-            config: decodeSettings({ binaryPath: "~/bin/custom-muse" }),
-            environment: { XDG_DATA_HOME: xdg, MUSE_NO_AUTO_UPDATE: "0" },
+            config: decodeSettings({}),
+            environment: { XDG_DATA_HOME: xdg },
           },
-          AWAIT_REFRESH,
+          { awaitRefresh: true },
         );
         expect(directories).toEqual([
-          { dir: path.join("/native/configured-home", "sessions"), fileName: "session.jsonl" },
-        ]);
-        expect(create).toHaveBeenCalledWith({
-          binaryPath: path.join("/test-home", "bin/custom-muse"),
-          environment: {
-            PATH: "/host/bin",
-            XDG_DATA_HOME: xdg ?? "/host/data",
-            MUSE_NO_AUTO_UPDATE: "1",
-            MISE_OFFLINE: "1",
-          },
-          readOnly: true,
-          startupTimeoutMs: 5_000,
-        });
-        expect(close).toHaveBeenCalledOnce();
-      }).pipe(
-        Effect.provide([NodeServices.layer, MuseUsageHome.layer]),
-        onPath,
-        Effect.provideService(HostProcess.HomeDirectory, "/test-home"),
-        Effect.provideService(HostProcess.Environment, {
-          PATH: "/host/bin",
-          XDG_DATA_HOME: "/host/data",
-        }),
-      ),
-  );
-
-  it.effect("reports no history without starting Muse when its CLI is not installed", () =>
-    Effect.gen(function* () {
-      using create = vi.spyOn(MuseSdk, "createMuseSdkHostEffect");
-      if (museUsageReader.kind !== "transcripts") throw new Error("Expected a transcript reader");
-      const directories = yield* museUsageReader.directories(
-        {
-          instanceId: ProviderInstanceId.make("muse"),
-          configured: false,
-          config: undefined,
-          environment: {},
-        },
-        { awaitRefresh: false },
-      );
-      expect(directories).toEqual([]);
-      expect(create).not.toHaveBeenCalled();
-    }).pipe(
-      Effect.provide([NodeServices.layer, MuseUsageHome.layer]),
-      Effect.provideService(SpawnExecutableResolution, async () => undefined),
-    ),
-  );
-
-  it.effect("does not guess a directory when initialization fails", () =>
-    Effect.gen(function* () {
-      using _create = vi
-        .spyOn(MuseSdk, "createMuseSdkHostEffect")
-        .mockReturnValue(
-          Effect.fail(
-            new MuseSdk.MuseSdkError({ operation: "start", cause: new Error("not installed") }),
-          ),
-        );
-      if (museUsageReader.kind !== "transcripts") throw new Error("Expected a transcript reader");
-      const directories = yield* museUsageReader.directories(
-        {
-          instanceId: ProviderInstanceId.make("muse"),
-          configured: false,
-          config: undefined,
-          environment: {},
-        },
-        AWAIT_REFRESH,
-      );
-      expect(directories).toEqual([]);
-    }).pipe(Effect.provide([NodeServices.layer, MuseUsageHome.layer]), onPath),
-  );
-
-  it.effect(
-    "reuses discovery across accounts, date scans, and equivalent effective environments",
-    () =>
-      Effect.gen(function* () {
-        const path = yield* Path.Path;
-        const close = vi.fn(async () => {});
-        using create = vi.spyOn(MuseSdk, "createMuseSdkHostEffect").mockReturnValue(
-          Effect.succeed({
-            initializeResult: { museHome: "/native/home" },
-            close,
-          } as unknown as MuseSdk.MuseSdkHost),
-        );
-        if (museUsageReader.kind !== "transcripts") throw new Error("Expected a transcript reader");
-        const instance = {
-          instanceId: ProviderInstanceId.make("disabled-muse"),
-          configured: true,
-          config: decodeSettings({ binaryPath: "~/bin/muse", enabled: false }),
-          environment: { PATH: "/bin", XDG_DATA_HOME: "/data" },
-        };
-        const first = yield* museUsageReader.directories(instance, AWAIT_REFRESH);
-        const second = yield* museUsageReader.directories(
           {
-            ...instance,
-            instanceId: ProviderInstanceId.make("another-account"),
-            config: decodeSettings({
-              binaryPath: path.join("/test-home", "bin/muse"),
-              enabled: true,
-            }),
-            environment: {
-              XDG_DATA_HOME: "/data",
-              PATH: "/bin",
-              UNUSED: undefined,
-              META_API_KEY: "ignored",
-            },
+            dir: path.join(xdg ?? "/test-home/.local/share", "muse", "sessions"),
+            fileName: "session.jsonl",
           },
-          AWAIT_REFRESH,
-        );
-        expect(second).toEqual(first);
-        expect(first).toEqual([
-          { dir: path.join("/native/home", "sessions"), fileName: "session.jsonl" },
         ]);
-        expect(create).toHaveBeenCalledOnce();
-        expect(close).toHaveBeenCalledOnce();
       }).pipe(
-        Effect.provide([NodeServices.layer, MuseUsageHome.layer]),
-        onPath,
+        Effect.provide(NodeServices.layer),
         Effect.provideService(HostProcess.HomeDirectory, "/test-home"),
         Effect.provideService(HostProcess.Environment, {}),
       ),
-  );
-
-  it.effect(
-    "rediscovers when the binary, instance environment, or inherited environment changes",
-    () =>
-      Effect.gen(function* () {
-        using create = vi.spyOn(MuseSdk, "createMuseSdkHostEffect").mockImplementation((options) =>
-          Effect.succeed({
-            initializeResult: { museHome: options.environment?.XDG_DATA_HOME },
-            close: async () => {},
-          } as unknown as MuseSdk.MuseSdkHost),
-        );
-        if (museUsageReader.kind !== "transcripts") throw new Error("Expected a transcript reader");
-        const instance = {
-          instanceId: ProviderInstanceId.make("muse"),
-          configured: true,
-          config: undefined,
-          environment: {},
-        };
-        const first = yield* museUsageReader.directories(instance, AWAIT_REFRESH);
-        expect(
-          yield* museUsageReader.directories(
-            {
-              ...instance,
-              config: decodeSettings({ binaryPath: "custom-muse" }),
-            },
-            AWAIT_REFRESH,
-          ),
-        ).toEqual(first);
-        const changed = yield* museUsageReader.directories(
-          {
-            ...instance,
-            environment: { XDG_DATA_HOME: "/other-data" },
-          },
-          AWAIT_REFRESH,
-        );
-        expect(changed).not.toEqual(first);
-        const inherited = yield* museUsageReader
-          .directories(instance, AWAIT_REFRESH)
-          .pipe(
-            Effect.provideService(HostProcess.Environment, { XDG_DATA_HOME: "/new-host-data" }),
-          );
-        expect(inherited).not.toEqual(first);
-        expect(inherited).not.toEqual(changed);
-        expect(create).toHaveBeenCalledTimes(4);
-      }).pipe(
-        Effect.provide([NodeServices.layer, MuseUsageHome.layer]),
-        onPath,
-        Effect.provideService(HostProcess.Environment, { XDG_DATA_HOME: "/host-data" }),
-      ),
-  );
-
-  it.effect("reports pending discovery without waiting and shares it with awaiting reads", () =>
-    Effect.gen(function* () {
-      const started = yield* Deferred.make<void>();
-      const ready = yield* Deferred.make<MuseSdk.MuseSdkHost>();
-      using create = vi
-        .spyOn(MuseSdk, "createMuseSdkHostEffect")
-        .mockImplementation(() =>
-          Deferred.succeed(started, undefined).pipe(Effect.andThen(Deferred.await(ready))),
-        );
-      const close = vi.fn(async () => {});
-      if (museUsageReader.kind !== "transcripts") throw new Error("Expected a transcript reader");
-      const instance = {
-        instanceId: ProviderInstanceId.make("muse"),
-        configured: true,
-        config: undefined,
-        environment: {},
-      };
-      const pending = [{ dir: "muse", refreshing: true }];
-      expect(yield* museUsageReader.directories(instance, { awaitRefresh: false })).toEqual(
-        pending,
-      );
-      yield* Deferred.await(started);
-      const reads = yield* Effect.all(
-        [
-          museUsageReader.directories(instance, AWAIT_REFRESH),
-          museUsageReader.directories(instance, AWAIT_REFRESH),
-        ],
-        { concurrency: "unbounded" },
-      ).pipe(Effect.forkChild);
-      expect(yield* museUsageReader.directories(instance, { awaitRefresh: false })).toEqual(
-        pending,
-      );
-      yield* Deferred.succeed(ready, {
-        initializeResult: { museHome: "/native/home" },
-        close,
-      } as unknown as MuseSdk.MuseSdkHost);
-      const [first, second] = yield* Fiber.join(reads);
-      expect(first).toEqual(second);
-      expect(first).toHaveLength(1);
-      expect(yield* museUsageReader.directories(instance, { awaitRefresh: false })).toEqual(first);
-      const uninstalled = Effect.provideService(SpawnExecutableResolution, () => undefined);
-      expect(
-        yield* museUsageReader.directories(instance, { awaitRefresh: false }).pipe(uninstalled),
-      ).toEqual(first);
-      expect(yield* museUsageReader.directories(instance, AWAIT_REFRESH).pipe(uninstalled)).toEqual(
-        first,
-      );
-      expect(create).toHaveBeenCalledOnce();
-      expect(close).toHaveBeenCalledOnce();
-    }).pipe(Effect.provide([NodeServices.layer, MuseUsageHome.layer]), onPath),
-  );
-
-  it.effect("briefly caches failed discovery and retries after installation recovers", () =>
-    Effect.gen(function* () {
-      using create = vi
-        .spyOn(MuseSdk, "createMuseSdkHostEffect")
-        .mockReturnValueOnce(
-          Effect.fail(
-            new MuseSdk.MuseSdkError({ operation: "start", cause: new Error("not installed") }),
-          ),
-        )
-        .mockReturnValue(
-          Effect.succeed({
-            initializeResult: { museHome: "/installed/home" },
-            close: async () => {},
-          } as unknown as MuseSdk.MuseSdkHost),
-        );
-      if (museUsageReader.kind !== "transcripts") throw new Error("Expected a transcript reader");
-      const instance = {
-        instanceId: ProviderInstanceId.make("muse"),
-        configured: false,
-        config: undefined,
-        environment: {},
-      };
-      expect(yield* museUsageReader.directories(instance, AWAIT_REFRESH)).toEqual([]);
-      expect(yield* museUsageReader.directories(instance, { awaitRefresh: false })).toEqual([]);
-      expect(create).toHaveBeenCalledOnce();
-      yield* TestClock.adjust("30 seconds");
-      expect(yield* museUsageReader.directories(instance, AWAIT_REFRESH)).toHaveLength(1);
-      expect(create).toHaveBeenCalledTimes(2);
-    }).pipe(Effect.provide([NodeServices.layer, MuseUsageHome.layer]), onPath),
   );
 });

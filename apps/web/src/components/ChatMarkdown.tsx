@@ -1,11 +1,12 @@
 import { m } from "../i18n/messages";
-import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
+import { thrownErrorMessage } from "@a4code/client-runtime/errors";
 import { msg, T, useGT, useMessages } from "gt-react";
-import { resolvePathLinkTarget } from "@t3tools/shared/fileLinks";
+import { resolvePathLinkTarget } from "@a4code/shared/fileLinks";
 import { clientHostEnvironmentAtom } from "../state/clientHostEnvironment";
-import { buildFileLinkParentSuffixByPath, fileLinkLabel } from "@t3tools/shared/fileLinks";
+import { buildFileLinkParentSuffixByPath, fileLinkLabel } from "@a4code/shared/fileLinks";
 import {
   isMarkdownFileLinkLabel,
+  markdownMediaRequiresConsent,
   isWindowsDrivePathHref,
   shouldRenderMarkdownImageAsFileLink,
   normalizeMarkdownLinkDestination,
@@ -13,21 +14,21 @@ import {
   extractMarkdownLinkHrefs,
   inlineCodeFilePathCandidate,
   parseMarkdownSandboxFileLink,
-} from "@t3tools/shared/markdownLinks";
-import { taskListMarkerOffset } from "@t3tools/shared/markdownTaskEdits";
-import { isHostPath, resolveWorkspaceFilePath } from "@t3tools/shared/path";
+} from "@a4code/shared/markdownLinks";
+import { taskListMarkerOffset } from "@a4code/shared/markdownTaskEdits";
+import { isHostPath, resolveWorkspaceFilePath } from "@a4code/shared/path";
 import { usePullRequestLinking } from "~/hooks/usePullRequestLinking";
 import {
   AuthFilesystemReadScope,
   AuthOrchestrationOperateScope,
   SOURCE_CONTROL_MEDIA_ASSET,
-} from "@t3tools/contracts";
-import { chatMarkdownImageSource } from "@t3tools/shared/markdownHast";
+} from "@a4code/contracts";
+import { chatMarkdownImageSource } from "@a4code/shared/markdownHast";
 import { useAtomValue } from "@effect/atom-react";
 import {
   COMPOSER_CONTEXT_CLIPBOARD_MIME,
   encodeComposerContextClipboardHtml,
-} from "@t3tools/shared/composerContextClipboard";
+} from "@a4code/shared/composerContextClipboard";
 import {
   FileSpreadsheetIcon,
   FileTextIcon,
@@ -53,25 +54,24 @@ import {
   type ScopedThreadRef,
   type ServerProviderSkill,
   type ThreadPullRequestKey,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
-import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+} from "@a4code/client-runtime/state/runtime";
+import { scopedThreadKey } from "@a4code/client-runtime/environment";
 import type {
   CodexArtifactTemplate,
   CodexArtifactTemplateKind,
-} from "@t3tools/shared/codexArtifactTemplates";
-import { codexArtifactTemplatePresentationLabel } from "@t3tools/shared/codexArtifactTemplatesCopy";
+} from "@a4code/shared/codexArtifactTemplates";
+import { codexArtifactTemplatePresentationLabel } from "@a4code/shared/codexArtifactTemplatesCopy";
 import {
   classifyMarkdownImageSource,
   markdownImageSourceFragment,
-} from "@t3tools/client-runtime/markdown-images";
-import { mediaUrlReference } from "@t3tools/client-runtime/media-reference";
-import { mediaKindFromPath, mediaMimeTypeFromExtension } from "@t3tools/shared/mediaPreview";
+} from "@a4code/client-runtime/markdown-images";
+import { mediaUrlReference } from "@a4code/client-runtime/media-reference";
+import { mediaKindFromPath, mediaMimeTypeFromExtension } from "@a4code/shared/mediaPreview";
 import { InlineAudioPreview } from "./files/InlineAudioPreview";
-import { HostImageUrlContext } from "./chat/hostImageUrl";
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -88,12 +88,12 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
-import { parseAssistantCitationHref } from "@t3tools/shared/assistantCitations";
-import { parseComposerContextHref } from "@t3tools/shared/composerContextReferences";
-import { parseThreadLinkHref } from "@t3tools/shared/threadLinks";
+import { parseAssistantCitationHref } from "@a4code/shared/assistantCitations";
+import { parseComposerContextHref } from "@a4code/shared/composerContextReferences";
+import { parseThreadLinkHref } from "@a4code/shared/threadLinks";
 import { AssistantCitationEmbed } from "./chat/AssistantCitationChip";
 import { MarkdownThreadLink } from "./chat/MarkdownThreadLink";
-import { artifactTemplateFromHastProperties } from "@t3tools/shared/codexArtifactTemplates";
+import { artifactTemplateFromHastProperties } from "@a4code/shared/codexArtifactTemplates";
 import {
   decodeMarkdownLinkEscapes,
   renderCodexInlineDirectivesAsMarkdown,
@@ -174,13 +174,13 @@ import {
   pickWorkspaceLinkMatch,
   WORKSPACE_BASENAME_LOOKUP_LIMIT,
   workspaceLinkLookupQuery,
-} from "@t3tools/client-runtime/workspace-basename-lookup";
-import { resolvePullRequestPreviewTarget } from "@t3tools/client-runtime/change-request-links";
+} from "@a4code/client-runtime/workspace-basename-lookup";
+import { resolvePullRequestPreviewTarget } from "@a4code/client-runtime/change-request-links";
 import {
   mayContainStandaloneIssueLink,
   resolveIssueLinkTarget,
-} from "@t3tools/client-runtime/issue-links";
-import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
+} from "@a4code/client-runtime/issue-links";
+import { sourceControlClients } from "@a4code/client-runtime/source-control-clients";
 import { useOpenChangeRequestLink } from "~/lib/openPullRequestLink";
 import { textDirection } from "~/textDirection";
 import { useOpenLink } from "../browser/useOpenLink";
@@ -205,8 +205,8 @@ import {
   withProperties,
 } from "./chat/markdownIslands";
 import type { Element as HastElement } from "hast";
-import { matchInlineSkills } from "@t3tools/shared/inlineSkills";
-import { collectComposerModelMentions } from "@t3tools/client-runtime/composer-model-mentions";
+import { matchInlineSkills } from "@a4code/shared/inlineSkills";
+import { collectComposerModelMentions } from "@a4code/client-runtime/composer-model-mentions";
 import { splitMarkdownBlocks } from "./chat/markdownStreamBlocks";
 import { MarkdownMermaidCodeBlock } from "./chat/MarkdownMermaidCodeBlock";
 import { MarkdownTable } from "./chat/MarkdownTable";
@@ -627,7 +627,7 @@ function useChatMarkdownState(
     setLocalMedia(null);
   }
   // Layout cleanup blocks stale requests from reaching onImageExpand before paint.
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- layout cleanup invalidates media requests still loading for the old scope before paint
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- layout cleanup invalidates media requests still loading for the old scope before paint
   useLayoutEffect(
     () => () => {
       mediaRequestId.current += 1;
@@ -1659,6 +1659,8 @@ const CHAT_MARKDOWN_COMPONENTS = {
       fileLinkChip,
       resolvedTheme,
     } = use(ChatMarkdownRendererContext);
+    const gt = useGT();
+    const [approvedSource, setApprovedSource] = useState<string | null>(null);
     const imageExpand = use(MarkdownLinkContext) ? undefined : expandMedia;
     const contextReference = typeof src === "string" ? parseComposerContextHref(src) : null;
     if (contextReference) {
@@ -1679,6 +1681,23 @@ const CHAT_MARKDOWN_COMPONENTS = {
     const { className, style: _style, width, height, ...imageProps } = props;
     const authoredSizeStyle = authoredImageSizeStyle(width, height);
     const imageSource = classifyMarkdownImageSource(classifiedSrc, imageBaseDir ?? cwd);
+    if (markdownMediaRequiresConsent(imageSource) && approvedSource !== classifiedSrc) {
+      return (
+        <Button
+          size="xs"
+          variant="outline"
+          title={classifiedSrc}
+          data-markdown-copy={copyMarkdown}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setApprovedSource(classifiedSrc);
+          }}
+        >
+          {altText ? gt("Load remote media: {name}", { name: altText }) : gt("Load remote media")}
+        </Button>
+      );
+    }
     const mediaKind = mediaKindFromPath(classifiedSrc);
     if (mediaKind === "audio") {
       const filePath = imageSource._tag === "WorkspaceFile" ? imageSource.path : null;
@@ -1787,24 +1806,6 @@ const CHAT_MARKDOWN_COMPONENTS = {
           imageProps={imageProps}
           actionsSource={actionsSource}
           originalUrl={originalUrl}
-          onImageExpand={imageExpand}
-        />
-      );
-    }
-    const hostImageUrl = use(HostImageUrlContext);
-    if (imageSource._tag === "WorkspaceFile" && kind === "image" && hostImageUrl !== null) {
-      const hostSrc = hostImageUrl(imageSource.path);
-      return (
-        <ChatMarkdownImage
-          key={hostSrc}
-          src={hostSrc}
-          alt={altText}
-          copyMarkdown={copyMarkdown}
-          standalone={standalone}
-          className={className}
-          style={authoredSizeStyle}
-          imageProps={imageProps}
-          actionsSource={{ kind, name: altText || kind, src: hostSrc }}
           onImageExpand={imageExpand}
         />
       );
@@ -2067,7 +2068,7 @@ const MarkdownSource = memo(function MarkdownSource({
 }) {
   const render = markdownRenderer(markdown);
   const entry = render.parse(text);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Caching during render would make React Compiler rebuild the element when `cache` flips.
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- Caching during render would make React Compiler rebuild the element when `cache` flips.
   useEffect(() => {
     if (cache) render.remember(text, entry);
   }, [render, text, entry, cache]);
@@ -2096,7 +2097,7 @@ function ChatMarkdown({
   const [remounted] = useState(
     () => streamingId !== undefined && shownStreamingIds.has(streamingId),
   );
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Records the reply outside React so the next mount after a thread switch or virtualized scroll knows it was shown.
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- Records the reply outside React so the next mount after a thread switch or virtualized scroll knows it was shown.
   useEffect(() => {
     if (isStreaming && streamingId !== undefined) shownStreamingIds.add(streamingId);
   }, [isStreaming, streamingId]);

@@ -6,7 +6,6 @@ import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
-import { cast } from "effect/Function";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Path from "effect/Path";
@@ -19,23 +18,13 @@ import type { OtlpTracer } from "effect/observability";
 import {
   causeErrorTag,
   compactTraceAttributes,
-  decodeOtlpTraceRecords,
   errorTag,
   makeLocalFileTracer,
   makeTraceSink,
   type EffectTraceRecord,
   type TraceRecord,
-  OtlpHeadersFromString,
   truncateTraceAttributes,
-  processServiceInstanceId,
 } from "./observability.ts";
-
-describe("processServiceInstanceId", () => {
-  it("stays the same for the process unless the operator set one", () => {
-    expect(processServiceInstanceId()).toBe(processServiceInstanceId({}));
-    expect(processServiceInstanceId({ "service.instance.id": "pod-7" })).toBe("pod-7");
-  });
-});
 
 describe("errorTag", () => {
   it("reports structural tags without retaining arbitrary values", () => {
@@ -188,7 +177,7 @@ describe("observability", () => {
         const span = yield* Effect.makeSpan(name).pipe(
           Effect.provideService(Tracer.Tracer, tracer),
         );
-        if (name === "routine") span.attribute("t3.trace.routine", true);
+        if (name === "routine") span.attribute("a4code.trace.routine", true);
         else if (name !== "other") span.attribute("db.system.name", "sqlite");
         if (name === "logged") span.event("diagnostic", span.status.startTime);
         span.end(
@@ -323,7 +312,7 @@ describe("observability", () => {
           const fs = yield* FileSystem.FileSystem;
           const path = yield* Path.Path;
           const directory = yield* fs.makeTempDirectoryScoped({
-            prefix: "t3-trace-backpressure-",
+            prefix: "a4-trace-backpressure-",
           });
           const tracePath = path.join(directory, "trace.ndjson");
           const started = yield* Deferred.make<void>();
@@ -372,7 +361,7 @@ describe("observability", () => {
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-trace-sink-" });
+        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "a4-trace-sink-" });
         const tracePath = path.join(tempDir, "exit.trace.ndjson");
         const sink = yield* makeTraceSink({
           filePath: tracePath,
@@ -397,7 +386,7 @@ describe("observability", () => {
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-trace-sink-" });
+        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "a4-trace-sink-" });
         const tracePath = path.join(tempDir, "shared.trace.ndjson");
         const maxBytes = 1_024;
 
@@ -428,7 +417,7 @@ describe("observability", () => {
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-trace-sink-" });
+        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "a4-trace-sink-" });
         const tracePath = path.join(tempDir, "shared.trace.ndjson");
         const maxBytes = 1_024;
 
@@ -457,7 +446,7 @@ describe("observability", () => {
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-trace-sink-" });
+        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "a4-trace-sink-" });
         const tracePath = path.join(tempDir, "shared.trace.ndjson");
         const sink = yield* makeTraceSink({
           filePath: tracePath,
@@ -522,7 +511,7 @@ describe("observability", () => {
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-trace-sink-" });
+        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "a4-trace-sink-" });
         const tracePath = path.join(tempDir, "shared.trace.ndjson");
 
         const sink = yield* makeTraceSink({
@@ -558,7 +547,7 @@ describe("observability", () => {
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-local-tracer-" });
+        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "a4-local-tracer-" });
         const tracePath = path.join(tempDir, "shared.trace.ndjson");
 
         yield* Effect.scoped(
@@ -614,7 +603,7 @@ describe("observability", () => {
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-local-tracer-" });
+        const tempDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "a4-local-tracer-" });
         const tracePath = path.join(tempDir, "shared.trace.ndjson");
 
         yield* Effect.scoped(
@@ -632,91 +621,5 @@ describe("observability", () => {
         assert.equal(records[0]?.exit?._tag, "Interrupted");
       }),
     );
-  });
-});
-
-describe("decodeOtlpTraceRecords", () => {
-  it("decodes spans when OTLP/JSON omits unset and empty fields", () => {
-    // Protobuf JSON leaves out unset and empty fields, so this batch is valid.
-    const payload = cast<unknown, OtlpTracer.TraceData>({
-      resourceSpans: [
-        {},
-        {
-          scopeSpans: [
-            {},
-            {
-              spans: [
-                {
-                  traceId: "trace-1",
-                  spanId: "span-1",
-                  name: "browser.request",
-                  startTimeUnixNano: "1000000",
-                  endTimeUnixNano: "3000000",
-                  attributes: [{ key: "tags", value: { arrayValue: {} } }],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    });
-
-    assert.deepStrictEqual(decodeOtlpTraceRecords(cast<unknown, OtlpTracer.TraceData>({})), []);
-    assert.deepStrictEqual(decodeOtlpTraceRecords(payload), [
-      {
-        type: "otlp-span",
-        name: "browser.request",
-        traceId: "trace-1",
-        spanId: "span-1",
-        sampled: true,
-        kind: "internal",
-        startTimeUnixNano: "1000000",
-        endTimeUnixNano: "3000000",
-        durationMs: 2,
-        attributes: { tags: [] },
-        resourceAttributes: {},
-        scope: { attributes: {} },
-        events: [],
-        links: [],
-        status: { code: "0" },
-      },
-    ]);
-  });
-});
-
-describe("OtlpHeadersFromString", () => {
-  const decode = Schema.decodeUnknownSync(OtlpHeadersFromString);
-
-  it.each([
-    {
-      name: "decodes percent-encoded values",
-      input: "authorization=Basic%20abc%3D%3D,x-tenant=t3",
-      expected: { authorization: "Basic abc==", "x-tenant": "t3" },
-    },
-    {
-      name: "ignores whitespace around separators",
-      input: "authorization=Basic%20abc%3D%3D, x-tenant = t3 ,",
-      expected: { authorization: "Basic abc==", "x-tenant": "t3" },
-    },
-    {
-      name: "keeps literal equals signs inside a value",
-      input: "authorization=Bearer abc==",
-      expected: { authorization: "Bearer abc==" },
-    },
-    {
-      name: "keeps an empty value",
-      input: "x-empty=",
-      expected: { "x-empty": "" },
-    },
-  ])("$name", ({ input, expected }) => {
-    expect(decode(input)).toEqual(expected);
-  });
-
-  it.each([
-    { name: "rejects a pair without a separator", input: "authorization" },
-    { name: "rejects a pair without a key", input: "=value" },
-    { name: "rejects a malformed percent-encoding", input: "authorization=%E0" },
-  ])("$name", ({ input }) => {
-    expect(() => decode(input)).toThrow();
   });
 });

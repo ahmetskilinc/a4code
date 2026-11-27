@@ -1,4 +1,4 @@
-import { cloudSpeechLanguages, effectiveSpeechLanguage } from "@t3tools/shared/speech";
+import { cloudSpeechLanguages, effectiveSpeechLanguage } from "@a4code/shared/speech";
 import {
   requireCloudSpeechKey,
   transcribeCloudPcm,
@@ -10,14 +10,14 @@ import {
   type VoiceInputErrorCode,
   VoiceTranscriptionError,
   type VoiceTranscriptionOptions,
-} from "@t3tools/client-runtime/voice-input";
-import type { PreparedConnection } from "@t3tools/client-runtime/connection";
+} from "@a4code/client-runtime/voice-input";
+import type { PreparedConnection } from "@a4code/client-runtime/connection";
 import type {
   SpeechTranscriptionOptions,
   SpeechStreamText,
   EnvironmentSpeechStatus,
-} from "@t3tools/contracts";
-import type { CloudSpeechModelId, CloudSpeechProvider } from "@t3tools/contracts";
+} from "@a4code/contracts";
+import type { CloudSpeechModelId, CloudSpeechProvider } from "@a4code/contracts";
 import * as Schema from "effect/Schema";
 
 import { readAppleSpeechLocales, resolveAppleSpeechLocale } from "./appleSpeech";

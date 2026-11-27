@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { EnvironmentId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, ProviderInstanceId, ThreadId } from "@a4code/contracts";
 import * as Effect from "effect/Effect";
 
 import * as McpProviderSessions from "./McpProviderSessions.ts";
@@ -285,7 +285,7 @@ describe("McpProviderSessions approval requests", () => {
     }).pipe(Effect.provide(McpProviderSessions.layer)),
   );
 
-  it.effect("knows which provider instances show T3 Code's own requests", () =>
+  it.effect("knows which provider instances show a4code's own requests", () =>
     Effect.gen(function* () {
       const sessions = yield* McpProviderSessions.McpProviderSessions;
       const codex = ProviderInstanceId.make("codex");

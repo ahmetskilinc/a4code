@@ -1,3 +1,4 @@
+import { markdownMediaRequiresConsent } from "@a4code/shared/markdownLinks";
 import { describe, expect, it } from "vite-plus/test";
 
 import { classifyMarkdownImageSource } from "./markdownImages.js";
@@ -38,5 +39,21 @@ describe("classifyMarkdownImageSource", () => {
     expect(classifyMarkdownImageSource(source, "\\\\server\\share\\project")).toEqual({
       _tag: "Blocked",
     });
+  });
+});
+
+describe("Markdown media consent", () => {
+  it.each([
+    ["https://example.test/x.png", true],
+    ["HTTP://example.test/a.mp3", true],
+    ["//example.test/v.mp4", true],
+    ["data:image/png;base64,YQ==", false],
+    ["blob:opaque-local-id", false],
+    ["./image.png", false],
+    ["javascript:void(0)", false],
+  ] as const)("classifies %s", (value, expected) => {
+    expect(markdownMediaRequiresConsent(classifyMarkdownImageSource(value, "/project"))).toBe(
+      expected,
+    );
   });
 });

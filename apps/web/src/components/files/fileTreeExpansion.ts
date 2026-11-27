@@ -1,4 +1,4 @@
-import type { ProjectEntry } from "@t3tools/contracts";
+import type { ProjectEntry } from "@a4code/contracts";
 import * as Schema from "effect/Schema";
 
 import { getLocalStorageItem, setLocalStorageItem } from "~/hooks/useLocalStorage";
@@ -116,7 +116,7 @@ export function coalesceReentrantCalls(run: () => void): () => void {
   };
 }
 
-const EXPANDED_DIRECTORIES_STORAGE_KEY = "t3code.fileTreeExpandedDirectories";
+const EXPANDED_DIRECTORIES_STORAGE_KEY = "a4code.fileTreeExpandedDirectories";
 // Roots are kept most recent first and capped so worktrees that come and go do not grow storage.
 const MAX_STORED_ROOTS = 20;
 // Every restored folder is listed when the panel mounts, so a root keeps the folders nearest it.

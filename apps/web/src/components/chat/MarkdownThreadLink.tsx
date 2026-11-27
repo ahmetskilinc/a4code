@@ -1,4 +1,4 @@
-import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
+import type { EnvironmentId, ScopedThreadRef } from "@a4code/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { useGT, useMessages } from "gt-react";
 import { MessagesSquareIcon } from "lucide-react";
@@ -7,11 +7,10 @@ import {
   guessThreadLinkRef,
   threadLinkCandidates,
   type ThreadLink,
-} from "@t3tools/shared/threadLinks";
-import { unknownThreadLinkLabel } from "@t3tools/shared/threadLinksCopy";
-import { resolveLinkedThreadOpen } from "@t3tools/client-runtime/linked-thread";
+} from "@a4code/shared/threadLinks";
+import { unknownThreadLinkLabel } from "@a4code/shared/threadLinksCopy";
+import { resolveLinkedThreadOpen } from "@a4code/client-runtime/linked-thread";
 
-import { configuredHostedAppUrl } from "../../hostedPairing";
 import { useThreadRefs, useThreadShell } from "../../state/entities";
 import { useConnectedEnvironmentIds, useEnvironmentIdentities } from "../../state/environments";
 import { useSideThreadTrigger } from "../../hooks/useSideThreadTrigger";
@@ -115,7 +114,7 @@ export function MarkdownThreadLink(props: {
               />
             }
             aria-label={gt("Thread, {title}", { title })}
-            data-markdown-copy={formatHostedThreadLink(writtenRef, title, configuredHostedAppUrl())}
+            data-markdown-copy={formatHostedThreadLink(writtenRef, title)}
           >
             <MessagesSquareIcon />
             <ContextChipLabel>{title}</ContextChipLabel>
@@ -135,7 +134,7 @@ export function MarkdownThreadLink(props: {
     <ThreadContextChip
       record={{ ...ref, title }}
       projectId={resolved?.metadata.projectId ?? null}
-      copyMarkdown={formatHostedThreadLink(ref, title, configuredHostedAppUrl())}
+      copyMarkdown={formatHostedThreadLink(ref, title)}
     />
   );
 }

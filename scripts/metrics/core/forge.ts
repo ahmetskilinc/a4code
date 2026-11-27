@@ -7,12 +7,12 @@ import * as NodeHttp2 from "node:http2";
 import * as NodeNet from "node:net";
 
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import type {
   PullRequestListInput,
   PullRequestListResult,
   PullRequestRef,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as Clock from "effect/Clock";
 import * as Console from "effect/Console";
 import * as Duration from "effect/Duration";
@@ -95,7 +95,7 @@ export const serveFakeGitHub = Effect.fn("serverMetrics.serveFakeGitHub")(functi
   const detail = options.detail;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const dir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-server-metrics-forge-" });
+  const dir = yield* fs.makeTempDirectoryScoped({ prefix: "a4-server-metrics-forge-" });
   const keyFile = path.join(dir, "key.pem");
   const certFile = path.join(dir, "cert.pem");
   yield* run("openssl", [
@@ -247,7 +247,7 @@ export const serveFakeGitHub = Effect.fn("serverMetrics.serveFakeGitHub")(functi
             committedDate: at(500 - index),
             parents: { totalCount: 1 },
             authors: {
-              nodes: [{ name: "Bench", email: "bench@t3.codes", user: { login: OWNER } }],
+              nodes: [{ name: "Bench", email: "bench@example.test", user: { login: OWNER } }],
             },
           },
         })),
@@ -559,7 +559,7 @@ export const serveFakeGitHub = Effect.fn("serverMetrics.serveFakeGitHub")(functi
     yield* git(["add", "."]);
     yield* git([
       "-c",
-      "user.email=bench@t3.codes",
+      "user.email=bench@example.test",
       "-c",
       "user.name=bench",
       "commit",
@@ -599,7 +599,7 @@ export const serveFakeGitHub = Effect.fn("serverMetrics.serveFakeGitHub")(functi
     const git = (args: ReadonlyArray<string>) => run("git", ["--git-dir", bare, ...args]);
     const commit = (yield* git([
       "-c",
-      "user.email=bench@t3.codes",
+      "user.email=bench@example.test",
       "-c",
       "user.name=bench",
       "commit-tree",

@@ -43,7 +43,7 @@ export interface AgentScopeCommand {
   readonly unit?: string | undefined;
 }
 
-export const AgentScope = Context.Reference<AgentScopeShape>("@t3tools/shared/AgentScope", {
+export const AgentScope = Context.Reference<AgentScopeShape>("@a4code/shared/AgentScope", {
   defaultValue: () => ({
     wrap: ({ command, args }) => Effect.succeed({ command, args }),
     oomKilled: () => Effect.succeed(false),
@@ -54,7 +54,7 @@ export const AgentScope = Context.Reference<AgentScopeShape>("@t3tools/shared/Ag
 });
 
 export const AgentScopeThreadId = Context.Reference<string | undefined>(
-  "@t3tools/shared/AgentScope/ThreadId",
+  "@a4code/shared/AgentScope/ThreadId",
   { defaultValue: () => undefined },
 );
 
@@ -98,14 +98,14 @@ export function agentScopeCommand(input: {
 }): AgentScopeCommand {
   const { command, args, scope, shell = "/bin/sh" } = input;
   if (scope === undefined) {
-    return { command: shell, args: ["-c", LAUNCH_SCRIPT, "t3-agent", command, ...args] };
+    return { command: shell, args: ["-c", LAUNCH_SCRIPT, "a4-agent", command, ...args] };
   }
   return {
     command: shell,
     args: [
       "-c",
       SCOPED_LAUNCH_SCRIPT,
-      "t3-agent",
+      "a4-agent",
       scope.runtimeDir,
       scope.systemdRun,
       "--user",

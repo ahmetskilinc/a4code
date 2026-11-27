@@ -8,7 +8,7 @@ import {
   type SecretReference,
   type ServerProvider,
   type ServerProviderUpdateState,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -28,9 +28,9 @@ import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as Semaphore from "effect/Semaphore";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@a4code/shared/HostProcess";
 
-import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
+import * as ProviderLatestVersions from "@a4code/provider-core/server/ProviderLatestVersions";
 import * as ModelManifest from "./ModelManifest.ts";
 import { applyProviderCompatibility } from "./providerCompatibility.ts";
 import * as ServerConfig from "../config.ts";
@@ -48,12 +48,12 @@ import {
 import type {
   ProviderInstance,
   ProviderWorkspaceSnapshot,
-} from "@t3tools/provider-core/server/driver";
+} from "@a4code/provider-core/server/driver";
 import {
   makeManualOnlyProviderMaintenanceCapabilities,
   type ProviderMaintenanceCapabilities,
   latestProviderVersionCacheKeys,
-} from "@t3tools/provider-core/server/maintenanceResolver";
+} from "@a4code/provider-core/server/maintenanceResolver";
 import type { ProviderSnapshotSource } from "./builtInProviderCatalog.ts";
 
 export type ProviderMaintenanceActionKind = "update";
@@ -113,7 +113,7 @@ export class ProviderRegistry extends Context.Service<
     }) => Effect.Effect<ReadonlyArray<ProviderRuntimeModeLimit>>;
 
     /**
-     * Drop T3-owned model caches before an explicit model refresh. Pass the
+     * Drop a4code-owned model caches before an explicit model refresh. Pass the
      * target of the refresh that follows. Background and ordinary refreshes
      * keep their cache timers and must not call this.
      */
@@ -144,7 +144,7 @@ export class ProviderRegistry extends Context.Service<
 
     readonly streamChanges: Stream.Stream<ReadonlyArray<ServerProvider>>;
   }
->()("t3/provider/ProviderRegistry") {}
+>()("a4code/provider/ProviderRegistry") {}
 
 const loadProviders = (
   providerSources: ReadonlyArray<ProviderSnapshotSource>,
@@ -778,7 +778,7 @@ export const layer = Layer.effect(
     });
 
     type RefreshAllCompletion = Deferred.Deferred<ReadonlyArray<ServerProvider>>;
-    // A refresh is how a user asks T3 to see a CLI installed since launch; a burst shares one probe.
+    // A refresh is how a user asks a4code to see a CLI installed since launch; a burst shares one probe.
     // Drivers copy the environment when built, so instances still missing their CLI are rebuilt
     // on the new PATH. They cannot have live sessions, and installed ones keep theirs.
     // Compared with the last PATH seen here, since other features re-read the login shell too.
@@ -1401,21 +1401,7 @@ export const layer = Layer.effect(
         instances.filter(
           (instance) => input.instanceId === undefined || input.instanceId === instance.instanceId,
         ),
-        (instance) =>
-          Effect.gen(function* () {
-            yield* instance.invalidateCaches ?? Effect.void;
-            // Instance and full refreshes resolve installer metadata fresh
-            // themselves; a cached workspace refresh needs it resolved here.
-            const maintenance = yield* instance.snapshot.resolveMaintenance({
-              fresh:
-                input.instanceId !== undefined && input.cwd !== undefined && input.fresh !== true,
-            });
-            yield* Effect.forEach(
-              latestProviderVersionCacheKeys(maintenance),
-              latestVersions.invalidate,
-              { discard: true },
-            );
-          }),
+        (instance) => instance.invalidateCaches ?? Effect.void,
         { concurrency: "unbounded", discard: true },
       );
     });

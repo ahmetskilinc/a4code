@@ -4,12 +4,12 @@ import * as NodeHttp from "node:http";
 import { expect } from "e2e";
 
 import { startSecondServer } from "./second-server.ts";
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 test(
   "A dismissed clone start leaves the next Add to another machine dialog open",
   WEB,
-  async ({ t3, app, browser, screen }) => {
+  async ({ a4code, app, browser, screen }) => {
     const remote = NodeHttp.createServer();
     await new Promise<void>((resolve) => remote.listen(0, "127.0.0.1", resolve));
     const second = startSecondServer(app.baseUrl ?? "");
@@ -17,7 +17,7 @@ test(
       const address = remote.address();
       if (!address || typeof address === "string") throw new Error("No Git fixture port");
       const seedProject = (name: string) =>
-        t3.project(name, {
+        a4code.project(name, {
           ".git/config": `[remote "origin"]\nurl = http://127.0.0.1:${address.port}/scenario/${name}.git\n`,
         });
       const first = await seedProject("first-repository");
@@ -80,7 +80,7 @@ test(
 
       const { host, token } = await second.ready;
       await browser.setViewport({ width: 1920, height: 1000 });
-      await t3.open("/settings/connections");
+      await a4code.open("/settings/connections");
       await screen.getByRole("button", "Add environment").tap();
       const pairing = screen.getByRole("dialog");
       await pairing.getByPlaceholder("backend.example.com").fill(host);

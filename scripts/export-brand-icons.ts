@@ -2,7 +2,7 @@
 
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -10,6 +10,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
+import sharp from "sharp";
 import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -41,7 +42,7 @@ const decodeIconComposerVersion = Schema.decodeUnknownEffect(
   Schema.fromJsonString(IconComposerVersion),
 );
 
-type IconPlatform = "iOS";
+type IconPlatform = "iOS" | "macOS";
 
 interface VariantOutputs {
   readonly ios: string;
@@ -189,7 +190,7 @@ export class IconExportEncodingError extends Schema.TaggedError<IconExportEncodi
   },
 ) {
   override get message(): string {
-    return `Failed to encode ICO renditions for the ${this.variant} icon.`;
+    return `Failed to encode icon renditions for the ${this.variant} icon.`;
   }
 }
 
@@ -586,6 +587,21 @@ const renderVariant = Effect.fn("iconExport.renderVariant")(function* (
   });
 
   const ios = yield* render("iOS", 1024);
+  const macBody = yield* render("macOS", 824);
+  const macIcon = yield* Effect.tryPromise({
+    try: () =>
+      sharp(macBody)
+        .extend({
+          top: 100,
+          bottom: 100,
+          left: 100,
+          right: 100,
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        })
+        .png()
+        .toBuffer(),
+    catch: (cause) => new IconExportEncodingError({ variant: variant.label, cause }),
+  });
   const icoRenditions = yield* Effect.forEach(
     WINDOWS_ICON_SIZES,
     (size) => render("iOS", size).pipe(Effect.map((contents) => ({ size, contents }))),
@@ -597,6 +613,7 @@ const renderVariant = Effect.fn("iconExport.renderVariant")(function* (
   });
 
   return new Map<string, Buffer>([
+    [variant.outputs.macos, macIcon],
     [variant.outputs.ios, ios],
     [variant.outputs.universal, ios],
     [variant.outputs.appleTouch, yield* render("iOS", 180)],
@@ -631,7 +648,7 @@ const writeAtomically = Effect.fn("iconExport.writeAtomically")(function* (
   const temporaryPath = yield* fs
     .makeTempFileScoped({
       directory: targetDirectory,
-      prefix: ".t3-icon-export-",
+      prefix: ".a4-icon-export-",
       suffix: ".tmp",
     })
     .pipe(
@@ -705,7 +722,7 @@ export const exportBrandIcons = Effect.fn("exportBrandIcons")(function* (checkOn
   const tool = yield* resolveIconComposerTool();
   const temporaryDirectory = yield* fs
     .makeTempDirectoryScoped({
-      prefix: "t3-icon-export-",
+      prefix: "a4-icon-export-",
     })
     .pipe(
       Effect.mapError(

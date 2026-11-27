@@ -1,11 +1,11 @@
-import { SourceControlProviderKind } from "@t3tools/contracts";
+import { SourceControlProviderKind } from "@a4code/contracts";
 import type {
   EnvironmentId,
   ProjectId,
   PullRequestAction,
   PullRequestListEntry,
   PullRequestSummary,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -57,10 +57,10 @@ function entry(
     provider: SourceControlProviderKind.make("github"),
     host: "github.com",
     projectId: "project-1",
-    projectTitle: "t3code",
-    repository: "pingdotgg/t3code",
+    projectTitle: "a4code",
+    repository: "example/demo",
     title: "Add the pull requests page",
-    url: `https://github.com/pingdotgg/t3code/pull/${overrides.number}`,
+    url: `https://github.com/example/demo/pull/${overrides.number}`,
     author: { login: "octocat", name: null, avatarUrl: null },
     headBranch: `feat/branch-${overrides.number}`,
     baseBranch: "main",
@@ -90,7 +90,7 @@ describe("visible pull request line-count targets", () => {
       {
         environmentId: ENV_1,
         projectId: "project-1",
-        repository: "pingdotgg/t3code",
+        repository: "example/demo",
         number: 1,
         additions: 1,
         deletions: 1,
@@ -105,7 +105,7 @@ describe("visible pull request line-count targets", () => {
     );
     expect([...keys]).toEqual([secondKey]);
     expect(pullRequestStatsBatches(entriesByKey, keys)[0]?.input.refs).toEqual([
-      { projectId: "project-1", repository: "pingdotgg/t3code", number: 2 },
+      { projectId: "project-1", repository: "example/demo", number: 2 },
     ]);
   });
 
@@ -121,7 +121,7 @@ describe("visible pull request line-count targets", () => {
       withDiffStat(
         own,
         mergePullRequestDiffStats(stats, [
-          { ...stat, repository: "PingDotGG/T3Code", additions: 7 },
+          { ...stat, repository: "A4Code/A4Code", additions: 7 },
         ]),
       ),
     ).toMatchObject({ additions: 7, deletions: 2 });
@@ -436,7 +436,7 @@ describe("remembered pull request list controls", () => {
   // regression: #9188 corrupt stored list controls broke the page
   it("falls back to the default controls when storage is corrupt", () => {
     const storage = makeStorage();
-    storage.setItem("t3.pullRequests.preferences", "{not json");
+    storage.setItem("a4code.pullRequests.preferences", "{not json");
     expect(readPullRequestListPreferences(storage)).toEqual({ involvement: "all", state: "open" });
   });
 
@@ -722,7 +722,7 @@ describe("pull request list overrides", () => {
   const entry = (number: number, state: "open" | "closed" | "merged") =>
     ({
       host: "github.com",
-      repository: "pingdotgg/t3code",
+      repository: "example/demo",
       number,
       state,
       isDraft: false,
@@ -855,7 +855,7 @@ describe("refresh page size", () => {
         entry({
           number: index + 1,
           provider: SourceControlProviderKind.make(provider),
-          repository: `pingdotgg/${name}`,
+          repository: `a4code/${name}`,
         }),
       ),
     );

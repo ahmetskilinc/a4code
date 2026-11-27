@@ -1,5 +1,5 @@
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ProviderDriverKind, ThreadId } from "@t3tools/contracts";
+import { scopeThreadRef } from "@a4code/client-runtime/environment";
+import { EnvironmentId, ProviderDriverKind, ThreadId } from "@a4code/contracts";
 import { expect, it } from "vite-plus/test";
 
 import { composerTargetKey, useComposerDraftStore } from "../../composerDraftStore";

@@ -1,4 +1,4 @@
-import { type DesktopWslState, EnvironmentId } from "@t3tools/contracts";
+import { type DesktopWslState, EnvironmentId } from "@a4code/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import {
   applyWslEnableSelection,
@@ -22,10 +22,10 @@ describe("togglePairingScopeSelection", () => {
     },
     {
       label: "drops terminal:operate when terminal:read is cleared",
-      current: ["terminal:read", "terminal:operate", "relay:read"],
+      current: ["terminal:read", "terminal:operate", "diagnostics:read"],
       scope: "terminal:read",
       checked: false,
-      expected: ["relay:read"],
+      expected: ["diagnostics:read"],
     },
     {
       label: "keeps terminal:read when terminal:operate is cleared",
@@ -56,7 +56,7 @@ describe("parseManualDesktopSshTarget", () => {
 
 describe("resolveCurrentOriginPairingUrl", () => {
   it.each([
-    ["t3code://app/settings/connections", null],
+    ["a4code://app/settings/connections", null],
     ["http://127.0.0.1:3774/settings", null],
     ["http://localhost:5173/", null],
     ["https://host.example.ts.net/settings", "https://host.example.ts.net/pair#token=abc"],

@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 import { msg } from "gt-react";
-import { SavedViewIdentity } from "@t3tools/client-runtime/saved-views";
+import { SavedViewIdentity } from "@a4code/client-runtime/saved-views";
 
 import type { SavedView, SavedViewsKind } from "../SavedViewsMenu";
 import {
@@ -25,7 +25,7 @@ export function issueViewMatches(
 }
 
 export const ISSUE_SAVED_VIEWS = {
-  storageKey: "t3.issues.savedViews",
+  storageKey: "a4code.issues.savedViews",
   schema: Schema.Array(
     Schema.Struct({ ...SavedViewIdentity.fields, preferences: IssueListPreferencesSchema }),
   ),

@@ -295,6 +295,10 @@ export type MarkdownImageSource =
   | { readonly _tag: "WorkspaceFile"; readonly path: string; readonly relative?: true }
   | { readonly _tag: "Blocked" };
 
+export function markdownMediaRequiresConsent(source: MarkdownImageSource): boolean {
+  return source._tag === "Direct" && /^(?:https?:|\/\/)/i.test(source.uri);
+}
+
 function joinWorkspacePath(workspaceRoot: string, relativePath: string): string {
   const separator = isWindowsAbsolutePath(workspaceRoot) ? "\\" : "/";
   const root = workspaceRoot.replace(/[\\/]+$/, "");

@@ -1,4 +1,4 @@
-import type { ProjectIconOverride } from "@t3tools/contracts";
+import type { ProjectIconOverride } from "@a4code/contracts";
 
 import type {
   SidebarProjectGroupMember,

@@ -1,21 +1,8 @@
 // @effect-diagnostics nodeBuiltinImport:off
-import type { AgentOptions, SDKModel } from "@cursor/sdk";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
-import {
-  MessageId,
-  NodeId,
-  ProjectId,
-  ProviderInstanceId,
-  ProviderSessionId,
-  RunAttemptId,
-  RunId,
-  ThreadId,
-} from "@t3tools/contracts";
-import * as DateTime from "effect/DateTime";
-import * as Fiber from "effect/Fiber";
-import * as FileSystem from "effect/FileSystem";
+import { ProviderInstanceId, ProviderSessionId, ThreadId } from "@a4code/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -23,20 +10,15 @@ import * as Stream from "effect/Stream";
 import { vi } from "vite-plus/test";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
-import * as Deferred from "effect/Deferred";
 
-import {
-  DEFAULT_HANDOFF_TOKEN_CAP,
-  handoffBudget,
-} from "@t3tools/provider-core/server/handoffBudget";
-import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
-import * as TestProviderHost from "@t3tools/provider-testing/TestProviderHost";
+import * as ProviderEventLoggers from "@a4code/provider-core/server/ProviderEventLoggers";
+import * as TestProviderHost from "@a4code/provider-testing/TestProviderHost";
 import { CursorDriver } from "./driver.ts";
 import * as CursorAgentSdk from "./CursorAgentSdk.ts";
 import * as CursorSdk from "./CursorSdk.ts";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import * as IdAllocator from "@a4code/provider-core/server/IdAllocator";
+import * as McpProviderSessions from "@a4code/provider-core/server/McpProviderSessions";
+import * as ProviderAdapter from "@a4code/provider-core/server/ProviderAdapter";
 import { loadCursorSdk } from "./sdk.ts";
 
 const { Cursor } = loadCursorSdk();
@@ -91,7 +73,7 @@ it.layer(layerTest)("CursorDriver", (it) => {
               Response.json(
                 request.url.endsWith("/v1/me")
                   ? {
-                      apiKeyName: "T3 Code",
+                      apiKeyName: "a4code",
                       createdAt: "2026-01-01T00:00:00.000Z",
                       userEmail: "cursor@example.com",
                     }
@@ -139,10 +121,7 @@ it.layer(layerTest)("CursorDriver", (it) => {
           Stream.runHead,
           Effect.map(Option.getOrThrow),
         );
-        expect(requests).toContainEqual({
-          url: "https://api.cursor.com/v1/me",
-          authorization: "Bearer instance-browser-key",
-        });
+        expect(requests).toEqual([]);
         expect(yield* instance.snapshot.getSnapshot).toMatchObject({
           status: "ready",
           auth: {
@@ -186,225 +165,24 @@ it.layer(layerTest)("CursorDriver", (it) => {
       }),
   );
 
-  it.effect("budgets handoffs for the SDK model across catalog refreshes and option changes", () =>
+  it.effect("reads configured models with no SDK catalog request", () =>
     Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const workspace = yield* fileSystem.makeTempDirectoryScoped({ prefix: "cursor-window-" });
-      const catalog = yield* Deferred.make<Array<SDKModel>>();
-      const catalogRequested = yield* Deferred.make<void>();
-      let failUser = false;
-      const client = HttpClient.make((request) =>
-        Effect.gen(function* () {
-          if (request.url.endsWith("/v1/me"))
-            return HttpClientResponse.fromWeb(
-              request,
-              Response.json(
-                failUser
-                  ? { error: { message: "Cursor is unreachable" } }
-                  : { apiKeyName: "T3 Code", createdAt: "2026-01-01T00:00:00.000Z" },
-                { status: failUser ? 503 : 200 },
-              ),
-            );
-          yield* Deferred.succeed(catalogRequested, undefined);
-          const models = yield* Deferred.await(catalog);
-          return HttpClientResponse.fromWeb(request, Response.json({ items: models }));
-        }),
-      );
-      const instanceId = ProviderInstanceId.make("cursor-catalog-window");
-      const openedModels: Array<AgentOptions["model"]> = [];
-      const sentModels: Array<AgentOptions["model"]> = [];
       const instance = yield* CursorDriver.create({
-        instanceId,
+        instanceId: ProviderInstanceId.make("cursor-local-models"),
         displayName: "Cursor",
         enabled: true,
-        environment: [{ name: "CURSOR_API_KEY", value: "catalog-window-key", sensitive: true }],
-        config: CursorDriver.defaultConfig(),
+        environment: [{ name: "CURSOR_API_KEY", value: "local-test-key", sensitive: true }],
+        config: { ...CursorDriver.defaultConfig(), customModels: ["my-model"] },
       }).pipe(
-        Effect.provideService(HttpClient.HttpClient, client),
-        Effect.provideService(CursorAgentSdk.CursorAgentSdkRunner, {
-          assertComplete: Effect.void,
-          open: (request) =>
-            Effect.sync(() => {
-              openedModels.push(request.options.model);
-              return {
-                agentId: "native-cursor-window",
-                listMessages: Effect.succeed([]),
-                close: Effect.void,
-                send: (input) =>
-                  Effect.sync(() => {
-                    sentModels.push(input.options?.model);
-                    const runId = `native-cursor-window-run-${sentModels.length}`;
-                    return {
-                      agentId: "native-cursor-window",
-                      runId,
-                      cancel: Effect.void,
-                      wait: Effect.succeed({
-                        id: runId,
-                        requestId: runId,
-                        status: "finished" as const,
-                        model: { id: "claude-opus-5-5" },
-                        durationMs: 1,
-                      }),
-                    };
-                  }),
-              };
-            }),
-        }),
+        Effect.provideService(
+          HttpClient.HttpClient,
+          HttpClient.make(() => Effect.die("unexpected network request")),
+        ),
       );
-      const selection = (contextWindow?: string) => ({
-        instanceId,
-        model: "claude-opus-5-5",
-        ...(contextWindow === undefined
-          ? {}
-          : { options: [{ id: "contextWindow", value: contextWindow }] }),
-      });
-      const threadId = ThreadId.make("cursor-catalog-window-thread");
-      const runtimePolicy = ProviderAdapter.ProviderAdapterV2RuntimePolicy.make({
-        runtimeMode: "full-access",
-        interactionMode: "default",
-        cwd: workspace,
-      });
-      const runtime = yield* instance.orchestrationAdapter.openSession({
-        threadId,
-        providerSessionId: ProviderSessionId.make("cursor-catalog-window-session"),
-        modelSelection: selection("1m"),
-        runtimePolicy,
-      });
-      const refresh = yield* instance.snapshot.refresh.pipe(Effect.forkScoped);
-      yield* Deferred.await(catalogRequested);
-      expect(runtime.getModelContextWindow?.(selection())).toBeUndefined();
-      const providerThread = yield* runtime.ensureThread({
-        threadId,
-        modelSelection: selection("1m"),
-        runtimePolicy,
-      });
-      const now = yield* DateTime.now;
-      const startTurn = Effect.fnUntraced(function* (contextWindow?: string) {
-        const modelSelection = selection(contextWindow);
-        const ordinal = sentModels.length + 1;
-        yield* runtime.startTurn({
-          threadId,
-          providerThread,
-          modelSelection,
-          runtimePolicy,
-          runId: RunId.make(`cursor-window-run-${ordinal}`),
-          runOrdinal: ordinal,
-          providerTurnOrdinal: ordinal,
-          attemptId: RunAttemptId.make(`cursor-window-attempt-${ordinal}`),
-          rootNodeId: NodeId.make(`cursor-window-root-${ordinal}`),
-          appThread: {
-            id: threadId,
-            projectId: ProjectId.make("cursor-window-project"),
-            createdBy: "user",
-            creationSource: "web",
-            title: "Cursor context window",
-            providerInstanceId: instanceId,
-            modelSelection,
-            runtimeMode: "full-access",
-            interactionMode: "default",
-            branch: null,
-            worktreePath: null,
-            activeProviderThreadId: providerThread.id,
-            lineage: { parentThreadId: null, relationshipToParent: null, rootThreadId: threadId },
-            forkedFrom: null,
-            createdAt: now,
-            updatedAt: now,
-            archivedAt: null,
-            settledOverride: null,
-            settledAt: null,
-            lastVisitedAt: null,
-            deletedAt: null,
-          },
-          message: {
-            messageId: MessageId.make(`cursor-window-message-${ordinal}`),
-            createdBy: "user",
-            creationSource: "web",
-            text: "Continue.",
-            attachments: [],
-          },
-        });
-        yield* runtime.events.pipe(
-          Stream.takeUntil((event) => event.type === "turn.terminal"),
-          Stream.runDrain,
-        );
-        const window = runtime.getModelContextWindow?.(modelSelection);
-        return {
-          model: sentModels.at(-1),
-          window,
-          allowance: handoffBudget({
-            tokenCap: DEFAULT_HANDOFF_TOKEN_CAP,
-            userText: "Continue.",
-            attachments: [],
-            providerThread,
-            nativeContextEstimate: 400_000,
-            modelContextWindow: window,
-          }),
-        };
-      });
-      const beforeCatalog = yield* startTurn("1m");
-      yield* Deferred.succeed(catalog, [
-        {
-          id: "claude-opus-5-5",
-          displayName: "Claude Opus 5.5",
-          parameters: [
-            {
-              id: "context",
-              displayName: "Context",
-              values: [{ value: "300k" }, { value: "1m" }],
-            },
-          ],
-          variants: [
-            {
-              displayName: "Claude Opus 5.5",
-              isDefault: true,
-              params: [{ id: "context", value: "1m" }],
-            },
-          ],
-        },
+      expect((yield* instance.snapshot.refresh).models.map((model) => model.slug)).toEqual([
+        "auto",
+        "my-model",
       ]);
-      expect((yield* Fiber.join(refresh)).status).toBe("ready");
-      const catalogDefault = yield* startTurn();
-      const explicitWindow = yield* startTurn("500k");
-      const unknownWindow = yield* startTurn("max");
-      failUser = true;
-      expect((yield* instance.snapshot.refresh).status).toBe("error");
-      const retainedDefault = yield* startTurn();
-
-      expect(openedModels).toEqual([
-        {
-          id: "claude-opus-5-5",
-          params: [{ id: "context", value: "1m" }],
-        },
-      ]);
-      expect({
-        beforeCatalog,
-        catalogDefault,
-        explicitWindow,
-        unknownWindow,
-        retainedDefault,
-      }).toEqual({
-        beforeCatalog: {
-          model: { id: "claude-opus-5-5", params: [{ id: "context", value: "1m" }] },
-          window: 1_000_000,
-          allowance: DEFAULT_HANDOFF_TOKEN_CAP,
-        },
-        catalogDefault: {
-          model: { id: "claude-opus-5-5", params: [{ id: "context", value: "1m" }] },
-          window: 1_000_000,
-          allowance: DEFAULT_HANDOFF_TOKEN_CAP,
-        },
-        explicitWindow: {
-          model: { id: "claude-opus-5-5", params: [{ id: "context", value: "500k" }] },
-          window: 500_000,
-          allowance: 0,
-        },
-        unknownWindow: {
-          model: { id: "claude-opus-5-5", params: [{ id: "context", value: "max" }] },
-          window: undefined,
-          allowance: 0,
-        },
-        retainedDefault: catalogDefault,
-      });
     }),
   );
 });

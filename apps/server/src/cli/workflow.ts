@@ -1,5 +1,5 @@
-import { WorkflowHook, WorkflowRunStatus } from "@t3tools/contracts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import { WorkflowHook, WorkflowRunStatus } from "@a4code/contracts";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -58,7 +58,7 @@ const printRun = Effect.fn("cli.workflow.printRun")(function* (
 
 const runArgument = Argument.String("run").pipe(Argument.withDescription("Run id."));
 const readRun = (tools: ThreadTools, runId: string) =>
-  tools.call("t3_workflow", { action: "read", runId }, RunResult);
+  tools.call("a4_workflow", { action: "read", runId }, RunResult);
 
 const startCommand = Command.make("start", {
   ...projectLocationFlags,
@@ -85,7 +85,7 @@ const startCommand = Command.make("start", {
         flags,
         Effect.fn("cli.workflow.start")(function* (tools) {
           const started = yield* tools.call(
-            "t3_workflow",
+            "a4_workflow",
             { action: "start", workflow: flags.workflow, input, idempotencyKey: flags.key },
             RunResult,
           );
@@ -120,7 +120,7 @@ const listCommand = Command.make("list", {
       flags,
       Effect.fn("cli.workflow.list")(function* (tools) {
         const { runs } = yield* tools.call(
-          "t3_workflow",
+          "a4_workflow",
           {
             action: "list",
             ...(Option.isSome(flags.status) ? { status: flags.status.value } : {}),
@@ -181,7 +181,7 @@ const steer = Effect.fn("cli.workflow.steer")(function* (
     return yield* printRun(before, flags.json);
   }
   const after = yield* tools.call(
-    "t3_workflow",
+    "a4_workflow",
     {
       action,
       runId: flags.run,
@@ -268,13 +268,13 @@ const signalCommand = Command.make("signal", {
         });
       }
       // An agent answers through this command, so its answer is named after its thread.
-      const callingThread = (yield* HostProcess.Environment).T3CODE_THREAD_ID?.trim();
+      const callingThread = (yield* HostProcess.Environment).A4CODE_THREAD_ID?.trim();
       const threadTitle =
         callingThread === undefined || callingThread === ""
           ? undefined
           : yield* withThreadTools({ ...flags, json: false }, (tools) =>
               tools.call(
-                "t3_thread_read",
+                "a4_thread_read",
                 { threadId: callingThread, limit: 1, runLimit: 1 },
                 ThreadTitleResult,
               ),
@@ -284,10 +284,10 @@ const signalCommand = Command.make("signal", {
             );
       yield* withThreadTools(
         // Named on the answer to a question it sends.
-        { ...flags, json: false, clientLabel: threadTitle || "t3 workflow signal" },
+        { ...flags, json: false, clientLabel: threadTitle || "a4code workflow signal" },
         Effect.fn("cli.workflow.signal")(function* (tools) {
           const { delivery } = yield* tools.call(
-            "t3_workflow",
+            "a4_workflow",
             {
               action: "signal",
               value,
@@ -326,7 +326,7 @@ const withdrawCommand = Command.make("withdraw", {
       flags,
       Effect.fn("cli.workflow.withdraw")(function* (tools) {
         const { withdrawal, ...result } = yield* tools.call(
-          "t3_workflow",
+          "a4_workflow",
           {
             action: "withdraw",
             runId: flags.run,
@@ -361,7 +361,7 @@ const questionsCommand = Command.make("questions", {
       flags,
       Effect.fn("cli.workflow.questions")(function* (tools) {
         const { questions } = yield* tools.call(
-          "t3_workflow",
+          "a4_workflow",
           { action: "questions", ...(Option.isSome(flags.kind) ? { kind: flags.kind.value } : {}) },
           QuestionsResult,
         );
@@ -388,7 +388,7 @@ const hooksCommand = Command.make("hooks", {
     withThreadTools(
       flags,
       Effect.fn("cli.workflow.hooks")(function* (tools) {
-        const { hooks } = yield* tools.call("t3_workflow", { action: "hooks" }, HooksResult);
+        const { hooks } = yield* tools.call("a4_workflow", { action: "hooks" }, HooksResult);
         if (flags.json) return yield* printJson(hooks);
         for (const hook of hooks) {
           yield* Console.log(`${hook.workflow}  ${hook.name}  ${hook.path}`);
@@ -417,7 +417,7 @@ const storeListCommand = Command.make("list", {
       flags,
       Effect.fn("cli.workflow.store.list")(function* (tools) {
         const { entries } = yield* tools.call(
-          "t3_workflow",
+          "a4_workflow",
           { action: "store", ...(flags.prefix === "" ? {} : { key: flags.prefix }) },
           StoreResult,
         );
@@ -444,7 +444,7 @@ const storeSetCommand = Command.make("set", {
         { ...flags, json: false },
         Effect.fn("cli.workflow.store.set")(function* (tools) {
           yield* tools.call(
-            "t3_workflow",
+            "a4_workflow",
             { action: "store_set", key: flags.key, value },
             StoreResult,
           );
@@ -464,7 +464,7 @@ const storeDeleteCommand = Command.make("delete", {
     withThreadTools(
       { ...flags, json: false },
       Effect.fn("cli.workflow.store.delete")(function* (tools) {
-        yield* tools.call("t3_workflow", { action: "store_delete", key: flags.key }, StoreResult);
+        yield* tools.call("a4_workflow", { action: "store_delete", key: flags.key }, StoreResult);
         yield* Console.log(`Deleted ${flags.key}.`);
       }),
     ).pipe(reportThreadErrors),

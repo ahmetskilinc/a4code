@@ -1,4 +1,4 @@
-import { injectHtmlRenderBootstrap } from "@t3tools/shared/htmlRender";
+import { injectHtmlRenderBootstrap } from "@a4code/shared/htmlRender";
 import { HtmlRenderDocument } from "../files/BrowserDocumentFrame";
 import { AudioPreview } from "../files/AudioPreview";
 import { cdp, page, userEvent } from "vite-plus/test/browser";
@@ -16,7 +16,7 @@ import {
   ScheduledTaskId,
   ThreadId,
   type OrchestrationV2Subagent,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { type LegendListRef } from "@legendapp/list/react";
 import {
   createRef,
@@ -29,7 +29,7 @@ import {
 import * as DateTime from "effect/DateTime";
 import { Atom, AsyncResult } from "effect/reactivity";
 import { describe, expect, it, onTestFinished, vi } from "vite-plus/test";
-import { DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts/settings";
+import { DEFAULT_CLIENT_SETTINGS } from "@a4code/contracts/settings";
 
 import "~/index.css";
 
@@ -51,8 +51,8 @@ import {
 } from "./TimelineWorkEntryRow.logic";
 import { wordsHast } from "~/markdown/wordsHast";
 import { TimelineRowCtx } from "./timelineRowContext";
-import { searchableMessageSegments } from "@t3tools/shared/threadFindText";
-import { countThreadSearchOccurrences } from "@t3tools/shared/threadSearch";
+import { searchableMessageSegments } from "@a4code/shared/threadFindText";
+import { countThreadSearchOccurrences } from "@a4code/shared/threadSearch";
 import { collectThreadFindRanges } from "./threadFindHighlights";
 import { toastManager } from "../ui/toast";
 import { __setClientSettingsForTests } from "../../hooks/useSettings";
@@ -62,8 +62,8 @@ import { rememberTimelinePosition } from "./timelineScrollAnchoring";
 import {
   COMPOSER_CONTEXT_CLIPBOARD_MIME,
   decodeComposerContextFragment,
-} from "@t3tools/shared/composerContextClipboard";
-import { collectComposerContextReferences } from "@t3tools/shared/composerContextReferences";
+} from "@a4code/shared/composerContextClipboard";
+import { collectComposerContextReferences } from "@a4code/shared/composerContextReferences";
 
 const environmentQuery = vi.hoisted(() => ({
   error: "Pull request not found" as string | null,
@@ -505,7 +505,7 @@ describe("MessagesTimeline work rows", () => {
     expect(output!.closest('[role="button"]')).toBeNull();
     expect(document.getElementById(toggle.getAttribute("aria-controls") ?? "")).toContain(output);
   });
-  it("opens a web search result in the thread's Browser when links open in T3 Code", async () => {
+  it("opens a web search result in the thread's Browser when links open in a4code", async () => {
     setup();
     previewAccess.granted = true;
     __setClientSettingsForTests({ ...DEFAULT_CLIENT_SETTINGS, browserLinkTarget: "app" });
@@ -1108,11 +1108,11 @@ describe("MessagesTimeline messages", () => {
 
   it("renders unsafe user HTML as inert source text", async () => {
     const source =
-      '<script>globalThis.__t3Xss = 1</script><img src="x" onerror="globalThis.__t3Xss = 2">';
+      '<script>globalThis.__a4Xss = 1</script><img src="x" onerror="globalThis.__a4Xss = 2">';
     await using screen = await renderTimeline([message(source)]);
     expect(screen.text()).toContain(source);
     expect(screen.container.querySelector("script, img")).toBeNull();
-    expect((globalThis as { __t3Xss?: number }).__t3Xss).toBeUndefined();
+    expect((globalThis as { __a4Xss?: number }).__a4Xss).toBeUndefined();
   });
 
   it("shows the spaces typed at the start of user lines, where find also matches them", async () => {
@@ -1162,11 +1162,11 @@ describe("MessagesTimeline messages", () => {
     await using screen = await renderTimeline([
       message(
         [
-          '<details onclick="globalThis.__t3Xss = 1">',
+          '<details onclick="globalThis.__a4Xss = 1">',
           "<summary>Safe details</summary>",
-          "<script>globalThis.__t3Xss = 2</script>",
-          '<img src="x" onerror="globalThis.__t3Xss = 3">',
-          '<a href="javascript:globalThis.__t3Xss = 4">Unsafe link</a>',
+          "<script>globalThis.__a4Xss = 2</script>",
+          '<img src="x" onerror="globalThis.__a4Xss = 3">',
+          '<a href="javascript:globalThis.__a4Xss = 4">Unsafe link</a>',
           "</details>",
         ].join(""),
         { role: "assistant" },
@@ -1179,7 +1179,7 @@ describe("MessagesTimeline messages", () => {
     expect(screen.container.querySelector("script, [onclick], [onerror]")).toBeNull();
     expect(screen.container.innerHTML).not.toContain("javascript:");
     await click(screen.button("Safe details"));
-    expect((globalThis as { __t3Xss?: number }).__t3Xss).toBeUndefined();
+    expect((globalThis as { __a4Xss?: number }).__a4Xss).toBeUndefined();
   });
 
   const revealModes = ["inline", "at-end", "delayed", "grouped-delayed", "grouped-end"];
@@ -1771,7 +1771,7 @@ describe("MessagesTimeline agent messages", () => {
     expect(screen.buttons("Open thread")).toHaveLength(0);
   });
 
-  it("leaves messages sent by T3 Code as full bubbles", async () => {
+  it("leaves messages sent by a4code as full bubbles", async () => {
     setup();
     await using screen = await renderTimeline([
       message(AGENT_MESSAGE, { createdBy: "agent", creationSource: "server" }),
@@ -2264,7 +2264,7 @@ describe("MessagesTimeline thread find", () => {
 
     await screen.rerender(element(0, 2));
     await vi.waitFor(() => {
-      const [match] = CSS.highlights.get("t3-thread-find-active") ?? [];
+      const [match] = CSS.highlights.get("a4-thread-find-active") ?? [];
       if (!(match instanceof Range)) throw new Error("Missing active match range");
       expect(match.startContainer.parentElement?.closest("td")).toBe(viewport.querySelector("td"));
       expect(match.getBoundingClientRect().left).toBeGreaterThanOrEqual(clip.left - 1);
@@ -2308,7 +2308,7 @@ describe("MessagesTimeline thread find", () => {
       />,
     );
     await vi.waitFor(() => {
-      const [match] = CSS.highlights.get("t3-thread-find-active") ?? [];
+      const [match] = CSS.highlights.get("a4-thread-find-active") ?? [];
       if (!(match instanceof Range)) throw new Error("Missing active match range");
       const bounds = match.getBoundingClientRect();
       const clip = outerViewport.getBoundingClientRect();
@@ -2712,7 +2712,7 @@ it("shows a character a screen would not draw at the very end of an approval", a
   }
 });
 
-it("shows T3 Code's push hooks approval as its own question and another server's as before", async () => {
+it("shows a4code's push hooks approval as its own question and another server's as before", async () => {
   setup();
   const fixture = makeStreamingTimelineFixture();
   const sentence =
@@ -2744,7 +2744,7 @@ it("shows T3 Code's push hooks approval as its own question and another server's
       requestKind: "mcp-elicitation",
       createdAt: fixture.time(6),
       detail: "Deploy web to production?",
-      appName: "t3-code",
+      appName: "a4code",
       options,
       responseCapability: "live",
     },
@@ -2766,7 +2766,7 @@ it("shows T3 Code's push hooks approval as its own question and another server's
     .element(own.getByText("Run this repository's push hooks?", { exact: true }))
     .toBeVisible();
   // The sentence another client would show, the digest and a server name are not on the card.
-  expect(own.element().textContent).not.toMatch(/contents|7b6cd23a|t3-code|Push feature/);
+  expect(own.element().textContent).not.toMatch(/contents|7b6cd23a|a4code|Push feature/);
   const details = own.element().querySelector('[data-approval-detail="push-hooks"]')!;
   expect(
     [...details.querySelectorAll("dt")].map((term, index) => [
@@ -2791,7 +2791,7 @@ it("shows T3 Code's push hooks approval as its own question and another server's
   await expect
     .element(other.getByLabelText("App access request", { exact: true }))
     .toHaveTextContent("Deploy web to production?");
-  await expect.element(other.getByText("t3-code", { exact: true })).toBeVisible();
+  await expect.element(other.getByText("a4code", { exact: true })).toBeVisible();
   expect(other.element().querySelector('[data-approval-detail="push-hooks"]')).toBeNull();
   await other.getByRole("button", { name: "Decline", exact: true }).click();
   expect(onRespondToApproval).toHaveBeenLastCalledWith(otherRequest, "decline");

@@ -1,6 +1,6 @@
 import { msg } from "gt-i18n";
 import { translatableDetail } from "../errors/translatable.ts";
-import { EnvironmentId } from "@t3tools/contracts";
+import { EnvironmentId } from "@a4code/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
@@ -45,10 +45,10 @@ import {
   pullRequestRoutingConnectionKey,
 } from "./pullRequestRoutingPermissions.ts";
 import {
-  RELAY_ROUTE_ID,
   connectionRouteId,
   connectionRoutes,
   credentialConnectionId,
+  isLearned,
   entryWithRoutes,
   findRouteToSameAddress,
   hasSavedBearerRoute,
@@ -57,6 +57,11 @@ import {
   upsertRoute,
   type ReportedEndpoint,
 } from "./routes.ts";
+
+function isRetiredRoute(route: ConnectionRoute): boolean {
+  const profile = Option.getOrNull(route.profile);
+  return profile?._tag === "BearerConnectionProfile" && profile.authorization !== undefined;
+}
 
 const isSshConnectionProfile = Schema.is(SshConnectionProfile);
 
@@ -153,12 +158,6 @@ export class EnvironmentRegistry extends Context.Service<
       | PlatformEnvironmentRemovalError
       | ConnectionBlockedError
     >;
-    readonly removeRelayEnvironments: () => Effect.Effect<
-      void,
-      | Persistence.ConnectionPersistenceError
-      | ConnectionAttemptError
-      | PlatformEnvironmentRemovalError
-    >;
     readonly retryNow: (environmentId: EnvironmentId) => Effect.Effect<void>;
     readonly setEnabled: (
       environmentId: EnvironmentId,
@@ -200,7 +199,7 @@ export class EnvironmentRegistry extends Context.Service<
       stream: Stream.Stream<A, E, R>,
     ) => Stream.Stream<A, E, Exclude<R, EnvironmentSupervisor.EnvironmentSupervisor>>;
   }
->()("@t3tools/client-runtime/connection/registry/EnvironmentRegistry") {}
+>()("@a4code/client-runtime/connection/registry/EnvironmentRegistry") {}
 
 interface EnvironmentServiceScope {
   readonly entry: ConnectionCatalogEntry;
@@ -233,41 +232,48 @@ export const make = Effect.gen(function* () {
         : Option.none();
     return { target, profile } satisfies ConnectionRoute;
   });
-  const persistedRoutesByEnvironment = new Map<EnvironmentId, Array<ConnectionTarget>>();
-  for (const target of persistedTargets) {
-    const routes = persistedRoutesByEnvironment.get(target.environmentId) ?? [];
-    routes.push(target);
-    persistedRoutesByEnvironment.set(target.environmentId, routes);
+  const persistedRoutesByEnvironment = new Map<EnvironmentId, Array<ConnectionRoute>>();
+  const loadedRoutes = yield* Effect.forEach(persistedTargets, loadRoute, {
+    concurrency: "unbounded",
+  });
+  for (const route of loadedRoutes) {
+    if (isRetiredRoute(route)) continue;
+    const id = route.target.environmentId;
+    const routes = persistedRoutesByEnvironment.get(id) ?? [];
+    routes.push(route);
+    persistedRoutesByEnvironment.set(id, routes);
   }
-  const initialEntries = new Map(
-    yield* Effect.forEach(
-      persistedRoutesByEnvironment,
-      Effect.fn("EnvironmentRegistry.loadCatalogEntry")(function* ([environmentId, targets]) {
-        const loaded = yield* Effect.forEach(targets, loadRoute, { concurrency: "unbounded" });
-        const seen = new Set<string>();
-        const usable = loaded.filter((route) => {
-          const id = connectionRouteId(route.target);
-          if (seen.has(id)) return false;
-          seen.add(id);
-          return !(id.startsWith("learned:") && Option.isNone(route.profile));
-        });
-        const routes = usable.length > 0 ? usable : loaded.slice(0, 1);
-        const first = routes[0]!;
-        return [
-          environmentId,
-          entryWithRoutes(
-            {
-              target: first.target,
-              profile: first.profile,
-              enabled: !disabledEnvironmentIds.has(environmentId),
-            },
-            routes,
-          ),
-        ] as const;
-      }),
-      { concurrency: "unbounded" },
-    ),
-  );
+  const initialEntries = new Map<EnvironmentId, ConnectionCatalogEntry>();
+  for (const [environmentId, loaded] of persistedRoutesByEnvironment) {
+    const anchors = new Set(
+      loaded.filter((route) => !isLearned(route)).map((route) => connectionRouteId(route.target)),
+    );
+    const seen = new Set<string>();
+    const routes = loaded.filter((route) => {
+      const id = connectionRouteId(route.target);
+      if (seen.has(id)) return false;
+      if (id.startsWith("learned:") || isLearned(route)) {
+        const credential = credentialConnectionId(id);
+        if (Option.isNone(route.profile) || credential === id || !anchors.has(credential))
+          return false;
+      }
+      seen.add(id);
+      return true;
+    });
+    const first = routes[0];
+    if (first !== undefined) {
+      initialEntries.set(
+        environmentId,
+        entryWithRoutes(
+          {
+            ...first,
+            enabled: !disabledEnvironmentIds.has(environmentId),
+          },
+          routes,
+        ),
+      );
+    }
+  }
   const entries =
     yield* SubscriptionRef.make<ReadonlyMap<EnvironmentId, ConnectionCatalogEntry>>(initialEntries);
   const networkStatus = yield* SubscriptionRef.make(yield* connectivity.status);
@@ -570,6 +576,12 @@ export const make = Effect.gen(function* () {
     options?: { readonly knownAddressOnly?: boolean },
   ) {
     const registered = connectionRegistrationCatalogEntry(registration);
+    if (isRetiredRoute(registered)) {
+      return yield* new ConnectionBlockedError({
+        reason: "configuration",
+        ...translatableDetail(msg("Pair this device directly with the environment.")),
+      });
+    }
     const environmentId = registered.target.environmentId;
     const route: ConnectionRoute = { target: registered.target, profile: registered.profile };
     return yield* withLeaseLock(
@@ -1036,28 +1048,6 @@ export const make = Effect.gen(function* () {
     );
   });
 
-  const removeRelayEnvironments = Effect.fn("EnvironmentRegistry.removeRelayEnvironments")(
-    function* () {
-      const relayEnvironmentIds = [...(yield* SubscriptionRef.get(entries)).values()]
-        .filter((entry) =>
-          connectionRoutes(entry).some((route) => route.target._tag === "RelayConnectionTarget"),
-        )
-        .map((entry) => entry.target.environmentId);
-
-      yield* Effect.forEach(
-        relayEnvironmentIds,
-        (environmentId) =>
-          removeRoute(environmentId, RELAY_ROUTE_ID).pipe(
-            Effect.catchTags({ EnvironmentNotRegisteredError: () => Effect.void }),
-          ),
-        {
-          concurrency: "unbounded",
-          discard: true,
-        },
-      );
-    },
-  );
-
   const retryNow = (environmentId: EnvironmentId) =>
     acquireSupervisor(environmentId).pipe(
       Effect.flatMap((supervisor) => supervisor.retryNow),
@@ -1204,7 +1194,6 @@ export const make = Effect.gen(function* () {
     remove,
     removeRoute,
     reorderRoutes,
-    removeRelayEnvironments,
     retryNow,
     setEnabled,
     setCompatibility,

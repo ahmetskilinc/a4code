@@ -1,4 +1,4 @@
-import type { ManagedPolicyDocument } from "@t3tools/contracts";
+import type { ManagedPolicyDocument } from "@a4code/contracts";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -8,11 +8,10 @@ import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 import { ChildProcessSpawner } from "effect/process";
 
-import * as NetService from "@t3tools/shared/Net";
+import * as NetService from "@a4code/shared/Net";
 
 import * as EnvironmentAuthPolicy from "../auth/EnvironmentAuthPolicy.ts";
 import * as ManagedLimits from "./managedLimits.ts";
-import * as ManagedPolicy from "./ManagedPolicy.ts";
 
 const policy = (limits?: ManagedPolicyDocument["limits"]) => ({
   document: {
@@ -68,7 +67,7 @@ it.effect("binds only the loopback address it approved when remote clients are n
       tailscaleServeEnabled: false,
       privateNetworkOnly: true,
     }).pipe(Effect.flip);
-    assert.include(service.message, "set T3CODE_HOST=127.0.0.1 in its service.env");
+    assert.include(service.message, "set A4CODE_HOST=127.0.0.1 in its service.env");
     assert.equal(yield* bind("localhost", { document: undefined }), "localhost");
     assert.equal(yield* bind(undefined, { document: undefined }), "127.0.0.1");
   }),
@@ -113,20 +112,6 @@ it.effect("allows the clients the policy lists", () =>
     authPolicy: "remote-reachable",
     host: "0.0.0.0",
     tailscaleServeEnabled: true,
-  }),
-);
-
-it.effect("tells clients Connect is off when the policy leaves out remote clients", () =>
-  Effect.gen(function* () {
-    const managed = yield* ManagedPolicy.fromDocument("/test/policy.json", {
-      ...desktopAndLocal.document,
-    });
-    assert.deepEqual(managed.summary?.limits, {
-      clients: ["desktop", "local-browser"],
-      connect: false,
-    });
-    assert.isTrue(ManagedLimits.allowsConnect(policy({ clients: ["remote"] })));
-    assert.isFalse(ManagedLimits.allowsConnect(policy({ connect: false })));
   }),
 );
 
@@ -256,7 +241,7 @@ it.effect(
     return Effect.gen(function* () {
       // A route that shares the port with this server's stays, as does one to another loopback
       // address on the same port; a TCP forward here goes too.
-      for (const mount of ["/t3", "/"]) {
+      for (const mount of ["/a4code", "/"]) {
         const web: Web = {
           "box.tailnet.ts.net:443": {
             [mount]: "http://127.0.0.1:3773",
@@ -330,8 +315,10 @@ it.effect(
             },
           },
           Services: {
-            "svc:t3": {
-              Web: { "t3:443": { Handlers: { "/t3": { Proxy: "http://127.0.0.1:3773" } } } },
+            "svc:a4code": {
+              Web: {
+                "a4code:443": { Handlers: { "/a4code": { Proxy: "http://127.0.0.1:3773" } } },
+              },
             },
           },
         }),
@@ -343,7 +330,7 @@ it.effect(
       assert.include(owned.message, 'stop the "tailscale serve" command that runs it');
       assert.include(
         owned.message,
-        '"tailscale serve --service=svc:t3 --https=443 --set-path=/t3 off"',
+        '"tailscale serve --service=svc:a4code --https=443 --set-path=/a4code off"',
       );
       // An answer that cannot be read might hide a mapping, so the server does not start.
       const dialFailure = (reason: string) =>

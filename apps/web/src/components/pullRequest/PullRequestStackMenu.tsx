@@ -3,8 +3,8 @@ import type {
   PullRequestRef,
   PullRequestStack,
   PullRequestMergeMethod,
-} from "@t3tools/contracts";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+} from "@a4code/contracts";
+import { squashAtomCommandFailure } from "@a4code/client-runtime/state/runtime";
 import { ClockIcon, RefreshCwIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { msg, T, useGT, Var } from "gt-react";
 import { useState } from "react";

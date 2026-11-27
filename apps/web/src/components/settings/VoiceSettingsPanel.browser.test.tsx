@@ -1,15 +1,14 @@
 import {
   BearerConnectionTarget,
   PrimaryConnectionTarget,
-  RelayConnectionTarget,
   type PreparedConnection,
-} from "@t3tools/client-runtime/connection";
+} from "@a4code/client-runtime/connection";
 import type * as Effect from "effect/Effect";
 import {
   EnvironmentId,
   type EnvironmentSpeechModel,
   type EnvironmentSpeechStatus,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 import { act, render } from "../../../test/render";
@@ -31,47 +30,42 @@ import { VoiceSettingsPanel } from "./VoiceSettingsPanel";
 vi.mock(import("../../speech/useEnvironmentSpeechInput"), { spy: true });
 vi.mock(import("../../state/session"), { spy: true });
 
-// The real connection runtime authorizes relay requests with a signed-in cloud session.
+// Keep signed pairing and HTTP authorization in the test runtime.
 vi.mock("../../connection/runtime", async () => {
-  const [{ ManagedRelay }, rpc, { Atom }, Context, Effect, Layer] = await Promise.all([
-    import("@t3tools/client-runtime/relay"),
-    import("@t3tools/client-runtime/rpc"),
+  const [Dpop, rpc, { Atom }, Context, Effect, Layer] = await Promise.all([
+    import("@a4code/client-runtime/dpop"),
+    import("@a4code/client-runtime/rpc"),
     import("effect/reactivity"),
     import("effect/Context"),
     import("effect/Effect"),
     import("effect/Layer"),
   ]);
-  type AuthorizedHttp =
-    import("@t3tools/client-runtime/authorization").AuthorizedRemoteHttpEnvironment;
+  type Authorization = Extract<PreparedConnection["httpAuthorization"], { _tag: "Dpop" }>;
   // Services resolve by key, and client-runtime does not export this one.
   class RemoteEnvironmentAuthorization extends Context.Service<
     RemoteEnvironmentAuthorization,
     {
-      readonly authorizeDpopHttp: (input: {
-        readonly expectedEnvironmentId: AuthorizedHttp["environmentId"];
-      }) => Effect.Effect<AuthorizedHttp>;
+      readonly authorizeDirectDpopHttp: (
+        connection: NonNullable<Authorization["directConnection"]>,
+      ) => Effect.Effect<Authorization>;
     }
     // @effect-diagnostics-next-line deterministicKeys:off
-  >()("@t3tools/client-runtime/authorization/service/RemoteEnvironmentAuthorization") {}
+  >()("@a4code/client-runtime/authorization/service/RemoteEnvironmentAuthorization") {}
   return {
     connectionAtomRuntime: Atom.runtime(
       Layer.mergeAll(
         rpc.layerRemoteHttpClient((input, init) => globalThis.fetch(input, init)),
-        Layer.succeed(ManagedRelay.ManagedRelayDpopSigner, {
+        Layer.succeed(Dpop.DpopSigner, {
           thumbprint: Effect.succeed("thumbprint"),
           createProof: () => Effect.succeed("proof"),
         }),
         Layer.succeed(RemoteEnvironmentAuthorization, {
-          authorizeDpopHttp: ({ expectedEnvironmentId }) =>
+          authorizeDirectDpopHttp: (directConnection) =>
             Effect.succeed({
-              environmentId: expectedEnvironmentId,
-              label: "MacBook Pro",
-              httpBaseUrl: window.location.origin,
-              httpAuthorization: {
-                _tag: "Dpop",
-                accessToken: "relay-access-token",
-                expiresAtEpochMs: 4_102_444_800_000,
-              },
+              _tag: "Dpop",
+              accessToken: "paired-access-token",
+              expiresAtEpochMs: 4_102_444_800_000,
+              directConnection,
             }),
         }),
       ),
@@ -398,10 +392,11 @@ it.each([
   { tier: "accelerated", legacy: false },
   { tier: "cpu", legacy: true },
 ] as const)(
-  "loads relay models using the server tier $tier (legacy: $legacy)",
+  "loads paired environment models using the server tier $tier (legacy: $legacy)",
   async ({ tier, legacy }) => {
-    const target = new RelayConnectionTarget({
-      environmentId: EnvironmentId.make("voice-relay"),
+    const target = new BearerConnectionTarget({
+      connectionId: "voice-pair",
+      environmentId: EnvironmentId.make("voice-remote"),
       label: "MacBook Pro",
     });
     const prepared = {
@@ -412,6 +407,10 @@ it.each([
       httpAuthorization: {
         _tag: "Dpop" as const,
         accessToken: "stale-access-token",
+        directConnection: {
+          connectionId: target.connectionId,
+          httpBaseUrl: window.location.origin,
+        },
         expiresAtEpochMs: 4_102_444_800_000,
       },
       target,
@@ -500,7 +499,7 @@ it.each([
     );
     await vi.waitFor(() => expect(authorizations.length + notify.mock.calls.length).not.toBe(0));
     expect(notify).not.toHaveBeenCalled();
-    expect(authorizations).toEqual(["DPoP relay-access-token"]);
+    expect(authorizations).toEqual(["DPoP paired-access-token"]);
     const region = screen.getByRole("region", { name: "Transcription models" });
     await vi.waitFor(() => expect(region.element().textContent).toContain("CPU pick"));
     if (legacy) {

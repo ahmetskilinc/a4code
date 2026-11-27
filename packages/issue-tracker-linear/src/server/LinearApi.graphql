@@ -91,7 +91,7 @@ fragment LinearPageInfo on PageInfo {
   endCursor
 }
 
-query T3Viewer {
+query A4Viewer {
   viewer {
     ...LinearUser
   }
@@ -107,7 +107,7 @@ query T3Viewer {
   }
 }
 
-query T3Issues($first: Int!, $after: String, $filter: IssueFilter!, $orderBy: PaginationOrderBy!) {
+query A4Issues($first: Int!, $after: String, $filter: IssueFilter!, $orderBy: PaginationOrderBy!) {
   issues(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
     nodes {
       ...LinearIssue
@@ -118,7 +118,7 @@ query T3Issues($first: Int!, $after: String, $filter: IssueFilter!, $orderBy: Pa
   }
 }
 
-query T3Issue($id: String!, $comments: Int!) {
+query A4Issue($id: String!, $comments: Int!) {
   issue(id: $id) {
     ...LinearIssue
     description
@@ -183,7 +183,7 @@ query T3Issue($id: String!, $comments: Int!) {
   }
 }
 
-query T3Comments($id: String!, $first: Int!, $after: String) {
+query A4Comments($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
     comments(first: $first, after: $after, orderBy: createdAt) {
       nodes {
@@ -196,7 +196,7 @@ query T3Comments($id: String!, $first: Int!, $after: String) {
   }
 }
 
-query T3Team($key: String!) {
+query A4Team($key: String!) {
   teams(first: 1, filter: { key: { eq: $key } }) {
     nodes {
       id
@@ -249,7 +249,7 @@ query T3Team($key: String!) {
   }
 }
 
-mutation T3IssueCreate($input: IssueCreateInput!) {
+mutation A4IssueCreate($input: IssueCreateInput!) {
   issueCreate(input: $input) {
     success
     issue {
@@ -259,31 +259,31 @@ mutation T3IssueCreate($input: IssueCreateInput!) {
   }
 }
 
-mutation T3IssueUpdate($id: String!, $input: IssueUpdateInput!) {
+mutation A4IssueUpdate($id: String!, $input: IssueUpdateInput!) {
   issueUpdate(id: $id, input: $input) {
     success
   }
 }
 
-mutation T3CommentCreate($input: CommentCreateInput!) {
+mutation A4CommentCreate($input: CommentCreateInput!) {
   commentCreate(input: $input) {
     success
   }
 }
 
-mutation T3ReactionCreate($input: ReactionCreateInput!) {
+mutation A4ReactionCreate($input: ReactionCreateInput!) {
   reactionCreate(input: $input) {
     success
   }
 }
 
-mutation T3ReactionDelete($id: String!) {
+mutation A4ReactionDelete($id: String!) {
   reactionDelete(id: $id) {
     success
   }
 }
 
-query T3IssueReactions($id: String!) {
+query A4IssueReactions($id: String!) {
   issue(id: $id) {
     reactions {
       ...LinearReaction
@@ -291,7 +291,7 @@ query T3IssueReactions($id: String!) {
   }
 }
 
-query T3CommentReactions($id: String!) {
+query A4CommentReactions($id: String!) {
   comment(id: $id) {
     issue {
       id

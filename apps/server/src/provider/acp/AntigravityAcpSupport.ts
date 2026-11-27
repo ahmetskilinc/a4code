@@ -5,7 +5,7 @@ import {
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
   type ProviderSendTurnInput,
   type RuntimeMode,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -23,14 +23,14 @@ import {
   makeAntigravityStderrHandler,
   makeAntigravityStdoutTransform,
 } from "../antigravityAuthSupport.ts";
-import * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
+import * as AcpSessionRuntime from "@a4code/provider-acp/server/AcpSessionRuntime";
 import {
   acpPermissionDisposition,
   unknownRecord,
   type AcpRuntimePolicy,
-} from "@t3tools/provider-acp/server/clientPolicy";
-import type { AcpSessionModeState } from "@t3tools/provider-acp/server/runtimeModel";
-import { T3_MCP_TOOL_NAMES } from "@t3tools/shared/t3McpToolPresentation";
+} from "@a4code/provider-acp/server/clientPolicy";
+import type { AcpSessionModeState } from "@a4code/provider-acp/server/runtimeModel";
+import { A4_MCP_TOOL_NAMES } from "@a4code/shared/a4McpToolPresentation";
 import packageJson from "../../../package.json" with { type: "json" };
 import { normalizeAntigravitySessionUpdate } from "./AntigravityProtocol.ts";
 
@@ -49,7 +49,7 @@ export interface AntigravityAcpRuntimeInput extends Omit<
 > {
   readonly childProcessSpawner: ChildProcessSpawner.ChildProcessSpawner["Service"];
   readonly onAuthorizationUrl?: (url: string) => Effect.Effect<void, EffectAcpErrors.AcpError>;
-  /** Serve `fs/read_text_file` from T3 instead of the agent's native reader. */
+  /** Serve `fs/read_text_file` from a4code instead of the agent's native reader. */
   readonly clientFileReads?: boolean;
   readonly clientCapabilities?: AcpSessionRuntime.AcpSessionRuntimeOptions["clientCapabilities"];
   /** Conversational sessions only; helpers and probes leave the system prompt untouched. */
@@ -82,8 +82,8 @@ export const antigravitySteersWithPrompt = (
   return parsed !== undefined && compareVersions(parsed, PROMPT_STEERING_RELEASE) >= 0;
 };
 
-/** Whether a runtime that reported its version serves T3 Code, not only allowlisted editors. */
-export const antigravityServesT3Code = (version: string) => {
+/** Whether a runtime that reported its version serves a4code, not only allowlisted editors. */
+export const antigravityServesA4Code = (version: string) => {
   const parsed = parseAntigravityVersion(version);
   return parsed === undefined || compareVersions(parsed, OPEN_MODEL_ACCESS_RELEASE) >= 0;
 };
@@ -122,7 +122,7 @@ export const makeAntigravityAcpRuntime = Effect.fn("makeAntigravityAcpRuntime")(
       authenticateEagerly: true,
       resumeMethod: "resume",
       cancelBehavior: "wait-for-prompt",
-      clientInfo: { name: "t3-code", title: "T3 Code", version: packageJson.version },
+      clientInfo: { name: "a4code", title: "a4code", version: packageJson.version },
       sessionMeta: (initializeResult) =>
         antigravitySessionMeta(initializeResult, input.sessionSystemPromptAppend),
       clientCapabilities: {
@@ -165,7 +165,7 @@ export function antigravityPermissionMode(runtimeMode: RuntimeMode): string {
 
 /**
  * The agy CLI rejects `yolo` and `auto_edit`, and sessions without native Auto reject `auto`.
- * Those stay in `default`, where it asks before acting and T3 answers from the live runtime
+ * Those stay in `default`, where it asks before acting and a4code answers from the live runtime
  * policy, so permission changes apply on the next turn without a restart.
  */
 export function antigravitySessionMode(
@@ -180,28 +180,28 @@ export function antigravitySessionMode(
   return modeId === "yolo" || modeId === "auto_edit" ? "default" : modeId;
 }
 
-// Only calls that name T3's server: before agy 1.5.8 "Running <tool>" names no server, so another
+// Only calls that name a4code's server: before agy 1.5.8 "Running <tool>" names no server, so another
 // MCP server's tool of the same name would pass.
-const ANTIGRAVITY_T3_MCP_TITLE = /^Run mcp_t3-code_(?<tool>[A-Za-z0-9_]+)\??$/;
+const ANTIGRAVITY_A4_MCP_TITLE = /^Run mcp_a4code_(?<tool>[A-Za-z0-9_]+)\??$/;
 
 // call_mcp_tool is the one call whose rawInput names a server and tool; in every other call
 // rawInput is the tool's own arguments.
 const ANTIGRAVITY_PROXIED_MCP_TITLE = /^MCP Tool (?<tool>[A-Za-z0-9_]+)\??$/;
 
-function isAntigravityT3McpRequest(request: EffectAcpSchema.RequestPermissionRequest): boolean {
+function isAntigravityA4McpRequest(request: EffectAcpSchema.RequestPermissionRequest): boolean {
   const title = request.toolCall.title?.trim() ?? "";
   const rawInput = unknownRecord(request.toolCall.rawInput);
   const proxiedTool = ANTIGRAVITY_PROXIED_MCP_TITLE.exec(title)?.groups?.tool;
   if (proxiedTool !== undefined) {
     return (
-      rawInput?.ServerName === "t3-code" &&
+      rawInput?.ServerName === "a4code" &&
       rawInput.ToolName === proxiedTool &&
-      T3_MCP_TOOL_NAMES.has(proxiedTool)
+      A4_MCP_TOOL_NAMES.has(proxiedTool)
     );
   }
   if (typeof rawInput?.CommandLine === "string") return false;
-  const tool = ANTIGRAVITY_T3_MCP_TITLE.exec(title)?.groups?.tool;
-  return tool !== undefined && T3_MCP_TOOL_NAMES.has(tool);
+  const tool = ANTIGRAVITY_A4_MCP_TITLE.exec(title)?.groups?.tool;
+  return tool !== undefined && A4_MCP_TOOL_NAMES.has(tool);
 }
 
 export function antigravityPermissionDisposition(
@@ -210,11 +210,11 @@ export function antigravityPermissionDisposition(
 ) {
   const disposition = acpPermissionDisposition(policy, request);
   if (disposition === "deny") return "deny";
-  // T3 authorizes its own MCP server, so Auto and Auto-accept edits run it unasked, as Claude does.
+  // a4code authorizes its own MCP server, so Auto and Auto-accept edits run it unasked, as Claude does.
   if (
     (policy.runtimeMode === "auto" || policy.runtimeMode === "auto-accept-edits") &&
     (policy.approvalPolicy === undefined || policy.approvalPolicy === "never") &&
-    isAntigravityT3McpRequest(request)
+    isAntigravityA4McpRequest(request)
   ) {
     return "allow";
   }

@@ -1,12 +1,11 @@
 /**
- * Translatable copies of the English labels in `@t3tools/contracts` helpers. Same ids, same
+ * Translatable copies of the English labels in `@a4code/contracts` helpers. Same ids, same
  * English; apps call these instead of the contracts helpers so the text follows the UI language.
  */
 import {
   type BrowserImportFailureReason,
   isRuntimeModeAbove,
   managedCapabilityDenial as contractsManagedCapabilityDenial,
-  managedUpdatesDenial as contractsManagedUpdatesDenial,
   type ManagedPolicySummary,
   type ProjectCloneSnapshot,
   type ProjectCloneStage,
@@ -14,8 +13,8 @@ import {
   type RuntimeMode,
   type WorktreeSetupStageId,
   worktreeSetupStageLabel as contractsWorktreeSetupStageLabel,
-} from "@t3tools/contracts";
-import type { IdleCompactionMode } from "@t3tools/contracts/settings";
+} from "@a4code/contracts";
+import type { IdleCompactionMode } from "@a4code/contracts/settings";
 import { mFallback, msg } from "gt-i18n";
 import type { MFunctionType } from "gt-i18n/types";
 
@@ -64,36 +63,6 @@ export function projectCloneProgressSummary(
   if (snapshot.stalled) parts.push(resolve(msg("Stalled", { $context: "git clone progress" })));
   else if (snapshot.detail) parts.push(snapshot.detail);
   return parts.join(" · ");
-}
-
-/** @public */
-export function managedUpdatesMessage(
-  organization: string,
-  resolve: MFunctionType = mFallback,
-): string {
-  return resolve(msg("{organization} manages T3 Code updates.", { organization }));
-}
-
-/** @public */
-export function managedNightlyDeniedMessage(
-  organization: string,
-  resolve: MFunctionType = mFallback,
-): string {
-  return resolve(
-    msg("{organization} manages T3 Code updates. Only stable releases can be installed.", {
-      organization,
-    }),
-  );
-}
-
-/** @public */
-export function managedUpdatesDenial(
-  summary: ManagedPolicySummary | undefined,
-  resolve: MFunctionType = mFallback,
-): string | undefined {
-  return summary !== undefined && contractsManagedUpdatesDenial(summary) !== undefined
-    ? managedUpdatesMessage(summary.organization, resolve)
-    : undefined;
 }
 
 /** @public */
@@ -149,7 +118,6 @@ export function providerRuntimeModeLimitMessage(
 
 export type ManagedCapability =
   | "remoteClients"
-  | "connect"
   | "webhookTasks"
   | "browserCookieImport"
   | "previewTunnel"
@@ -167,8 +135,6 @@ function managedCapabilityDeniedMessage(
           organization,
         }),
       );
-    case "connect":
-      return resolve(msg("{organization}'s policy does not allow T3 Connect.", { organization }));
     case "webhookTasks":
       return resolve(
         msg("{organization}'s policy does not allow webhook tasks.", { organization }),
@@ -229,7 +195,7 @@ const BROWSER_IMPORT_FAILURE_MESSAGES: Record<BrowserImportFailureReason, string
     "No encryption key in your Keychain. Sign in to that browser once, then retry.",
   ),
   needsFullDiskAccess: msg(
-    "Give T3 Code Full Disk Access in System Settings → Privacy & Security, then retry.",
+    "Give a4code Full Disk Access in System Settings → Privacy & Security, then retry.",
   ),
   browserRunning: msg("Quit the browser first so its cookie database can be read."),
   unsupportedPlatform: msg("Importing from this browser isn't possible on this platform."),

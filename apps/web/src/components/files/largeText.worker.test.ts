@@ -1,4 +1,4 @@
-import { parseDelimitedPreview } from "@t3tools/shared/delimitedPreview";
+import { parseDelimitedPreview } from "@a4code/shared/delimitedPreview";
 import { expect, it, vi } from "vite-plus/test";
 
 import { PREVIEW_PAGE_ROWS, type TextPreviewResult } from "./largeTextProtocol";

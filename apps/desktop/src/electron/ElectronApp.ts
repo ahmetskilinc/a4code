@@ -1,4 +1,4 @@
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -70,16 +70,13 @@ export class ElectronApp extends Context.Service<
     readonly setDesktopName: (desktopName: string) => Effect.Effect<void>;
     readonly setDockIcon: (iconPath: string) => Effect.Effect<void>;
     readonly appendCommandLineSwitch: (switchName: string, value?: string) => Effect.Effect<void>;
-    readonly onBeforeQuitForUpdate: (
-      listener: () => void,
-    ) => Effect.Effect<void, never, Scope.Scope>;
     readonly removeCommandLineSwitch: (switchName: string) => Effect.Effect<void>;
     readonly on: <Args extends ReadonlyArray<unknown>>(
       eventName: string,
       listener: (...args: Args) => void,
     ) => Effect.Effect<void, never, Scope.Scope>;
   }
->()("@t3tools/desktop/electron/ElectronApp") {}
+>()("@a4code/desktop/electron/ElectronApp") {}
 
 const addScopedAppListener = <Args extends ReadonlyArray<unknown>>(
   eventName: string,
@@ -233,17 +230,6 @@ export const make = ElectronApp.of({
       });
     },
   ),
-  onBeforeQuitForUpdate: Effect.fn("ElectronApp.onBeforeQuitForUpdate")(function (listener) {
-    return Effect.acquireRelease(
-      Effect.sync(() => {
-        Electron.autoUpdater.on("before-quit-for-update", listener);
-      }),
-      () =>
-        Effect.sync(() => {
-          Electron.autoUpdater.removeListener("before-quit-for-update", listener);
-        }),
-    ).pipe(Effect.asVoid);
-  }),
   removeCommandLineSwitch: Effect.fn("ElectronApp.removeCommandLineSwitch")(function (switchName) {
     return Effect.sync(() => {
       Electron.app.commandLine.removeSwitch(switchName);

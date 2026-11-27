@@ -1,24 +1,23 @@
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
+import * as McpProviderSessions from "@a4code/provider-core/server/McpProviderSessions";
 import {
   AntigravitySettings,
   ProviderDriverKind,
   ProviderSetupError,
   RuntimeMode,
   settingsSecretLiteral,
-} from "@t3tools/contracts";
-import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { resolveSelfInvocation } from "@t3tools/shared/nodeRuntime";
+} from "@a4code/contracts";
+import { writeFileStringAtomically } from "@a4code/shared/atomicWrite";
+import * as HostProcess from "@a4code/shared/HostProcess";
+import { resolveSelfInvocation } from "@a4code/shared/nodeRuntime";
 import {
   NodeRuntimeUnavailableError,
   nodeRuntimeUnavailableMessage,
-} from "@t3tools/shared/nodeRuntime";
+} from "@a4code/shared/nodeRuntime";
 import * as Digest from "effect/crypto/Digest";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
-import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
@@ -30,7 +29,7 @@ import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import * as AcpErrors from "effect-acp/errors";
 
-import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
+import * as ProviderHost from "@a4code/provider-core/server/ProviderHost";
 import {
   isAntigravityTextGenerationAvailable,
   makeAntigravityTextGeneration,
@@ -51,66 +50,50 @@ import {
 } from "../antigravityAuthSupport.ts";
 import {
   antigravityModelOptions,
-  antigravityServesT3Code,
+  antigravityServesA4Code,
   antigravitySessionMode,
   antigravityThinkingConfig,
   makeAntigravityAcpRuntime,
   OPEN_MODEL_ACCESS_RELEASE,
   type AntigravityAcpRuntimeInput,
 } from "../acp/AntigravityAcpSupport.ts";
-import type * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
-import type { ServerProviderDraft } from "@t3tools/provider-core/server/snapshotProbe";
+import type * as AcpSessionRuntime from "@a4code/provider-acp/server/AcpSessionRuntime";
+import type { ServerProviderDraft } from "@a4code/provider-core/server/snapshotProbe";
 import {
   removeAntigravitySessionFiles,
   retireAntigravityRuntimeTempDirs,
 } from "../acp/AntigravitySessionFiles.ts";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
-import * as ProviderContinuationRequests from "@t3tools/provider-core/server/ProviderContinuationRequests";
+import * as IdAllocator from "@a4code/provider-core/server/IdAllocator";
+import * as ProviderContinuationRequests from "@a4code/provider-core/server/ProviderContinuationRequests";
 import {
   makeAntigravityAdapterV2,
   type AntigravityAdapterV2RuntimeInput,
 } from "../../orchestration-v2/Adapters/AntigravityAdapterV2.ts";
-import { makeAcpNativeLoggerFactory } from "@t3tools/provider-acp/server/nativeLogging";
+import { makeAcpNativeLoggerFactory } from "@a4code/provider-acp/server/nativeLogging";
 import { ProviderDriverError } from "../Errors.ts";
 import {
   AntigravityProbeIncompatibility,
   makeAntigravityProvider,
 } from "../AntigravityProvider.ts";
-import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
-import * as ModelCatalog from "@t3tools/provider-core/server/ModelCatalog";
+import * as ProviderEventLoggers from "@a4code/provider-core/server/ProviderEventLoggers";
+import * as ModelCatalog from "@a4code/provider-core/server/ModelCatalog";
 import {
   defaultProviderContinuationIdentity,
   type ProviderDriver,
   type ProviderInstance,
-} from "@t3tools/provider-core/server/driver";
-import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
-import { withInstanceIdentity } from "@t3tools/provider-core/server/instanceIdentity";
+} from "@a4code/provider-core/server/driver";
+import { mergeProviderInstanceEnvironment } from "@a4code/provider-core/server/instanceEnvironment";
+import { withInstanceIdentity } from "@a4code/provider-core/server/instanceIdentity";
 import { discoverAntigravitySkills, resolveAntigravityUserHome } from "./AntigravitySkills.ts";
 
 const DRIVER = ProviderDriverKind.make("antigravity");
 const decodeSettings = Schema.decodeSync(AntigravitySettings);
 const isNodeRuntimeUnavailableError = Schema.is(NodeRuntimeUnavailableError);
-const isAcpRequestError = Schema.is(AcpErrors.AcpRequestError);
-const isProviderSetupError = Schema.is(ProviderSetupError);
-const isAcpErrorDetails = Schema.is(Schema.Struct({ details: Schema.String }));
 const RememberedRuntimeModes = Schema.fromJsonString(
   Schema.Struct({ authMethod: Schema.String, modes: Schema.Array(RuntimeMode) }),
 );
 const decodeRememberedRuntimeModes = Schema.decodeUnknownOption(RememberedRuntimeModes);
 const encodeRememberedRuntimeModes = Schema.encodeSync(RememberedRuntimeModes);
-const REFRESH_FAILED =
-  "Could not refresh Antigravity models. The previous model list is unchanged.";
-const PYTHON_SOCKS_REQUIRED = "python-socks is required to use a SOCKS proxy";
-
-// Keep upstream diagnostics in cause; only recognized, fixed text reaches clients.
-function refreshFailureDetail(cause: unknown) {
-  return isAcpRequestError(cause) &&
-    cause.operation === "receive-response" &&
-    isAcpErrorDetails(cause.data) &&
-    cause.data.details.includes(PYTHON_SOCKS_REQUIRED)
-    ? `${REFRESH_FAILED} Antigravity reported: ${PYTHON_SOCKS_REQUIRED}`
-    : REFRESH_FAILED;
-}
 
 export type AntigravityDriverEnv =
   | AntigravityInstallation.AntigravityInstallation
@@ -189,7 +172,7 @@ export const AntigravityDriver: ProviderDriver<
     );
     const profileDirectory = directories.profile;
     // Only a session reports whether agy offers Auto, so keep the last answer across restarts.
-    const runtimeModesPath = path.join(profileDirectory, "t3-runtime-modes.json");
+    const runtimeModesPath = path.join(profileDirectory, "a4-runtime-modes.json");
     const rememberedRuntimeModes = yield* fileSystem.readFileString(runtimeModesPath).pipe(
       Effect.map((contents) =>
         decodeRememberedRuntimeModes(contents).pipe(
@@ -332,11 +315,11 @@ export const AntigravityDriver: ProviderDriver<
         action,
       });
       if (refused) return refused;
-      if (!antigravityServesT3Code(version)) {
+      if (!antigravityServesA4Code(version)) {
         return new ProviderSetupError({
           instanceId,
           operation: "runtime",
-          detail: `Antigravity ${version} only serves allowlisted editors, not T3 Code. ${action} to ${OPEN_MODEL_ACCESS_RELEASE.join(".")} or newer, then retry.`,
+          detail: `Antigravity ${version} only serves allowlisted editors, not a4code. ${action} to ${OPEN_MODEL_ACCESS_RELEASE.join(".")} or newer, then retry.`,
         });
       }
     });
@@ -430,7 +413,7 @@ export const AntigravityDriver: ProviderDriver<
       input: Pick<AntigravityAcpRuntimeInput, "onAuthorizationUrl">,
     ) {
       const cwd = yield* fileSystem
-        .makeTempDirectoryScoped({ prefix: "t3-antigravity-setup-" })
+        .makeTempDirectoryScoped({ prefix: "a4-antigravity-setup-" })
         .pipe(
           Effect.mapError(
             () =>
@@ -470,14 +453,14 @@ export const AntigravityDriver: ProviderDriver<
       };
     });
 
-    // The agy CLI ignores T3's browser helper during ACP `authenticate`, so Google sign-in runs its
+    // The agy CLI ignores a4code's browser helper during ACP `authenticate`, so Google sign-in runs its
     // remote-friendly `--login`, which stores the sign-in where the ACP process reads it.
     const codeLogin = Effect.fn("AntigravityDriver.codeLogin")(function* (input: {
       readonly onAuthorizationUrl: (url: string) => Effect.Effect<void, AcpErrors.AcpError>;
     }) {
       if (auth.authMethod !== "oauth-personal") return undefined;
       const cwd = yield* fileSystem
-        .makeTempDirectoryScoped({ prefix: "t3-antigravity-login-" })
+        .makeTempDirectoryScoped({ prefix: "a4-antigravity-login-" })
         .pipe(
           Effect.mapError(
             () =>
@@ -725,59 +708,6 @@ export const AntigravityDriver: ProviderDriver<
         }),
     });
 
-    const refreshModels = Effect.fn("AntigravityDriver.refreshModels")(
-      function* () {
-        const processScope = yield* Scope.make();
-        yield* Effect.addFinalizer((exit) => Scope.close(processScope, exit));
-        yield* authFlow
-          .withProcess(
-            Scope.close(processScope, Exit.void),
-            Effect.gen(function* () {
-              const runtime = yield* makeDisposableRuntime({});
-              const started = yield* runtime.start();
-              yield* publishCatalog(started, runtime);
-            }),
-          )
-          .pipe(Effect.provideService(Scope.Scope, processScope));
-      },
-      Effect.scoped,
-      Effect.timeoutOrElse({
-        duration: "90 seconds",
-        orElse: () =>
-          Effect.fail(
-            new ProviderDriverError({
-              driver: DRIVER,
-              instanceId,
-              detail: "Antigravity model refresh timed out. Try again or check Google sign-in.",
-            }),
-          ),
-      }),
-      Effect.tapError((cause) =>
-        isAntigravitySignInRequiredError(cause) ? provider.onAuthRequired : Effect.void,
-      ),
-      Effect.mapError((cause) =>
-        cause._tag === "ProviderDriverError"
-          ? cause
-          : new ProviderDriverError({
-              driver: DRIVER,
-              instanceId,
-              detail: isAntigravitySignInRequiredError(cause)
-                ? "Sign in to Antigravity in provider settings before refreshing models."
-                : cause._tag === "ProviderSetupError" &&
-                    (cause.operation === "configure" ||
-                      cause.operation === "resolve" ||
-                      cause.operation === "start")
-                  ? cause.detail
-                  : cause._tag === "AcpTransportError" &&
-                      isProviderSetupError(cause.cause) &&
-                      cause.cause.operation === "runtime"
-                    ? cause.cause.detail
-                    : refreshFailureDetail(cause),
-              cause,
-            }),
-      ),
-    );
-
     return {
       instanceId,
       driverKind: DRIVER,
@@ -806,7 +736,6 @@ export const AntigravityDriver: ProviderDriver<
       orchestrationAdapter,
       textGeneration,
       auth: authFlow.controller,
-      refreshModels,
     } satisfies ProviderInstance;
   }),
 };

@@ -9,7 +9,7 @@ import {
   AuthWebSocketTicketUse,
   RuntimeMode,
   type ServerAuthSessionMethod,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as Context from "effect/Context";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
@@ -63,7 +63,7 @@ export interface VerifiedSession {
   readonly scopes: ReadonlyArray<AuthEnvironmentScope>;
   readonly proofKeyThumbprint?: string;
   readonly runtimeModeCeiling?: RuntimeMode;
-  /** An MCP client that is another T3 Code environment's peer link. */
+  /** An MCP client that is another a4code environment's peer link. */
   readonly peerLink?: true;
 }
 
@@ -367,18 +367,6 @@ export class OtherSessionsRevocationError extends Schema.TaggedError<OtherSessio
   }
 }
 
-export class ProofKeySessionsError extends Schema.TaggedError<ProofKeySessionsError>()(
-  "ProofKeySessionsError",
-  {
-    operation: Schema.Literals(["lookup", "revoke"]),
-    ...sessionCredentialInternalErrorContext,
-  },
-) {
-  override get message(): string {
-    return `Failed to ${this.operation} sessions by proof key.`;
-  }
-}
-
 export const SessionCredentialInternalError = Schema.Union([
   SessionClaimsEncodingError,
   SessionCredentialIssueError,
@@ -388,7 +376,6 @@ export const SessionCredentialInternalError = Schema.Union([
   ActiveSessionsListError,
   SessionRevocationError,
   OtherSessionsRevocationError,
-  ProofKeySessionsError,
 ]);
 export type SessionCredentialInternalError = typeof SessionCredentialInternalError.Type;
 
@@ -476,17 +463,10 @@ export class SessionStore extends Context.Service<
     readonly revokeAllExcept: (
       sessionId: AuthSessionId,
     ) => Effect.Effect<number, SessionCredentialInternalError>;
-    readonly proofKeyThumbprintOf: (
-      sessionId: AuthSessionId,
-    ) => Effect.Effect<Option.Option<string>, SessionCredentialInternalError>;
-    /** Revokes every session bound to this DPoP key, so a device it belongs to is cut off now. */
-    readonly revokeByProofKey: (
-      proofKeyThumbprint: string,
-    ) => Effect.Effect<number, SessionCredentialInternalError>;
     readonly markConnected: (sessionId: AuthSessionId) => Effect.Effect<void, never>;
     readonly markDisconnected: (sessionId: AuthSessionId) => Effect.Effect<void, never>;
   }
->()("t3/auth/SessionStore") {}
+>()("a4code/auth/SessionStore") {}
 
 const SIGNING_SECRET_NAME = "server-signing-key";
 const DEFAULT_SESSION_TTL = Duration.days(30);
@@ -1202,27 +1182,6 @@ const make = Effect.gen(function* () {
     },
   );
 
-  const proofKeyThumbprintOf: SessionStore["Service"]["proofKeyThumbprintOf"] = (sessionId) =>
-    authSessions
-      .getProofKeyThumbprint({ sessionId })
-      .pipe(Effect.mapError((cause) => new ProofKeySessionsError({ operation: "lookup", cause })));
-
-  const revokeByProofKey: SessionStore["Service"]["revokeByProofKey"] = Effect.fn(
-    "SessionStore.revokeByProofKey",
-  )(function* (proofKeyThumbprint) {
-    const revokedAt = yield* DateTime.now;
-    const revokedSessionIds = yield* authSessions
-      .revokeByProofKey({ proofKeyThumbprint, revokedAt })
-      .pipe(Effect.mapError((cause) => new ProofKeySessionsError({ operation: "revoke", cause })));
-    yield* Ref.update(connectedSessionsRef, (current) => {
-      const next = new Map(current);
-      for (const revokedSessionId of revokedSessionIds) next.delete(revokedSessionId);
-      return next;
-    });
-    yield* Effect.forEach(revokedSessionIds, emitRemoved, { discard: true });
-    return revokedSessionIds.length;
-  });
-
   const revokeAllExcept: SessionStore["Service"]["revokeAllExcept"] = Effect.fn(
     "SessionStore.revokeAllExcept",
   )(function* (sessionId) {
@@ -1354,8 +1313,6 @@ const make = Effect.gen(function* () {
     },
     revoke,
     revokeAllExcept,
-    proofKeyThumbprintOf,
-    revokeByProofKey,
     markConnected,
     markDisconnected,
   });

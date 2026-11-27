@@ -56,7 +56,7 @@ export function AppRouteModal({
   // commit, when React no longer delivers its blur, so commit-on-blur rows would drop what was
   // typed. Blur text fields before the navigation renders; other controls keep their focus.
   // Not onBeforeNavigate: the router skips it while a past redirect is still recorded.
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- router listener that blurs a field before navigation unmounts it
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- router listener that blurs a field before navigation unmounts it
   useEffect(
     () =>
       router.subscribe("onBeforeLoad", ({ pathChanged }) => {
@@ -72,7 +72,7 @@ export function AppRouteModal({
     <DialogPrimitive.Root
       open={open}
       actionsRef={actionsRef}
-      // Portaled layers outside this tree (toasts, Clerk, confirm dialogs) are not backdrop presses.
+      // Portaled layers outside this tree (toasts, confirm dialogs) are not backdrop presses.
       disablePointerDismissal
       onOpenChange={(nextOpen, eventDetails) => {
         if (nextOpen) return;
@@ -80,7 +80,7 @@ export function AppRouteModal({
         if (eventDetails.reason === "escape-key" && eventDetails.event.repeat) {
           return eventDetails.cancel();
         }
-        // Esc from a layer outside Base UI (Clerk's modals) is that layer's to handle.
+        // Esc from a layer outside Base UI (for example, a native dialog) is that layer's to handle.
         const target = eventDetails.event.target;
         if (
           eventDetails.reason === "escape-key" &&

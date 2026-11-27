@@ -3,14 +3,14 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 
 import { run } from "./shell.ts";
-import { runPromise, test, WEB } from "./t3.ts";
+import { runPromise, test, WEB } from "./a4code.ts";
 
 test(
   "A failed partial commit keeps excluded files out of the retry",
   WEB,
-  async ({ t3, app, screen }) => {
-    const project = await t3.project("demo");
-    const thread = await t3.thread({ project, title: "Partial commit", messages: ["Start"] });
+  async ({ a4code, app, screen }) => {
+    const project = await a4code.project("demo");
+    const thread = await a4code.thread({ project, title: "Partial commit", messages: ["Start"] });
 
     await runPromise(
       Effect.gen(function* () {
@@ -26,7 +26,7 @@ test(
       }),
     );
 
-    await t3.open(thread);
+    await a4code.open(thread);
     const openCommit = async () => {
       await screen.getByRole("button", "Git action options").tap();
       await screen.getByRole("menuitem", "Commit", { exact: true }).tap();

@@ -1,4 +1,4 @@
-import { createEnvironmentCatalogAtoms } from "@t3tools/client-runtime/state/connections";
+import { createEnvironmentCatalogAtoms } from "@a4code/client-runtime/state/connections";
 
 import { connectionAtomRuntime } from "./runtime";
 

@@ -3,8 +3,8 @@ import type {
   ProjectId,
   PullRequestRef,
   RepositoryIdentity,
-} from "@t3tools/contracts";
-import type { ChangeRequestLink } from "@t3tools/source-control-core/shared/definition";
+} from "@a4code/contracts";
+import type { ChangeRequestLink } from "@a4code/source-control-core/shared/definition";
 
 import { sourceControlClients } from "./sourceControlClients.ts";
 

@@ -5,5 +5,16 @@
     "types": ["node"],
     "lib": ["ESNext", "esnext.disposable"]
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts"],
+  "exclude": [
+    "mobile-*",
+    "mobile*/**",
+    "metrics/mobile/**",
+    "scenarios/*-mobile.ts",
+    "export-android-icons.ts",
+    "scenarios/mobile-opens-a-seeded-thread.e2e.ts",
+    "scenarios/terminal-latched-modifier-reads-selected.e2e.ts",
+    "scenarios/git-menu-branch-keeps-whole-characters.e2e.ts",
+    "scenarios/new-task-draft-title-keeps-whole-characters.e2e.ts"
+  ]
 }

@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
-import { runPromise, test, WEB } from "./t3.ts";
+import { runPromise, test, WEB } from "./a4code.ts";
 
 const LABEL = "Open the generated checklist";
 const FILE = "generated-checklist.txt";
@@ -13,8 +13,8 @@ const CONTENT = "Example checklist content";
 test(
   "A labeled sandbox link opens an absolute file in the thread's right panel",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    const project = await t3.project("demo");
+  async ({ a4code, app, browser, screen }) => {
+    const project = await a4code.project("demo");
     const destination = await runPromise(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -24,12 +24,12 @@ test(
         return `sandbox:${(yield* path.toFileUrl(file)).pathname}`;
       }),
     );
-    const thread = await t3.thread({
+    const thread = await a4code.thread({
       project,
       title: "Review generated checklist",
       messages: [`See [${LABEL}](${destination})`],
     });
-    await t3.open(thread);
+    await a4code.open(thread);
     await screen.getByRole("button", /^Agent See/).tap();
 
     try {

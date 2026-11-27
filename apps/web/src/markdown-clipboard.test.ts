@@ -7,11 +7,11 @@ import {
   serializeTableElementToHtml,
   serializeTableElementToMarkdown,
 } from "./markdown-clipboard";
-import { EnvironmentId, MessageId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, MessageId, ThreadId } from "@a4code/contracts";
 import {
   collectAssistantCitations,
   serializeAssistantCitation,
-} from "@t3tools/shared/assistantCitations";
+} from "@a4code/shared/assistantCitations";
 import type { Element as HastElement, ElementContent, Root } from "hast";
 
 import { markdownTree } from "./markdown/wordsHast";
@@ -165,7 +165,7 @@ function renderedCodeBlock(lines: ReadonlyArray<string>): FakeElement {
 
 describe("serializeRenderedMarkdownFragment", () => {
   it("copies a popover context reference once, without its details or nested label", () => {
-    const reference = "[Review comment](t3-context://v1/review-comment/review-1)";
+    const reference = "[Review comment](a4-context://v1/review-comment/review-1)";
     const container = new FakeElement("DIV").append(
       new FakeText("Fix "),
       new FakeElement("BUTTON", [], { "data-markdown-copy": reference }).append(
@@ -239,7 +239,7 @@ describe("serializeRenderedMarkdownFragment", () => {
   });
 
   it.each([
-    String.raw`see C:\me\.t3\shot.png`,
+    String.raw`see C:\me\.a4code\shot.png`,
     String.raw`C:\work\_build`,
     "C:/work/_build/out.txt",
     String.raw`C:\work\a-_b.txt`,

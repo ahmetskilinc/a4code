@@ -1,14 +1,14 @@
 import { msg } from "gt-react";
-import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
+import { thrownErrorMessage } from "@a4code/client-runtime/errors";
 import { m } from "~/i18n/messages";
-import type { ModelSelection, RuntimeMode, ScopedThreadRef } from "@t3tools/contracts";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import type { StartThreadTurnInput } from "@t3tools/client-runtime/operations";
+import type { ModelSelection, RuntimeMode, ScopedThreadRef } from "@a4code/contracts";
+import { scopeThreadRef } from "@a4code/client-runtime/environment";
+import type { StartThreadTurnInput } from "@a4code/client-runtime/operations";
 import {
   type AtomCommandResult,
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@a4code/client-runtime/state/runtime";
 import { useRef } from "react";
 
 import { newMessageId, newThreadId } from "~/lib/utils";
@@ -61,7 +61,7 @@ export function useSideChat(input: {
     const targetThreadId = newThreadId();
     const fork = await forkSideChat({
       environmentId: threadRef.environmentId,
-      // oxlint-disable-next-line t3code/no-untranslated-copy -- stored on the server as the thread title, shared by every viewer
+      // oxlint-disable-next-line a4code/no-untranslated-copy -- stored on the server as the thread title, shared by every viewer
       input: { sourceThreadId: threadRef.threadId, targetThreadId, title: "Side chat" },
     });
     if (fork._tag === "Failure") {

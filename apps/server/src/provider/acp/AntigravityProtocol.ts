@@ -2,9 +2,9 @@ import type {
   ProviderApprovalOption,
   ProviderUserInputAnswers,
   UserInputQuestion,
-} from "@t3tools/contracts";
-import { isWorkspaceImagePreviewPath } from "@t3tools/shared/filePreview";
-import { resolveT3McpToolId } from "@t3tools/shared/t3McpToolPresentation";
+} from "@a4code/contracts";
+import { isWorkspaceImagePreviewPath } from "@a4code/shared/filePreview";
+import { resolveA4McpToolId } from "@a4code/shared/a4McpToolPresentation";
 import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
@@ -14,13 +14,13 @@ import * as AcpWireSchema from "effect-acp/schema-v1";
 import {
   ACP_RAW_INPUT_PATH_KEYS,
   acpChangedPathsOfToolCall,
-} from "@t3tools/provider-acp/server/clientPolicy";
-import type { AcpAdapterV2Flavor } from "@t3tools/provider-acp/server/adapter";
-import { parseElicitationForm } from "@t3tools/provider-acp/server/elicitationForm";
+} from "@a4code/provider-acp/server/clientPolicy";
+import type { AcpAdapterV2Flavor } from "@a4code/provider-acp/server/adapter";
+import { parseElicitationForm } from "@a4code/provider-acp/server/elicitationForm";
 import {
   extractMcpToolCallIdentity,
   type AcpToolCallState,
-} from "@t3tools/provider-acp/server/runtimeModel";
+} from "@a4code/provider-acp/server/runtimeModel";
 
 import {
   ANTIGRAVITY_EDIT_DIFF_OMITTED,
@@ -354,7 +354,7 @@ function antigravityClientReadPath(update: {
 
 /**
  * The agent never completes a subagent's `client_view_file` call, then fails every open call
- * with the next unrelated step error. Report reads T3 served as completed instead.
+ * with the next unrelated step error. Report reads a4code served as completed instead.
  */
 export function makeAntigravityReadRepair() {
   type Outcome = "served" | "refused";
@@ -372,7 +372,7 @@ export function makeAntigravityReadRepair() {
     },
     /**
      * Each `fs/read_text_file` request answers the oldest open read of its path, in order.
-     * Returns the call a served read completes, so T3 can report it without waiting.
+     * Returns the call a served read completes, so a4code can report it without waiting.
      */
     attempted: (path: string, served: boolean) => {
       const outcome = served ? "served" : "refused";
@@ -432,11 +432,11 @@ function stripAntigravityToolSummary(value: unknown): unknown {
 }
 
 /**
- * agy adds its own `toolSummary` to MCP call arguments. T3 records its MCP results under the
+ * agy adds its own `toolSummary` to MCP call arguments. a4code records its MCP results under the
  * arguments it received, so the summary is dropped before the shared adapter matches them.
- * Untitled updates cannot be identified and are stripped too; titled non-T3 calls keep it.
+ * Untitled updates cannot be identified and are stripped too; titled non-a4code calls keep it.
  */
-function withoutT3McpToolSummary(
+function withoutA4McpToolSummary(
   update: Extract<
     EffectAcpSchema.SessionNotification["update"],
     { readonly sessionUpdate: "tool_call" | "tool_call_update" }
@@ -456,7 +456,7 @@ function withoutT3McpToolSummary(
     });
     if (
       identity === undefined ||
-      resolveT3McpToolId(`${identity.server}.${identity.tool}`) === null
+      resolveA4McpToolId(`${identity.server}.${identity.tool}`) === null
     ) {
       return rawInput;
     }
@@ -465,7 +465,7 @@ function withoutT3McpToolSummary(
 }
 
 /** Stands in for a content entry the size limits removed or cut, so its paths read as unknown. */
-const UNREAD_TOOL_CONTENT = { type: "_t3_unknown", originalType: "unread", raw: null } as const;
+const UNREAD_TOOL_CONTENT = { type: "_a4_unknown", originalType: "unread", raw: null } as const;
 
 function namesSamePaths(
   sent: { readonly content: ReadonlyArray<unknown> },
@@ -520,7 +520,7 @@ export function normalizeAntigravitySessionUpdate(
         ? {
             rawInput: withSentRawInputPaths(
               update.rawInput,
-              sanitizeAntigravityToolPayload(withoutT3McpToolSummary(update)),
+              sanitizeAntigravityToolPayload(withoutA4McpToolSummary(update)),
             ),
           }
         : {}),

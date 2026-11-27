@@ -5,14 +5,14 @@ import {
   withFileDiffFold,
   withPullRequestDiffFold,
   type FileDiffFoldChoices,
-} from "@t3tools/client-runtime/pull-request-diff-fold";
+} from "@a4code/client-runtime/pull-request-diff-fold";
 import {
   parsePullRequestAnchor,
   pullRequestDiffPathMatches,
   pullRequestLinkCommit,
   resolvePullRequestAnchorRange,
-} from "@t3tools/shared/pullRequestAnchor";
-import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
+} from "@a4code/shared/pullRequestAnchor";
+import { sourceControlClients } from "@a4code/client-runtime/source-control-clients";
 import type {
   CodeViewItem,
   DiffLineAnnotation,
@@ -31,8 +31,8 @@ import type {
   PullRequestReviewThread,
   PullRequestThreadCommentsResult,
   ScopedThreadRef,
-} from "@t3tools/contracts";
-import { SOURCE_CONTROL_MEDIA_ASSET } from "@t3tools/contracts";
+} from "@a4code/contracts";
+import { SOURCE_CONTROL_MEDIA_ASSET } from "@a4code/contracts";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -80,11 +80,11 @@ import {
 import {
   canEditPullRequestComment,
   canResolvePullRequestThread,
-} from "@t3tools/client-runtime/pull-request-editing";
-import { fileDiffRows } from "@t3tools/client-runtime/review-guide-tour";
-import { isTestChangedFile } from "@t3tools/shared/changedFileKind";
-import { orderDiffFilesForReview } from "@t3tools/client-runtime/diff-file-order";
-import { isWorkspaceImagePreviewPath } from "@t3tools/shared/mediaPreview";
+} from "@a4code/client-runtime/pull-request-editing";
+import { fileDiffRows } from "@a4code/client-runtime/review-guide-tour";
+import { isTestChangedFile } from "@a4code/shared/changedFileKind";
+import { orderDiffFilesForReview } from "@a4code/client-runtime/diff-file-order";
+import { isWorkspaceImagePreviewPath } from "@a4code/shared/mediaPreview";
 import {
   buildFileDiffContentVersion,
   buildFileDiffIdentityKey,
@@ -148,7 +148,7 @@ import { getFileViewedRange, isLineInFileDiff } from "./pullRequestDiff.logic";
 import { PullRequestDiffStat, PullRequestMetaLine } from "./pullRequestPresentation";
 import { PullRequestDiffUnavailableState } from "./PullRequestDiffUnavailableState";
 import { usePullRequestFilesViewed } from "./usePullRequestFilesViewed";
-import { hasCutLines } from "@t3tools/shared/diffCutLines";
+import { hasCutLines } from "@a4code/shared/diffCutLines";
 import { CUT_LINES_CSS, markCutLineNotes } from "./cutLineNotes";
 import {
   nextPendingReviewCommentId,
@@ -193,7 +193,7 @@ type ReviewAnnotation = DiffLineAnnotation<ReviewAnnotationGroup>;
 
 const COMMIT_PAGE_SIZE = 10;
 
-const PULL_REQUEST_FILE_TREE_STORAGE_KEY = "t3code.pullRequestFileTreeOpen";
+const PULL_REQUEST_FILE_TREE_STORAGE_KEY = "a4code.pullRequestFileTreeOpen";
 
 interface DiffSlice {
   readonly source: PullRequestDiffResult;
@@ -667,7 +667,7 @@ function PullRequestCodeTab({
     for (const path of withheldPaths) atomRegistry.refresh(withheldFileDiff(path));
   });
   const appliedRefreshToken = useRef(refreshToken);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- a new refresh token clears loaded slices and refetches the first diff page and viewed files
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- a new refresh token clears loaded slices and refetches the first diff page and viewed files
   useEffect(() => {
     if (appliedRefreshToken.current === refreshToken) return;
     appliedRefreshToken.current = refreshToken;
@@ -680,7 +680,7 @@ function PullRequestCodeTab({
     refreshFilesViewed();
   }, [refreshToken, scopeKey, refreshFirstDiffPage, refreshFilesViewed]);
   const appliedBackgroundRefreshToken = useRef(backgroundRefreshToken);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- a background refresh token refetches the first diff page and viewed files while keeping slices
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- a background refresh token refetches the first diff page and viewed files while keeping slices
   useEffect(() => {
     if (appliedBackgroundRefreshToken.current === backgroundRefreshToken) return;
     appliedBackgroundRefreshToken.current = backgroundRefreshToken;
@@ -1162,7 +1162,7 @@ function PullRequestCodeTab({
         : buildDiffReviewComment({
             id: `pull-request-selection:${diffReviewSelectionId(draftFileKey, anchor.range)}`,
             sectionId: `pull-request:${detail.number}`,
-            // oxlint-disable-next-line t3code/no-untranslated-copy -- context title sent to the agent
+            // oxlint-disable-next-line a4code/no-untranslated-copy -- context title sent to the agent
             sectionTitle: `PR #${detail.number} review`,
             filePath: anchor.path,
             fileDiff: draftFile,
@@ -1828,7 +1828,7 @@ function PullRequestCodeTab({
     answeredRevealNonce.current = revealRequest.nonce;
     revealFile(revealRequest.path);
   });
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- scrolls the code view to a requested file once loaded, or pages forward until it arrives
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- scrolls the code view to a requested file once loaded, or pages forward until it arrives
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect -- A reveal for a file not loaded yet pages forward, which sets the slice cursor.
     answerReveal();
@@ -1880,7 +1880,7 @@ function PullRequestCodeTab({
         : undefined,
     );
   });
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- pages and scrolls the virtual diff to a clicked file or line range
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- pages and scrolls the virtual diff to a clicked file or line range
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect -- revealing unfolds the target and may request the next diff page
     revealLink();
@@ -2076,7 +2076,7 @@ function PullRequestCodeTab({
         {fileTreeOpen ? (
           <FileExplorerPane
             resizable
-            storageKey="t3code:diff-file-tree-width"
+            storageKey="a4code:diff-file-tree-width"
             defaultWidth={320}
             defaultWidthFraction={0.4}
             minWidth={192}

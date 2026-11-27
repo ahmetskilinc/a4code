@@ -1,21 +1,21 @@
-import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
-import { AuthSettingsWriteScope, EnvironmentAuthorizationError } from "@t3tools/contracts";
+import { thrownErrorMessage } from "@a4code/client-runtime/errors";
+import { AuthSettingsWriteScope, EnvironmentAuthorizationError } from "@a4code/contracts";
 import { readEnvironmentScope } from "../../state/session";
 import {
   isAtomCommandInterrupted,
   mapAtomCommandResult,
   squashAtomCommandFailure,
   type AtomCommandResult,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@a4code/client-runtime/state/runtime";
 import {
   type EnvironmentId,
   type ProjectId,
   type ProjectScript,
   type ResolvedKeybindingsConfig,
   type ServerSettings,
-} from "@t3tools/contracts";
-import { resolveProjectScripts } from "@t3tools/shared/projectScripts";
-import { clearProjectSettingsOverrides } from "@t3tools/shared/projectSettings";
+} from "@a4code/contracts";
+import { resolveProjectScripts } from "@a4code/shared/projectScripts";
+import { clearProjectSettingsOverrides } from "@a4code/shared/projectSettings";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
 import { msg } from "gt-react";

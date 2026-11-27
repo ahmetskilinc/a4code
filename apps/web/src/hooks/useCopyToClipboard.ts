@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import {
   COMPOSER_CONTEXT_CLIPBOARD_MIME,
   encodeComposerContextClipboardHtml,
-} from "@t3tools/shared/composerContextClipboard";
+} from "@a4code/shared/composerContextClipboard";
 import { msg } from "gt-react";
 
 import { m } from "../i18n/messages";
@@ -319,7 +319,7 @@ export function useCopyToClipboard<TContext = void>({
     settleCopy(writePngToClipboard(png, target), ctx);
   });
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- clears the copied-state reset timer on unmount
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- clears the copied-state reset timer on unmount
   React.useEffect(() => {
     return (): void => {
       if (timeoutIdRef.current) {

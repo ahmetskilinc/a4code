@@ -1,5 +1,5 @@
 {
-  "name": "@t3tools/scripts",
+  "name": "@a4code/scripts",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,16 +8,14 @@
     "test": "vp test run --config ../vite.config.ts --dir ."
   },
   "dependencies": {
-    "@e2e-dev/mobile": "0.12.6",
     "@e2e-dev/web": "0.15.5",
     "@effect/platform-node": "catalog:",
     "@electron/asar": "^4.3.0",
     "@electron/osx-sign": "2.7.0",
-    "@t3tools/contracts": "workspace:*",
-    "@t3tools/provider-testing": "workspace:*",
-    "@t3tools/shared": "workspace:*",
-    "@t3tools/tailscale": "workspace:*",
-    "agent-device": "0.21.41",
+    "@a4code/contracts": "workspace:*",
+    "@a4code/provider-testing": "workspace:*",
+    "@a4code/shared": "workspace:*",
+    "@a4code/tailscale": "workspace:*",
     "e2e": "0.24.0",
     "effect": "catalog:",
     "playwright-core": "1.64.1",

@@ -1,45 +1,28 @@
-import {
-  ProviderDriverKind,
-  ProviderSetupError,
-  TextGenerationError,
-  type CodexSettings,
-} from "@t3tools/contracts";
+import { ProviderDriverKind, TextGenerationError, type CodexSettings } from "@a4code/contracts";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 import * as Option from "effect/Option";
-import { ChildProcessSpawner } from "effect/process";
 import { makeCodexTextGeneration } from "../../textGeneration/CodexTextGeneration.ts";
-import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
-import { chatGptModels } from "../CodexChatGptModels.ts";
+import * as ProviderHost from "@a4code/provider-core/server/ProviderHost";
+import * as ModelCatalog from "@a4code/provider-core/server/ModelCatalog";
 import { makeCodexManagedRuntime } from "../CodexManagedRuntime.ts";
 import { ProviderDriverError } from "../Errors.ts";
 import { createCodexAdapterV2 } from "../../orchestration-v2/Adapters/CodexAdapterV2.ts";
-import {
-  checkCodexProviderStatus,
-  makePendingCodexProvider,
-  probeCodexSkillsForCwd,
-} from "../CodexProvider.ts";
-import { makeManagedServerProvider } from "@t3tools/provider-core/server/managedProvider";
-import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
+import { makePendingCodexProvider } from "../CodexProvider.ts";
+import { makeManagedServerProvider } from "@a4code/provider-core/server/managedProvider";
+import { mergeProviderInstanceEnvironment } from "@a4code/provider-core/server/instanceEnvironment";
 import {
   type ProviderDriverCreateInput,
   type ProviderInstance,
-} from "@t3tools/provider-core/server/driver";
+} from "@a4code/provider-core/server/driver";
 import { codexContinuationIdentity } from "./CodexHomeLayout.ts";
-import { withInstanceIdentity } from "@t3tools/provider-core/server/instanceIdentity";
-import { HttpClient } from "effect/http";
+import { withInstanceIdentity } from "@a4code/provider-core/server/instanceIdentity";
 const DRIVER = ProviderDriverKind.make("codex");
 
 export const makeManagedCodexProvider = Effect.fn("makeManagedCodexProvider")(function* (
   input: ProviderDriverCreateInput<CodexSettings>,
 ) {
   const { instanceId, enabled, displayName, accentColor, config } = input;
-  const http = yield* HttpClient.HttpClient;
-  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  const fileSystem = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
   const host = yield* ProviderHost.ProviderHost;
   const runtime = yield* makeCodexManagedRuntime({
     instanceId,
@@ -55,6 +38,9 @@ export const makeManagedCodexProvider = Effect.fn("makeManagedCodexProvider")(fu
     accentColor,
     continuationGroupKey: continuationIdentity.continuationKey,
   });
+  const catalog = (yield* ModelCatalog.ModelCatalog).bundled(DRIVER);
+  const bundledModels =
+    catalog?.models.map((model) => ModelCatalog.catalogServerModel(catalog, model)) ?? [];
   const setup = { canAuthenticate: true, canInstall: true };
   const runtimePaths = {
     homePath: runtime.homeLayout.sharedHomePath,
@@ -106,115 +92,34 @@ export const makeManagedCodexProvider = Effect.fn("makeManagedCodexProvider")(fu
         message: "Sign in with ChatGPT to use Codex.",
         auth: { status: "unauthenticated" as const },
       };
-    const usageLimits = {
-      checkedAt: base.checkedAt,
-      windows: [],
-      unavailable: {
-        reason: "unsupported" as const,
-        message:
-          "ChatGPT tracks subscription usage across connected apps. Open Usage settings with the account you connected to Codex.",
+    const { message: _pendingMessage, ...draft } = base;
+    return {
+      ...draft,
+      installed: true,
+      status: "ready" as const,
+      version: executable.value.version,
+      models: bundledModels.map((model) => ({
+        ...model,
+        capabilities: model.capabilities
+          ? {
+              ...model.capabilities,
+              optionDescriptors:
+                model.capabilities.optionDescriptors?.filter(
+                  (option) => option.id !== "serviceTier",
+                ) ?? [],
+            }
+          : null,
+      })),
+      auth: {
+        status: "authenticated" as const,
+        type: "chatgpt",
+        label: "ChatGPT",
+        subscriptionSharing: true,
+        profileId: saved.value.clientId,
+        ...(saved.value.email?.trim() ? { email: saved.value.email.trim() } : {}),
       },
-      externalUsage: { label: "ChatGPT usage", url: "https://chatgpt.com/#settings/Usage" },
     };
-    const managedAuth = {
-      subscriptionSharing: true,
-      profileId: saved.value.clientId,
-      status: "authenticated" as const,
-      type: "chatgpt",
-      label: "ChatGPT",
-      ...(saved.value.email?.trim() ? { email: saved.value.email.trim() } : {}),
-    };
-    return yield* runtime.auth.controller.withAccess!(runtime.resolve).pipe(
-      Effect.flatMap((effective) =>
-        Effect.gen(function* () {
-          const draft = yield* checkCodexProviderStatus(
-            effective.config,
-            undefined,
-            effective.environment,
-            managedAuth,
-          );
-          const credentials = yield* runtime.auth.access;
-          // Another server can replace the saved profile while the native probe runs.
-          // Never send that account's token with the launch profile's catalog labels.
-          if (
-            (yield* runtime.auth.profileKey(credentials)) !== effective.revision ||
-            (yield* runtime.auth.profileKey(saved.value)) !== effective.revision
-          )
-            return yield* new ProviderSetupError({
-              instanceId,
-              operation: "models",
-              detail: "The ChatGPT connection changed while checking Codex. Retry.",
-            });
-          const models = yield* chatGptModels(credentials.accessToken, draft.models).pipe(
-            Effect.provideService(HttpClient.HttpClient, http),
-          );
-          return { ...draft, models };
-        }),
-      ),
-      Effect.map((draft) =>
-        stamp({
-          ...draft,
-          auth: managedAuth,
-          version: draft.version ?? executable.value.version,
-          usageLimits,
-          models: draft.models.map((model) => ({
-            ...model,
-            ...(model.capabilities
-              ? {
-                  capabilities: {
-                    ...model.capabilities,
-                    optionDescriptors: (model.capabilities.optionDescriptors ?? []).filter(
-                      (option) => option.id !== "serviceTier",
-                    ),
-                  },
-                }
-              : {}),
-          })),
-          setup,
-          runtimePaths,
-          ...(draft.slashCommands
-            ? {
-                slashCommands: draft.slashCommands.filter((command) => command.name !== "feedback"),
-              }
-            : {}),
-        }),
-      ),
-      Effect.catch(() =>
-        runtime.auth.read.pipe(
-          Effect.orElseSucceed(() => Option.none()),
-          Effect.map((current) => ({
-            ...base,
-            installed: true,
-            version: executable.value.version,
-            models: [],
-            auth: {
-              status:
-                Option.isSome(current) && current.value.scopes.includes("chatgpt.tokens.use.direct")
-                  ? ("authenticated" as const)
-                  : ("unauthenticated" as const),
-              label: "ChatGPT",
-              ...(Option.isSome(current) &&
-              current.value.scopes.includes("chatgpt.tokens.use.direct")
-                ? { subscriptionSharing: true, profileId: current.value.clientId }
-                : {}),
-              ...(Option.isSome(current) && current.value.email?.trim()
-                ? { email: current.value.email.trim() }
-                : {}),
-            },
-            ...(Option.isSome(current) && current.value.scopes.includes("chatgpt.tokens.use.direct")
-              ? { usageLimits }
-              : {}),
-            message: "Could not check Codex right now. Retry, or reconnect in provider settings.",
-          })),
-        ),
-      ),
-      Effect.scoped,
-    );
-  }).pipe(
-    Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-    Effect.provideService(FileSystem.FileSystem, fileSystem),
-    Effect.provideService(Path.Path, path),
-  );
+  });
   const snapshot = yield* makeManagedServerProvider({
     resolveMaintenance: () => Effect.succeed({ provider: DRIVER, packageName: null, update: null }),
     getSettings: host.settings.get,
@@ -222,6 +127,7 @@ export const makeManagedCodexProvider = Effect.fn("makeManagedCodexProvider")(fu
     haveSettingsChanged: () => false,
     initialSnapshot: () => pending,
     checkProvider: check,
+    refreshOnInterval: false,
   }).pipe(
     Effect.mapError(
       (cause) =>
@@ -303,44 +209,5 @@ export const makeManagedCodexProvider = Effect.fn("makeManagedCodexProvider")(fu
     orchestrationAdapter,
     textGeneration,
     auth: runtime.auth.controller,
-    snapshotForCwd: (cwd: string) =>
-      enabled
-        ? resolveRuntime.pipe(
-            Effect.matchEffect({
-              // Signed-out snapshots have an empty inventory; a signed-in runtime failure must fail the scan.
-              onFailure: (cause) =>
-                snapshot.getSnapshot.pipe(
-                  Effect.filterOrFail(
-                    (machine) => machine.auth.status === "unauthenticated",
-                    () => cause,
-                  ),
-                ),
-              onSuccess: (effective) =>
-                probeCodexSkillsForCwd({
-                  binaryPath: effective.config.binaryPath,
-                  homePath: effective.config.homePath,
-                  launchArgs: effective.config.launchArgs,
-                  cwd,
-                  environment: effective.environment,
-                }).pipe(
-                  Effect.flatMap((skills) =>
-                    snapshot.getSnapshot.pipe(Effect.map((draft) => ({ ...draft, skills }))),
-                  ),
-                ),
-            }),
-            Effect.scoped,
-            Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-            // Fail instead of returning machine inventory, which the registry would publish as workspace inventory.
-            Effect.mapError(
-              (cause) =>
-                new ProviderDriverError({
-                  driver: DRIVER,
-                  instanceId,
-                  detail: `Failed to probe Codex skills for '${cwd}'`,
-                  cause,
-                }),
-            ),
-          )
-        : snapshot.getSnapshot,
   } satisfies ProviderInstance;
 });

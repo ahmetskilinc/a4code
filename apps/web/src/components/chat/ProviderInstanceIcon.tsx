@@ -4,10 +4,11 @@ import {
   normalizeProviderAccentColor,
   providerAccentForegroundColor,
   providerInstanceInitials,
-} from "@t3tools/client-runtime/state/provider-instance-display";
+} from "@a4code/client-runtime/state/provider-instance-display";
 
-import { ProviderDriverKind } from "@t3tools/contracts";
+import { ProviderDriverKind } from "@a4code/contracts";
 import {
+  ACPRegistryIcon,
   AnthropicIcon,
   AntigravityIcon,
   ClaudeAI,
@@ -20,11 +21,6 @@ import {
 import { cn } from "~/lib/utils";
 import { providerClients } from "../settings/providerDriverMeta";
 import { ProviderPackageIcon } from "./ProviderPackageIcon";
-import {
-  AcpRegistryAgentIcon,
-  officialAcpRegistryIconUrlForAgentId,
-  resolveOfficialAcpRegistryIconUrl,
-} from "../settings/AcpRegistryIcon";
 
 const PROVIDER_ICON_BY_PROVIDER: Partial<Record<ProviderDriverKind, Icon>> = {
   [ProviderDriverKind.make("codex")]: OpenAI,
@@ -74,18 +70,6 @@ export function providerTextColor(driverKind: ProviderDriverKind): {
   return className ? { className } : {};
 }
 
-export function resolveProviderInstanceAcpRegistryIconUrl(input: {
-  readonly driverKind: ProviderDriverKind;
-  readonly agentId?: string | undefined;
-  readonly iconUrl?: string | undefined;
-}): string | null {
-  if (input.driverKind !== "acpRegistry") return null;
-  return (
-    resolveOfficialAcpRegistryIconUrl(input.iconUrl ?? null) ??
-    officialAcpRegistryIconUrlForAgentId(input.agentId?.trim() || null)
-  );
-}
-
 export const ProviderInstanceIcon = memo(function ProviderInstanceIcon(props: {
   driverKind: ProviderDriverKind;
   displayName: string;
@@ -115,11 +99,6 @@ export const ProviderInstanceIcon = memo(function ProviderInstanceIcon(props: {
   const isAcpRegistry = props.driverKind === "acpRegistry";
   // A custom OpenAI-compatible endpoint has no brand: show its name, marked with the protocol.
   const isCustomEndpoint = props.driverKind === "openaiCompatible";
-  const acpRegistryIconUrl = resolveProviderInstanceAcpRegistryIconUrl({
-    driverKind: props.driverKind,
-    agentId: props.acpRegistryAgentId,
-    iconUrl: props.acpRegistryIconUrl,
-  });
 
   return (
     <span
@@ -131,11 +110,7 @@ export const ProviderInstanceIcon = memo(function ProviderInstanceIcon(props: {
       data-provider-accent-color={accentColor}
     >
       {isAcpRegistry ? (
-        <AcpRegistryAgentIcon
-          className={cn("size-5 rounded-none bg-transparent", iconClassName)}
-          fallbackClassName="size-full"
-          icon={acpRegistryIconUrl}
-        />
+        <ACPRegistryIcon aria-hidden className={cn("size-5", iconClassName)} />
       ) : isCustomEndpoint ? (
         // The tile is a size container: below ~18px it keeps one letter and drops the mark.
         <span

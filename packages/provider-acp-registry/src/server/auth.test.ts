@@ -2,7 +2,7 @@ import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Layer from "effect/Layer";
 import { assert, it } from "@effect/vitest";
-import { ProviderInstanceId, type ProviderAuthState } from "@t3tools/contracts";
+import { ProviderInstanceId, type ProviderAuthState } from "@a4code/contracts";
 import { AcpRegistrySettings } from "../settings.ts";
 import * as Deferred from "effect/Deferred";
 import * as Cause from "effect/Cause";
@@ -13,10 +13,10 @@ import * as Stream from "effect/Stream";
 import type * as AcpSchema from "effect-acp/compat";
 import { AcpRequestError } from "effect-acp/errors";
 
-import * as PtyAdapter from "@t3tools/shared/PtyAdapter";
+import * as PtyAdapter from "@a4code/shared/PtyAdapter";
 import { formatFailureDetail, makeAcpRegistryAuth } from "./auth.ts";
 import * as AcpRegistrySupport from "./AcpRegistrySupport.ts";
-import type * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
+import type * as AcpSessionRuntime from "@a4code/provider-acp/server/AcpSessionRuntime";
 
 const decodeSettings = Schema.decodeSync(AcpRegistrySettings);
 const instanceId = ProviderInstanceId.make("acp-auth-test");
@@ -243,13 +243,13 @@ it.effect("keeps local credentials separate from a matching registry agent ID", 
 );
 
 it.effect(
-  "discovers methods without signing in, then waits for browser consent and session verification",
+  "discovers methods on sign-in and waits for browser consent and session verification",
   () =>
     Effect.gen(function* () {
       const h = yield* makeHarness(browserMethod);
       assert.deepEqual(h.authenticated, []);
       assert.deepEqual(h.started, []);
-      assert.deepEqual(h.closed, [1]);
+      assert.deepEqual(h.closed, []);
       const flow = yield* h.controller.start("owner", Effect.void, "browser");
       const waiting = yield* h.phase("waiting");
       assert.deepEqual(waiting.interaction, {

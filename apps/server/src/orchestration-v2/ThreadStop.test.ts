@@ -16,7 +16,7 @@ import {
   ScheduledTaskId,
   ThreadId,
   TurnItemId,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -44,8 +44,8 @@ import * as ProviderSessionManager from "./ProviderSessionManager.ts";
 import { pendingStoppedDelegatedTasks } from "./RestartBackgroundNote.ts";
 import * as ThreadManagementService from "./ThreadManagementService.ts";
 import * as ProviderReplayHarness from "./testkit/ProviderReplayHarness.ts";
-import { checkpointWorkspace } from "@t3tools/provider-testing/replayWorkspace";
-import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import { checkpointWorkspace } from "@a4code/provider-testing/replayWorkspace";
+import type * as ProviderAdapter from "@a4code/provider-core/server/ProviderAdapter";
 
 const instanceId = ProviderInstanceId.make("codex");
 const modelSelection = { instanceId, model: "gpt-5.1-codex" };
@@ -79,7 +79,7 @@ const encodeEffectRequest = Schema.encodeSync(Schema.fromJsonString(Orchestratio
 
 const pullRequest = (number: number) => ({
   host: "github.com",
-  repository: "pingdotgg/t3code",
+  repository: "a4code/a4code",
   number,
 });
 
@@ -112,7 +112,7 @@ const watch = (threadId: ThreadId, number: number) =>
       threadId,
       ...pullRequest(number),
       watching: true,
-      link: { url: `https://github.com/pingdotgg/t3code/pull/${number}`, source: "agent" },
+      link: { url: `https://github.com/a4code/a4code/pull/${number}`, source: "agent" },
     });
   });
 

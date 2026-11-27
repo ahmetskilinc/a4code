@@ -4,12 +4,12 @@ import {
   ThreadId,
   type ScopedThreadRef,
   type ThreadPullRequestLink,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 
-const SCRATCH_ROOT = "/home/user/.t3/scratch";
+const SCRATCH_ROOT = "/home/user/.a4code/scratch";
 
 const state = vi.hoisted(() => ({
   workspaceRoot: "",
@@ -18,8 +18,8 @@ const state = vi.hoisted(() => ({
   configLoaded: true,
 }));
 
-// The read of t3.json is a cache: a re-read is the only way to see what is on disk now.
-const t3File = vi.hoisted(() => ({
+// The read of a4code.json is a cache: a re-read is the only way to see what is on disk now.
+const a4File = vi.hoisted(() => ({
   disk: "",
   cached: "",
   listeners: new Set<() => void>(),
@@ -33,17 +33,17 @@ vi.mock(import("~/components/files/projectFilesQueryState"), async (importOrigin
     useProjectFileQuery: ((_environmentId: unknown, _cwd: string, relativePath: string | null) => {
       const contents = useSyncExternalStore(
         (listener) => {
-          t3File.listeners.add(listener);
-          return () => t3File.listeners.delete(listener);
+          a4File.listeners.add(listener);
+          return () => a4File.listeners.delete(listener);
         },
-        () => t3File.cached,
+        () => a4File.cached,
       );
       const refresh = () => {
-        t3File.cached = t3File.disk;
-        for (const listener of t3File.listeners) listener();
+        a4File.cached = a4File.disk;
+        for (const listener of a4File.listeners) listener();
       };
       const data =
-        relativePath === "t3.json" && contents !== ""
+        relativePath === "a4code.json" && contents !== ""
           ? { relativePath, contents, byteLength: contents.length, truncated: false }
           : null;
       return {
@@ -137,9 +137,9 @@ const container = { width: 1200, height: 800 };
 const placement = { x: 908, y: 0, right: 12, width: 280, height: 400 } as const;
 const linkedPullRequest: ThreadPullRequestLink = {
   host: "github.com",
-  repository: "pingdotgg/t3code",
+  repository: "example/demo",
   number: 27513,
-  url: "https://github.com/pingdotgg/t3code/pull/27513",
+  url: "https://github.com/example/demo/pull/27513",
   source: "manual",
   linkedAt: "2026-10-30T00:00:00.000Z",
   snapshot: null,
@@ -295,12 +295,12 @@ it("offers no Initialize Git before the server config says where No project live
     .not.toBeInTheDocument();
 });
 
-it("lists the t3.json actions on disk when the actions menu opens again after the file changed", async () => {
+it("lists the a4code.json actions on disk when the actions menu opens again after the file changed", async () => {
   using fixture = setup({ workspaceRoot: "/work/plain", folder: "/work/plain" });
-  const t3Json = (name: string) =>
+  const a4Json = (name: string) =>
     JSON.stringify({ scripts: [{ name, command: `npm run dev -- --port ${name.slice(-4)}` }] });
-  t3File.disk = t3Json("Dev 4100");
-  t3File.cached = t3File.disk;
+  a4File.disk = a4Json("Dev 4100");
+  a4File.cached = a4File.disk;
   await using _screen = await render(<Panel fixture={fixture} withScripts />);
 
   const chooser = page.getByRole("button", { name: "Choose project action" });
@@ -309,8 +309,8 @@ it("lists the t3.json actions on disk when the actions menu opens again after th
   await chooser.click();
   await expect.element(page.getByRole("menu")).not.toBeInTheDocument();
 
-  // A setup hook rewrites this checkout's t3.json outside T3 Code.
-  t3File.disk = t3Json("Dev 4200");
+  // A setup hook rewrites this checkout's a4code.json outside a4code.
+  a4File.disk = a4Json("Dev 4200");
 
   await chooser.click();
   await expect.element(page.getByRole("menuitem", { name: /Dev 4200/ })).toBeVisible();

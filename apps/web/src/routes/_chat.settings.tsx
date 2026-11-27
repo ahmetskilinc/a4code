@@ -56,28 +56,9 @@ function SettingsScopeBoundary({ pathname, children }: { pathname: string; child
     select: (location) => (location.pathname === pathname ? location.hash : ""),
   });
   const searchTarget = getSettingsSearchTargetScope(hash);
-  const agentFeedbackAvailability = searchTarget?.agentFeedbackOnly
-    ? {
-        eligibleEnvironmentIds: environments
-          .filter(
-            (environment) =>
-              environment.connection.phase === "connected" &&
-              environment.serverConfig?.environment.capabilities.agentFeedback === true,
-          )
-          .map((environment) => environment.environmentId),
-        isTargetAvailable:
-          connectedEnvironments.length > 0 &&
-          connectedEnvironments.every(
-            (environment) =>
-              environment.serverConfig?.environment.capabilities.agentFeedback === true,
-          ),
-      }
+  const targetAvailability = searchTarget?.requiresThreadAutoSettlement
+    ? getThreadAutoSettlementSearchAvailability(environments, scope)
     : null;
-  const targetAvailability =
-    agentFeedbackAvailability ??
-    (searchTarget?.requiresThreadAutoSettlement
-      ? getThreadAutoSettlementSearchAvailability(environments, scope)
-      : null);
   if (
     scope.kind !== "unavailable" &&
     searchTarget &&

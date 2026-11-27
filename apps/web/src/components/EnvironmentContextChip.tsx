@@ -1,4 +1,4 @@
-import { type EnvironmentContextRecord, resolveEnvironmentMachineKind } from "@t3tools/contracts";
+import { type EnvironmentContextRecord, resolveEnvironmentMachineKind } from "@a4code/contracts";
 
 import { useGT } from "gt-react";
 
@@ -33,7 +33,7 @@ export function EnvironmentContextChip(props: {
           <ContextChipLabel>{label}</ContextChipLabel>
         </ContextChip>
       }
-      label={environment ? gt("T3 Code environment") : gt("Machine not in this app")}
+      label={environment ? gt("a4code environment") : gt("Machine not in this app")}
     />
   );
 }

@@ -1,16 +1,16 @@
 import {
   DEFAULT_SERVER_SETTINGS,
   type ScopedProjectRef,
-  type T3ProjectFile,
-} from "@t3tools/contracts";
-import { resolveNewThreadEnvMode, resolveProjectSettings } from "@t3tools/shared/projectSettings";
+  type A4ProjectFile,
+} from "@a4code/contracts";
+import { resolveNewThreadEnvMode, resolveProjectSettings } from "@a4code/shared/projectSettings";
 
 import type { DraftSessionState } from "../composerDraftStore";
 import { readProject, readThreadShells } from "../state/entities";
 import { readEnvironment } from "../state/environments";
 import { readUnloadedThreadCount } from "../state/olderSettledShelf";
 import { resolveNewDraftStartFromOrigin } from "./chatThreadActions";
-import { peekT3ProjectFile, readT3ProjectFile } from "./t3ProjectFileDefaults";
+import { peekA4ProjectFile, readA4ProjectFile } from "./a4ProjectFileDefaults";
 
 function readWorkspaceContext(projectRef: ScopedProjectRef) {
   const project = readProject(projectRef);
@@ -20,17 +20,17 @@ function readWorkspaceContext(projectRef: ScopedProjectRef) {
 
 async function newThreadWorkspace(projectRef: ScopedProjectRef, signal: AbortSignal) {
   let { project, serverConfig, settings } = readWorkspaceContext(projectRef);
-  let projectFile: T3ProjectFile | null = null;
+  let projectFile: A4ProjectFile | null = null;
   const workspaceRoot = project?.workspaceRoot;
   if (
     workspaceRoot &&
     resolveProjectSettings(settings, projectRef.projectId, project).settings
       .defaultThreadEnvMode === null
   ) {
-    const cached = peekT3ProjectFile(projectRef.environmentId, workspaceRoot);
+    const cached = peekA4ProjectFile(projectRef.environmentId, workspaceRoot);
     if (cached === undefined) {
       // A paired project can appear before its connection summary reports connected.
-      projectFile = await readT3ProjectFile(projectRef.environmentId, workspaceRoot, signal);
+      projectFile = await readA4ProjectFile(projectRef.environmentId, workspaceRoot, signal);
       ({ project, serverConfig, settings } = readWorkspaceContext(projectRef));
     } else {
       projectFile = cached;

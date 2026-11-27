@@ -1,4 +1,4 @@
-import { CommandId, type ModelSelection, type ThreadId } from "@t3tools/contracts";
+import { CommandId, type ModelSelection, type ThreadId } from "@a4code/contracts";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -8,7 +8,7 @@ import {
   type EnvironmentId,
   type OrchestrationV2ShellSnapshot,
   type OrchestrationV2ThreadShell,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 
 import { createOptimisticThreadLifecycle } from "./threadLifecycle.ts";
 import type { EnvironmentShellStatus } from "./shell.ts";
@@ -506,12 +506,6 @@ export function createThreadEnvironmentAtoms<R, E>(
         key: ({ environmentId, input }) =>
           `history:${JSON.stringify([environmentId, input.threadId])}`,
       },
-    }),
-    uploadFeedback: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:commands:thread:upload-feedback",
-      tag: WS_METHODS.providerUploadFeedback,
-      scheduler,
-      concurrency,
     }),
     // Outside the thread's queue: finishing can wait on the agent, and messages must not.
     mcpSignInStart: createEnvironmentRpcCommand(runtime, {

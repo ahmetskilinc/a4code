@@ -1,26 +1,25 @@
 import {
   AVAILABLE_CONNECTION_STATE,
   connectionProjectionPhase,
-} from "@t3tools/client-runtime/connection";
+} from "@a4code/client-runtime/connection";
 import {
   createEnvironmentShellAtoms,
   createEnvironmentSnapshotAtom,
   createShellEnvironmentAtoms,
   type EnvironmentShellState,
   type EnvironmentShellStatus,
-} from "@t3tools/client-runtime/state/shell";
+} from "@a4code/client-runtime/state/shell";
 import {
   type EnvironmentCatalogState,
   enabledEnvironmentIds,
-} from "@t3tools/client-runtime/state/connections";
-import type { EnvironmentId } from "@t3tools/contracts";
+} from "@a4code/client-runtime/state/connections";
+import type { EnvironmentId } from "@a4code/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
 
 import { environmentCatalog } from "../connection/catalog";
 import { connectionAtomRuntime } from "../connection/runtime";
-import { isHostedStaticApp } from "../hostedPairing";
 import { isLocalEnvironmentDisabled } from "../localEnvironment";
 
 export const shellEnvironment = createShellEnvironmentAtoms(connectionAtomRuntime);
@@ -127,9 +126,8 @@ export const allEnvironmentProjectSnapshotsReadyAtom =
     requiresPrimaryEnvironment: expectsPrimaryEnvironment(),
   });
 
-/** Hosted clients and desktops with the local environment disabled never discover a primary. */
 export function expectsPrimaryEnvironment(): boolean {
-  return !isHostedStaticApp() && !isLocalEnvironmentDisabled();
+  return !isLocalEnvironmentDisabled();
 }
 
 export const allReachableShellsLiveAtom = Atom.make((get) => {

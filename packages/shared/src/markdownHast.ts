@@ -1,4 +1,4 @@
-import { isLocalEditorFileUrl, LOCAL_FILE_LINK_SCHEMES } from "@t3tools/contracts";
+import { isLocalEditorFileUrl, LOCAL_FILE_LINK_SCHEMES } from "@a4code/contracts";
 import type { Root } from "hast";
 import { defaultSchema, sanitize, type Schema } from "hast-util-sanitize";
 
@@ -120,7 +120,7 @@ export function rehypePreserveImageSourceMeta() {
   };
 }
 
-const IMAGE_SRC_PROTOCOLS = [...(defaultSchema.protocols?.src ?? []), "file", "t3-context"];
+const IMAGE_SRC_PROTOCOLS = [...(defaultSchema.protocols?.src ?? []), "file", "a4-context"];
 
 // The sanitizer compares schemes case-sensitively, so lowercase accepted file link schemes first.
 function normalizeLocalFileHref(href: string): string {
@@ -182,8 +182,8 @@ export const CHAT_MARKDOWN_SANITIZE_SCHEMA = {
       ...(defaultSchema.protocols?.href ?? []),
       "file",
       "sandbox",
-      "t3-citation",
-      "t3-context",
+      "a4-citation",
+      "a4-context",
       THREAD_LINK_PROTOCOL,
       // Scheme only: the renderer's URL transform checks the rest of the link shape.
       ...LOCAL_FILE_LINK_SCHEMES,

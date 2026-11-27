@@ -1,10 +1,10 @@
-import { DESKTOP_UPDATE_RESTART_MARKER_FILE } from "@t3tools/contracts";
+import { DESKTOP_UPDATE_RESTART_MARKER_FILE } from "@a4code/contracts";
 // @effect-diagnostics-next-line nodeBuiltinImport:off -- Cross-process launcher contention uses real filesystem leases and IPC barriers.
 import * as NodeChildProcess from "node:child_process";
 import * as NodeSqlite from "node:sqlite";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import * as Clock from "effect/Clock";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Duration from "effect/Duration";
@@ -14,7 +14,6 @@ import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import { CliError } from "effect/cli";
-import { HttpClient } from "effect/http";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import { vi } from "vite-plus/test";
 
@@ -61,25 +60,25 @@ const windowsTaskOptions = {
   conhostPath: "C:\\Windows\\System32\\conhost.exe",
 };
 
-it("reads the served T3 home and log back out of a rendered unit, plist, or task", () => {
+it("reads the served a4code home and log back out of a rendered unit, plist, or task", () => {
   const plan = (baseDir: string) => ({
-    program: [`${baseDir}/runtime/versions/1.2.3/t3`, "__service-launcher"],
+    program: [`${baseDir}/runtime/versions/1.2.3/a4code`, "__service-launcher"],
     baseDir,
     logPath: `${baseDir}/userdata/logs/boot-service.log`,
-    unitPath: "/home/theo/.config/systemd/user/t3code.service",
+    unitPath: "/home/theo/.config/systemd/user/a4code.service",
   });
 
   expect(
-    BootService.bootServiceBaseDirOf(BootService.renderBootServiceUnit(plan("/home/theo/.t3"))),
-  ).toBe("/home/theo/.t3");
+    BootService.bootServiceBaseDirOf(BootService.renderBootServiceUnit(plan("/home/theo/.a4code"))),
+  ).toBe("/home/theo/.a4code");
   expect(
     BootService.bootServiceBaseDirOf(
-      BootService.renderBootServiceUnit(plan("/home/theo/T3 Data/100%")),
+      BootService.renderBootServiceUnit(plan("/home/theo/a4code Data/100%")),
     ),
-  ).toBe("/home/theo/T3 Data/100%");
+  ).toBe("/home/theo/a4code Data/100%");
   expect(
-    serviceUnitLogPathOf(BootService.renderBootServiceUnit(plan("/home/theo/T3 Data/100%"))),
-  ).toBe("/home/theo/T3 Data/100%/userdata/logs/boot-service.log");
+    serviceUnitLogPathOf(BootService.renderBootServiceUnit(plan("/home/theo/a4code Data/100%"))),
+  ).toBe("/home/theo/a4code Data/100%/userdata/logs/boot-service.log");
   expect(
     serviceUnitLogPathOf(
       BootService.renderBootServicePlist(plan("/Users/theo/a&b"), {
@@ -98,18 +97,18 @@ it("reads the served T3 home and log back out of a rendered unit, plist, or task
   ).toBe("/Users/theo/a&b");
   expect(
     BootService.bootServiceBaseDirOf(
-      BootService.renderBootServiceTask(plan("C:\\Users\\theo\\T3 a&b\\"), windowsTaskOptions),
+      BootService.renderBootServiceTask(plan("C:\\Users\\theo\\a4code a&b\\"), windowsTaskOptions),
     ),
-  ).toBe("C:\\Users\\theo\\T3 a&b\\");
+  ).toBe("C:\\Users\\theo\\a4code a&b\\");
   expect(BootService.bootServiceBaseDirOf("[Service]\nExecStart=/x\n")).toBeUndefined();
 });
 
 it("protects the server unit from agents under CPU and memory pressure", () => {
   const unit = BootService.renderBootServiceUnit({
-    program: ["/home/theo/.t3/runtime/versions/1.2.3/t3", "__service-launcher"],
-    baseDir: "/home/theo/.t3",
-    logPath: "/home/theo/.t3/userdata/logs/boot-service.log",
-    unitPath: "/home/theo/.config/systemd/user/t3code.service",
+    program: ["/home/theo/.a4code/runtime/versions/1.2.3/a4code", "__service-launcher"],
+    baseDir: "/home/theo/.a4code",
+    logPath: "/home/theo/.a4code/userdata/logs/boot-service.log",
+    unitPath: "/home/theo/.config/systemd/user/a4code.service",
   });
   const service = unit.slice(unit.indexOf("[Service]"), unit.indexOf("[Install]"));
   for (const line of [
@@ -124,7 +123,7 @@ it("protects the server unit from agents under CPU and memory pressure", () => {
 });
 
 it.each([
-  ["a unit", "/home/theo/T3 Data/100%$x", BootService.renderBootServiceUnit],
+  ["a unit", "/home/theo/a4code Data/100%$x", BootService.renderBootServiceUnit],
   [
     "a plist",
     "/Users/theo/a&b <c>",
@@ -133,12 +132,12 @@ it.each([
   ],
   [
     "a task",
-    "C:\\Users\\theo\\T3 a&b <c>",
+    "C:\\Users\\theo\\a4code a&b <c>",
     (plan: BootService.BootServicePlan) =>
       BootService.renderBootServiceTask(plan, windowsTaskOptions),
   ],
 ] as const)("reads the launcher back out of %s", (_, baseDir, render) => {
-  const program = `${baseDir}/runtime/versions/1.2.3/t3`;
+  const program = `${baseDir}/runtime/versions/1.2.3/a4code`;
   expect(
     BootService.bootServiceProgramOf(
       render({ program: [program, "__service-launcher"], baseDir, logPath: "/log", unitPath: "" }),
@@ -148,18 +147,18 @@ it.each([
 
 // systemd rejects a unit whose executable has a control character, quote or backslash, even quoted.
 it.each([
-  ["a double quote", '/home/theo/T3 "Data"'],
-  ["a single quote", "/home/theo/Theo's T3"],
-  ["a backslash", "/home/theo/T3\\Data"],
-  ["a newline", "/home/theo/T3\nData"],
-])("renders a loadable unit, or refuses, for a T3 home with %s", (_, baseDir) => {
+  ["a double quote", '/home/theo/a4code "Data"'],
+  ["a single quote", "/home/theo/Theo's a4code"],
+  ["a backslash", "/home/theo/a4code\\Data"],
+  ["a newline", "/home/theo/a4code\nData"],
+])("renders a loadable unit, or refuses, for a a4code home with %s", (_, baseDir) => {
   let unit: string;
   try {
     unit = BootService.renderBootServiceUnit({
-      program: [`${baseDir}/runtime/versions/1.2.3/t3`, "__service-launcher"],
+      program: [`${baseDir}/runtime/versions/1.2.3/a4code`, "__service-launcher"],
       baseDir,
       logPath: `${baseDir}/userdata/logs/boot-service.log`,
-      unitPath: "/home/theo/.config/systemd/user/t3code.service",
+      unitPath: "/home/theo/.config/systemd/user/a4code.service",
     });
   } catch {
     return;
@@ -193,7 +192,7 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-boot-service-test-" });
+  const home = yield* fs.makeTempDirectoryScoped({ prefix: "a4-boot-service-test-" });
   const managerUnitDir = path.join(
     managerXdgConfigHome !== undefined && path.isAbsolute(managerXdgConfigHome)
       ? managerXdgConfigHome
@@ -201,7 +200,7 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
     "systemd",
     "user",
   );
-  const baseDir = path.join(home, ".t3");
+  const baseDir = path.join(home, ".a4code");
   const statePath = path.join(baseDir, "runtime", "service-state.json");
   const runtime = pinnedRuntimePaths(path, baseDir, "1.2.3", platform);
   yield* fs.makeDirectory(path.dirname(runtime.entryPath), { recursive: true });
@@ -249,9 +248,9 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
       commands.push(command);
       const marker = path.join(baseDir, "runtime", DESKTOP_UPDATE_RESTART_MARKER_FILE);
       if (
-        command === "systemctl --user stop t3code.service" ||
-        command === "systemctl --user disable --now t3code.service" ||
-        command === "systemctl --user restart --no-block t3code.service" ||
+        command === "systemctl --user stop a4code.service" ||
+        command === "systemctl --user disable --now a4code.service" ||
+        command === "systemctl --user restart --no-block a4code.service" ||
         command.startsWith("launchctl bootout --wait ") ||
         (input.command === SCHTASKS && input.args[0] === "/End")
       ) {
@@ -266,19 +265,19 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
       if (command === control.interruptCommand) return yield* Effect.interrupt;
       invocations.push(input);
       timeouts.set(command, input.timeout);
-      if (command === "systemctl --user reset-failed t3code.service") control.startLimitHit = false;
+      if (command === "systemctl --user reset-failed a4code.service") control.startLimitHit = false;
       const refusedStart = control.startLimitHit && command.startsWith("systemctl --user restart ");
       // `--no-block` only queues the job, so systemd reports success even when it refuses it.
       const failed =
         command === control.failCommand ||
-        (refusedStart && command === "systemctl --user restart t3code.service");
+        (refusedStart && command === "systemctl --user restart a4code.service");
       if (!failed && command.startsWith("loginctl enable-linger --no-ask-password ")) {
         control.linger = "yes";
         control.managerReachable ||= control.lingerStartsManager;
       }
       if (
         !failed &&
-        (command === "systemctl --user enable t3code.service" ||
+        (command === "systemctl --user enable a4code.service" ||
           command.startsWith("launchctl enable "))
       ) {
         control.enabled = true;
@@ -306,18 +305,18 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
       }
       // The manager loads units only from its own unit directory.
       const unitOutsideManager =
-        command === "systemctl --user enable t3code.service" &&
-        !(yield* fs.exists(path.join(managerUnitDir, "t3code.service")));
+        command === "systemctl --user enable a4code.service" &&
+        !(yield* fs.exists(path.join(managerUnitDir, "a4code.service")));
       // A timed-out stop may still stop the service.
       if (
-        command === "systemctl --user stop t3code.service" ||
+        command === "systemctl --user stop a4code.service" ||
         command.startsWith("launchctl bootout --wait ")
       ) {
         control.active = false;
       }
       if (
         control.stateAfterStop !== undefined &&
-        (command === "systemctl --user stop t3code.service" ||
+        (command === "systemctl --user stop a4code.service" ||
           command.startsWith("launchctl bootout --wait "))
       ) {
         yield* fs.writeFileString(statePath, control.stateAfterStop);
@@ -336,7 +335,7 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
                 ],
               })
             : input.args[0] === "--version"
-              ? `t3 v${/versions[\\/]([^\\/]+)[\\/]/.exec(input.command)?.[1] ?? "1.2.3"}\n`
+              ? `a4code v${/versions[\\/]([^\\/]+)[\\/]/.exec(input.command)?.[1] ?? "1.2.3"}\n`
               : input.command === SCHTASKS && input.args.includes("/XML")
                 ? control.task?.enabled === false
                   ? disabledServiceTask(control.task.xml)
@@ -382,7 +381,7 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
     cliVersion = "1.2.3",
     serviceBaseDir = baseDir,
     insideService = false,
-    hostExecPath = "/usr/bin/t3",
+    hostExecPath = "/usr/bin/a4code",
     underSudo = false,
     serviceInstallBinDir: string | null | undefined = installBinDir,
   ) =>
@@ -404,17 +403,13 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
           Layer.succeed(HostProcess.Platform, platform),
           Layer.succeed(HostProcess.UserId, underSudo ? 0 : 501),
           Layer.succeed(HostProcess.ExecutablePath, hostExecPath),
-          Layer.succeed(
-            HttpClient.HttpClient,
-            HttpClient.make(() => Effect.die("no release download expected")),
-          ),
           ConfigProvider.layer(
             ConfigProvider.fromEnv({
               env: {
                 HOME: home,
                 ...(serviceInstallBinDir === undefined || serviceInstallBinDir === null
                   ? {}
-                  : { T3CODE_INSTALL_BIN_DIR: serviceInstallBinDir }),
+                  : { A4CODE_INSTALL_BIN_DIR: serviceInstallBinDir }),
                 ...(xdgConfigHome === undefined ? {} : { XDG_CONFIG_HOME: xdgConfigHome }),
                 USERPROFILE: home,
                 LOCALAPPDATA: path.join(home, "AppData", "Local"),
@@ -426,8 +421,8 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
                   : { PATH: environmentPath }),
                 ...(insideService
                   ? {
-                      T3_BOOT_SERVICE_UNIT:
-                        platform === "win32" ? "t3code-task.xml" : "t3code.service",
+                      A4_BOOT_SERVICE_UNIT:
+                        platform === "win32" ? "a4code-task.xml" : "a4code.service",
                     }
                   : {}),
                 ...(underSudo ? { SUDO_USER: "julius" } : {}),
@@ -480,7 +475,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
         expect(markersAtStop).toEqual([true, true]);
         expect(yield* fs.exists(marker)).toBe(false);
 
-        control.failCommand = "systemctl --user stop t3code.service";
+        control.failCommand = "systemctl --user stop a4code.service";
         const error = yield* next.restart.pipe(Effect.flip);
         expect(error._tag).toBe("BootServiceCommandError");
         expect(markersAtStop).toEqual([true, true, true]);
@@ -544,7 +539,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
         );
         expect(yield* fs.readFileString(statePath)).toBe(before);
         expect(yield* fs.readFileString(plan.unitPath)).toBe(unit);
-        expect(commands).not.toContain("systemctl --user stop t3code.service");
+        expect(commands).not.toContain("systemctl --user stop a4code.service");
       }),
   );
 
@@ -598,7 +593,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
         _tag: "BootServicePrerequisiteError",
         problem: "user-manager-unavailable",
       });
-      expect(commands).not.toContain("systemctl --user enable t3code.service");
+      expect(commands).not.toContain("systemctl --user enable a4code.service");
     }),
   );
 
@@ -622,7 +617,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
     Effect.gen(function* () {
       const path = yield* Path.Path;
       const fs = yield* FileSystem.FileSystem;
-      const shellConfigHome = yield* fs.makeTempDirectoryScoped({ prefix: "t3-xdg-config-" });
+      const shellConfigHome = yield* fs.makeTempDirectoryScoped({ prefix: "a4-xdg-config-" });
       const { makeService, home, control } = yield* makeHarness(
         "linux",
         undefined,
@@ -635,7 +630,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
 
       const plan = yield* service.install();
 
-      const unitPath = path.join(home, ".config", "systemd", "user", "t3code.service");
+      const unitPath = path.join(home, ".config", "systemd", "user", "a4code.service");
       expect(plan.unitPath).toBe(unitPath);
       expect(yield* service.status).toMatchObject({ current: true, unitPath });
     }),
@@ -722,7 +717,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
     "preserves the custom install bin directory in the installed service on %s",
     (platform) =>
       Effect.gen(function* () {
-        const installBinDir = '/custom/T3\t& <100%>/"quoted"\\bin';
+        const installBinDir = '/custom/a4code\t& <100%>/"quoted"\\bin';
         const { service, makeService, fs } = yield* makeHarness(
           platform,
           "",
@@ -734,8 +729,8 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
         const unit = yield* fs.readFileString(plan.unitPath);
         expect(unit).toContain(
           platform === "linux"
-            ? 'Environment=T3CODE_INSTALL_BIN_DIR="/custom/T3\t& <100%%>/\\"quoted\\"\\\\bin"'
-            : '<key>T3CODE_INSTALL_BIN_DIR</key>\n    <string>/custom/T3\t&amp; &lt;100%&gt;/"quoted"\\bin</string>',
+            ? 'Environment=A4CODE_INSTALL_BIN_DIR="/custom/a4code\t& <100%%>/\\"quoted\\"\\\\bin"'
+            : '<key>A4CODE_INSTALL_BIN_DIR</key>\n    <string>/custom/a4code\t&amp; &lt;100%&gt;/"quoted"\\bin</string>',
         );
         expect((yield* service.status).current).toBe(true);
 
@@ -793,7 +788,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
     Effect.gen(function* () {
       const path = yield* Path.Path;
       const fs = yield* FileSystem.FileSystem;
-      const configRoot = yield* fs.makeTempDirectoryScoped({ prefix: "t3-xdg-config-" });
+      const configRoot = yield* fs.makeTempDirectoryScoped({ prefix: "a4-xdg-config-" });
       const xdgConfigHome = {
         unset: undefined,
         empty: "",
@@ -817,7 +812,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
           : path.join(home, ".config"),
         "systemd",
         "user",
-        "t3code.service",
+        "a4code.service",
       );
       expect(yield* service.status).toMatchObject({ installed: false, unitPath });
       const plan = yield* service.install();
@@ -833,7 +828,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
         activeVersion: "1.2.3",
       });
       expect(plan.program).toEqual([runtime.entryPath, "__service-launcher"]);
-      expect(yield* fs.readFileString(plan.unitPath)).not.toContain("T3CODE_INSTALL_BIN_DIR");
+      expect(yield* fs.readFileString(plan.unitPath)).not.toContain("A4CODE_INSTALL_BIN_DIR");
       expect(yield* fs.readFileString(plan.unitPath)).toContain(
         `ExecStart=${runtime.entryPath} __service-launcher`,
       );
@@ -864,7 +859,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
       expect(yield* fs.exists(unitPath)).toBe(false);
       expect((yield* discoveredService.status).installed).toBe(false);
       // systemd can take 90s to stop, exceeding the runner's 60s default.
-      expect(timeouts.get("systemctl --user disable --now t3code.service")).toEqual(
+      expect(timeouts.get("systemctl --user disable --now a4code.service")).toEqual(
         Duration.seconds(120),
       );
     }),
@@ -943,12 +938,12 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
         ).toEqual(
           platform === "linux"
             ? [
-                "systemctl --user stop t3code.service",
-                "systemctl --user reset-failed t3code.service",
-                "systemctl --user restart t3code.service",
+                "systemctl --user stop a4code.service",
+                "systemctl --user reset-failed a4code.service",
+                "systemctl --user restart a4code.service",
               ]
             : [
-                "launchctl bootout --wait gui/501/com.t3tools.t3code.service",
+                "launchctl bootout --wait gui/501/dev.a4code.app.service",
                 `launchctl bootstrap gui/501 ${plan.unitPath}`,
               ],
         );
@@ -996,7 +991,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
         const path = yield* Path.Path;
         const envPath = path.join(baseDir, SERVICE_ENV_FILE);
         const envBytes = new TextEncoder().encode(
-          '# user configuration\r\nT3CODE_TOKEN="literal $HOME # token"',
+          '# user configuration\r\nA4CODE_TOKEN="literal $HOME # token"',
         );
         yield* fs.writeFile(envPath, envBytes);
         yield* service.install();
@@ -1013,7 +1008,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
           protocol: SERVICE_LAUNCHER_PROTOCOL,
           activeVersion: "1.2.4",
         });
-        expect(yield* fs.readFileString(plan.unitPath)).toContain("versions/1.2.4/t3");
+        expect(yield* fs.readFileString(plan.unitPath)).toContain("versions/1.2.4/a4code");
         expect(
           commands.filter(
             (command) =>
@@ -1035,7 +1030,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
           protocol: SERVICE_LAUNCHER_PROTOCOL,
           activeVersion: "1.2.5",
         });
-        expect(yield* fs.readFileString(plan.unitPath)).toContain("versions/1.2.5/t3");
+        expect(yield* fs.readFileString(plan.unitPath)).toContain("versions/1.2.5/a4code");
         expect((yield* latest.status).current).toBe(true);
         expect(
           yield* fs.exists(path.join(path.dirname(statePath), SERVICE_RESTART_PENDING_FILE)),
@@ -1053,7 +1048,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
         const unit = yield* fs.readFileString(plan.unitPath);
         yield* fs.writeFileString(
           plan.unitPath,
-          unit.replace("versions/1.2.3/t3", "versions/1.2.2/t3"),
+          unit.replace("versions/1.2.3/a4code", "versions/1.2.2/a4code"),
         );
         yield* fs.writeFileString(
           statePath,
@@ -1181,7 +1176,7 @@ process.disconnect();
           protocol: SERVICE_LAUNCHER_PROTOCOL,
           activeVersion: "1.2.4",
         });
-        expect(yield* fs.readFileString(plan.unitPath)).toContain("versions/1.2.4/t3");
+        expect(yield* fs.readFileString(plan.unitPath)).toContain("versions/1.2.4/a4code");
         expect(
           yield* fs.readFileString(
             path.join(path.dirname(statePath), SERVICE_RESTART_PENDING_FILE),
@@ -1251,7 +1246,7 @@ process.disconnect();
       expect(markersAtStop).toEqual([false]);
       expect(control.active).toBe(true);
 
-      control.failCommand = "systemctl --user stop t3code.service";
+      control.failCommand = "systemctl --user stop a4code.service";
       let ran = false;
       const stopFailure = yield* service
         .withStopped(
@@ -1272,12 +1267,12 @@ process.disconnect();
       commands.length = 0;
       yield* service.withStopped(Effect.sync(() => commands.push("repair")));
       expect(commands).toEqual([
-        "systemctl --user is-enabled t3code.service",
-        "systemctl --user is-active t3code.service",
-        "systemctl --user stop t3code.service",
+        "systemctl --user is-enabled a4code.service",
+        "systemctl --user is-active a4code.service",
+        "systemctl --user stop a4code.service",
         "repair",
-        "systemctl --user reset-failed t3code.service",
-        "systemctl --user restart t3code.service",
+        "systemctl --user reset-failed a4code.service",
+        "systemctl --user restart a4code.service",
       ]);
       expect(control.active).toBe(true);
       control.enabled = false;
@@ -1287,14 +1282,14 @@ process.disconnect();
       control.enabled = false;
       commands.length = 0;
       yield* service.withStopped(Effect.sync(() => commands.push("repair")));
-      expect(commands).toContain("systemctl --user stop t3code.service");
-      expect(commands).not.toContain("systemctl --user restart t3code.service");
+      expect(commands).toContain("systemctl --user stop a4code.service");
+      expect(commands).not.toContain("systemctl --user restart a4code.service");
       expect(control.active).toBe(false);
       control.enabled = true;
       control.active = true;
 
       const fs = yield* FileSystem.FileSystem;
-      const otherHome = yield* fs.makeTempDirectoryScoped({ prefix: "t3-doctor-other-" });
+      const otherHome = yield* fs.makeTempDirectoryScoped({ prefix: "a4-doctor-other-" });
       const other = yield* makeService(undefined, "1.2.3", otherHome);
       commands.length = 0;
       expect(yield* other.withStopped(Effect.sync(() => control.active))).toBe(true);
@@ -1302,15 +1297,15 @@ process.disconnect();
     }),
   );
 
-  it.effect("restart and install leave a service that serves another T3 home alone", () =>
+  it.effect("restart and install leave a service that serves another a4code home alone", () =>
     Effect.gen(function* () {
       const { service, fs, baseDir, commands, makeService } = yield* makeHarness();
       const plan = yield* service.install();
       const unit = yield* fs.readFileString(plan.unitPath);
       const path = yield* Path.Path;
-      const otherHome = yield* fs.makeTempDirectoryScoped({ prefix: "t3-other-home-" });
+      const otherHome = yield* fs.makeTempDirectoryScoped({ prefix: "a4-other-home-" });
 
-      const other = yield* makeService(undefined, "1.2.3", path.join(otherHome, ".t3"));
+      const other = yield* makeService(undefined, "1.2.3", path.join(otherHome, ".a4code"));
       commands.length = 0;
       expect(yield* other.restart).toBe("skipped");
       const refused = yield* other.install().pipe(Effect.flip);
@@ -1321,7 +1316,7 @@ process.disconnect();
       expect(commands).toEqual([]);
       expect((yield* other.status).otherBaseDir).toBe(baseDir);
 
-      const quoted = yield* makeService(undefined, "1.2.3", path.join(otherHome, 'T3 "Data"'));
+      const quoted = yield* makeService(undefined, "1.2.3", path.join(otherHome, 'a4code "Data"'));
       commands.length = 0;
       const unloadable = yield* quoted.install().pipe(Effect.flip);
       expect(unloadable._tag).toBe("BootServiceBaseDirUnsupportedError");
@@ -1331,12 +1326,12 @@ process.disconnect();
     }),
   );
 
-  it.effect("treats a symlinked T3 home path as the same home", () =>
+  it.effect("treats a symlinked a4code home path as the same home", () =>
     Effect.gen(function* () {
       const { service, fs, baseDir, commands, makeService } = yield* makeHarness();
       yield* service.install();
       const path = yield* Path.Path;
-      const linkDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-symlink-home-" });
+      const linkDir = yield* fs.makeTempDirectoryScoped({ prefix: "a4-symlink-home-" });
       const aliasDir = path.join(linkDir, "a$$b");
       yield* fs.symlink(baseDir, aliasDir);
 
@@ -1346,7 +1341,7 @@ process.disconnect();
       expect(yield* alias.restart).toBe("restarted");
       commands.length = 0;
       yield* alias.withStopped(Effect.void);
-      expect(commands).toContain("systemctl --user stop t3code.service");
+      expect(commands).toContain("systemctl --user stop a4code.service");
       expect((yield* alias.install()).baseDir).toBe(aliasDir);
       expect(yield* service.status).toMatchObject({ current: true });
       expect((yield* service.status).otherBaseDir).toBeUndefined();
@@ -1357,8 +1352,8 @@ process.disconnect();
     Effect.gen(function* () {
       const { fs, commands, invocations, control, makeService } = yield* makeHarness();
       const path = yield* Path.Path;
-      const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-handoff-" });
-      const baseDir = path.join(home, "T3 Data 100%", "${UNSET}", "$literal");
+      const home = yield* fs.makeTempDirectoryScoped({ prefix: "a4-handoff-" });
+      const baseDir = path.join(home, "a4code Data 100%", "${UNSET}", "$literal");
       const outside = yield* makeService(undefined, "1.2.3", baseDir);
       const plan = yield* outside.install();
       const statePath = path.join(baseDir, "runtime", "service-state.json");
@@ -1372,7 +1367,7 @@ process.disconnect();
 
       expect(yield* fs.readFileString(statePath)).toBe(state);
       expect(yield* fs.readFileString(plan.unitPath)).toBe(unit);
-      expect(commands).not.toContain("systemctl --user stop t3code.service");
+      expect(commands).not.toContain("systemctl --user stop a4code.service");
       expect(result).toMatchObject({ handedOff: true, logPath: plan.logPath });
       const handoffs = invocations.filter(({ command }) => command === "systemd-run");
       expect(handoffs).toHaveLength(1);
@@ -1382,12 +1377,12 @@ process.disconnect();
         "--quiet",
         `--property=StandardOutput=append:${plan.logPath}`,
         `--property=StandardError=append:${plan.logPath}`,
-        "--setenv=T3_BOOT_SERVICE_UNIT=",
+        "--setenv=A4_BOOT_SERVICE_UNIT=",
         pinnedRuntimePaths(path, baseDir, "1.2.4", "linux").entryPath,
         "service",
         "install",
         "--base-dir",
-        path.join(home, "T3 Data 100%", "$${UNSET}", "$$literal"),
+        path.join(home, "a4code Data 100%", "$${UNSET}", "$$literal"),
         "--allow-downgrade",
       ]);
 
@@ -1398,7 +1393,7 @@ process.disconnect();
       expect(yield* fs.readFileString(statePath)).toBe(state);
       expect(yield* fs.readFileString(plan.unitPath)).toBe(unit);
       expect(control.active).toBe(true);
-      expect(commands).not.toContain("systemctl --user stop t3code.service");
+      expect(commands).not.toContain("systemctl --user stop a4code.service");
     }),
   );
 
@@ -1433,7 +1428,7 @@ process.disconnect();
         expect(markersAtPreparation.at(-1)).toBe(false);
         expect(markersAtStop).toEqual([]);
 
-        const queueCommand = "systemctl --user restart --no-block t3code.service";
+        const queueCommand = "systemctl --user restart --no-block a4code.service";
         control.failCommand = queueCommand;
         expect((yield* inside.restart.pipe(Effect.flip))._tag).toBe("BootServiceCommandError");
         expect(markersAtStop).toEqual([true]);
@@ -1453,9 +1448,9 @@ process.disconnect();
         expect(commands).toEqual([
           "systemctl --user daemon-reload",
           `/bin/sh -c ${RESTORE_OOMD_WATCH_SCRIPT}`,
-          "systemctl --user enable t3code.service",
-          "systemctl --user reset-failed t3code.service",
-          "systemctl --user restart --no-block t3code.service",
+          "systemctl --user enable a4code.service",
+          "systemctl --user reset-failed a4code.service",
+          "systemctl --user restart --no-block a4code.service",
         ]);
         expect(outcome).toBe("queued");
         expect(markersAtStop).toEqual([true, true, true]);
@@ -1499,10 +1494,10 @@ process.disconnect();
           (command) => command.startsWith("systemctl ") && !command.includes("show-environment"),
         ),
       ).toEqual([
-        "systemctl --user stop t3code.service",
+        "systemctl --user stop a4code.service",
         "systemctl --user daemon-reload",
-        "systemctl --user reset-failed t3code.service",
-        "systemctl --user restart t3code.service",
+        "systemctl --user reset-failed a4code.service",
+        "systemctl --user restart a4code.service",
       ]);
     }),
   );
@@ -1534,9 +1529,9 @@ process.disconnect();
             (command) => command.startsWith("systemctl ") && !command.includes("show-environment"),
           ),
         ).toEqual([
-          "systemctl --user stop t3code.service",
-          "systemctl --user reset-failed t3code.service",
-          "systemctl --user restart t3code.service",
+          "systemctl --user stop a4code.service",
+          "systemctl --user reset-failed a4code.service",
+          "systemctl --user restart a4code.service",
         ]);
       }
     }),
@@ -1551,7 +1546,7 @@ process.disconnect();
 
       expect(
         plan.unitPath.endsWith(
-          path.join("Library", "LaunchAgents", "com.t3tools.t3code.service.plist"),
+          path.join("Library", "LaunchAgents", "dev.a4code.app.service.plist"),
         ),
       ).toBe(true);
       expect(yield* fs.readFileString(plan.unitPath)).toContain(
@@ -1585,7 +1580,7 @@ process.disconnect();
       expect((yield* service.status).installed).toBe(false);
       expect(commands.some((command) => command.startsWith("systemctl "))).toBe(false);
       // launchd can take 90s to bootout; the runner's 60s default could let bootstrap race it.
-      expect(timeouts.get("launchctl bootout --wait gui/501/com.t3tools.t3code.service")).toEqual(
+      expect(timeouts.get("launchctl bootout --wait gui/501/dev.a4code.app.service")).toEqual(
         Duration.seconds(120),
       );
     }),
@@ -1599,7 +1594,7 @@ process.disconnect();
       const task = decodeServiceUnit(yield* fs.readFile(plan.unitPath));
 
       expect(plan.unitPath).toBe(
-        path.join(path.dirname(plan.baseDir), "AppData", "Local", "t3code", "t3code-task.xml"),
+        path.join(path.dirname(plan.baseDir), "AppData", "Local", "a4code", "a4code-task.xml"),
       );
       expect(BootService.bootServiceProgramOf(task)).toBe(runtime.entryPath);
       expect(BootService.bootServiceBaseDirOf(task)).toBe(plan.baseDir);
@@ -1612,8 +1607,8 @@ process.disconnect();
         activeVersion: "1.2.3",
       });
       expect(commands.filter((command) => command.startsWith(`${SCHTASKS} `))).toEqual([
-        `${SCHTASKS} /Create /XML ${plan.unitPath} /TN t3code-PC-theo /F`,
-        `${SCHTASKS} /Run /TN t3code-PC-theo`,
+        `${SCHTASKS} /Create /XML ${plan.unitPath} /TN a4code-PC-theo /F`,
+        `${SCHTASKS} /Run /TN a4code-PC-theo`,
       ]);
       // No launcher holds the lock here.
       expect(yield* service.status).toMatchObject({
@@ -1623,7 +1618,7 @@ process.disconnect();
       });
 
       // A task that Task Scheduler refuses to delete stays installed, so a retry finds it.
-      control.failCommand = `${SCHTASKS} /Delete /TN t3code-PC-theo /F`;
+      control.failCommand = `${SCHTASKS} /Delete /TN a4code-PC-theo /F`;
       expect((yield* service.uninstall.pipe(Effect.flip))._tag).toBe("BootServiceCommandError");
       expect((yield* service.status).installed).toBe(true);
       control.failCommand = undefined;
@@ -1631,9 +1626,9 @@ process.disconnect();
       commands.length = 0;
       expect(yield* service.uninstall).toBe(true);
       expect(commands).toEqual([
-        `${SCHTASKS} /Change /TN t3code-PC-theo /DISABLE`,
-        `${SCHTASKS} /End /TN t3code-PC-theo`,
-        `${SCHTASKS} /Delete /TN t3code-PC-theo /F`,
+        `${SCHTASKS} /Change /TN a4code-PC-theo /DISABLE`,
+        `${SCHTASKS} /End /TN a4code-PC-theo`,
+        `${SCHTASKS} /Delete /TN a4code-PC-theo /F`,
       ]);
       expect(control.task).toBeUndefined();
       expect((yield* service.status).installed).toBe(false);
@@ -1673,11 +1668,11 @@ process.disconnect();
       commands.length = 0;
       yield* service.withStopped(Effect.sync(() => commands.push("repair")));
       expect(commands.filter((command) => !command.includes("/Query"))).toEqual([
-        `${SCHTASKS} /Change /TN t3code-PC-theo /DISABLE`,
-        `${SCHTASKS} /End /TN t3code-PC-theo`,
+        `${SCHTASKS} /Change /TN a4code-PC-theo /DISABLE`,
+        `${SCHTASKS} /End /TN a4code-PC-theo`,
         "repair",
-        `${SCHTASKS} /Change /TN t3code-PC-theo /ENABLE`,
-        `${SCHTASKS} /Run /TN t3code-PC-theo`,
+        `${SCHTASKS} /Change /TN a4code-PC-theo /ENABLE`,
+        `${SCHTASKS} /Run /TN a4code-PC-theo`,
       ]);
     }),
   );
@@ -1698,9 +1693,9 @@ process.disconnect();
       const inside = yield* makeService(undefined, "1.2.4", undefined, true);
       const relayMarker = `${plan.baseDir}/runtime/${DESKTOP_UPDATE_RESTART_MARKER_FILE}`;
       const handoff = [
-        `${SCHTASKS} /Create /XML ${plan.unitPath} /TN t3code-PC-theo /F`,
-        `${SCHTASKS} /End /TN t3code-PC-theo`,
-        `${SCHTASKS} /Run /TN t3code-PC-theo`,
+        `${SCHTASKS} /Create /XML ${plan.unitPath} /TN a4code-PC-theo /F`,
+        `${SCHTASKS} /End /TN a4code-PC-theo`,
+        `${SCHTASKS} /Run /TN a4code-PC-theo`,
       ];
       commands.length = 0;
 
@@ -1810,7 +1805,7 @@ process.disconnect();
     Effect.gen(function* () {
       const { service, control } = yield* makeHarness("darwin");
       yield* service.install();
-      control.failCommand = "launchctl bootout --wait gui/501/com.t3tools.t3code.service";
+      control.failCommand = "launchctl bootout --wait gui/501/dev.a4code.app.service";
 
       yield* service.install();
       expect((yield* service.status).current).toBe(true);

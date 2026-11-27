@@ -20,9 +20,9 @@ import {
   terminalSequenceEnd,
   terminalSequenceStateAfter,
   TerminalProviderInstanceNotFoundError,
-} from "@t3tools/contracts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { SpawnExecutableResolution } from "@t3tools/shared/shell";
+} from "@a4code/contracts";
+import * as HostProcess from "@a4code/shared/HostProcess";
+import { SpawnExecutableResolution } from "@a4code/shared/shell";
 import * as NodePtyAdapter from "./NodePtyAdapter.ts";
 import * as Clock from "effect/Clock";
 import * as Deferred from "effect/Deferred";
@@ -58,7 +58,7 @@ import { makePrepareTerminalLaunch } from "../workspace/restoreMissingWorktree.t
 import { layerNoTaskFolders } from "../orchestration-v2/ProviderTurnStartService.testkit.ts";
 import { withWorkspaceLease } from "../workspace/workspaceLease.ts";
 import { terminalOutputStream } from "./OutputProtocol.ts";
-import * as PtyAdapter from "@t3tools/shared/PtyAdapter";
+import * as PtyAdapter from "@a4code/shared/PtyAdapter";
 import packageJson from "../../package.json" with { type: "json" };
 
 vi.mock("effect/SynchronizedRef", async (importOriginal) => {
@@ -290,7 +290,7 @@ const createManager = (
   Effect.flatMap(Effect.service(FileSystem.FileSystem), (fs) =>
     Effect.gen(function* () {
       const { join } = yield* Path.Path;
-      const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3code-terminal-" });
+      const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "a4code-terminal-" });
       const logsDir = join(baseDir, "userdata", "logs", "terminals");
       const ptyAdapter = options.ptyAdapter ?? new FakePtyAdapter();
 
@@ -2542,7 +2542,7 @@ it.layer(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const { join } = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3code-shell-path-" });
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "a4code-shell-path-" });
       const bin = join(root, "Jane -Doe Smith", ".local", "bin");
       yield* fs.makeDirectory(bin, { recursive: true });
       yield* fs.writeFileString(join(bin, "fish"), "");
@@ -2652,7 +2652,7 @@ it.layer(
   ] as const)("prefers the configured terminal shell on $platform: $shell", ({ platform, shell }) =>
     Effect.gen(function* () {
       const { manager, ptyAdapter } = yield* createManager(5, {
-        env: { T3CODE_TERMINAL_SHELL: ` ${shell} `, SHELL: "/bin/zsh" },
+        env: { A4CODE_TERMINAL_SHELL: ` ${shell} `, SHELL: "/bin/zsh" },
       }).pipe(Effect.provide(layerWithHostPlatform(platform)));
 
       yield* manager.open(openInput());
@@ -2665,10 +2665,10 @@ it.layer(
     Effect.gen(function* () {
       const gitBash = String.raw`C:\Program Files\Git\bin\bash.exe`;
       const { manager, ptyAdapter } = yield* createManager(5, {
-        env: { T3CODE_TERMINAL_SHELL: gitBash },
+        env: { A4CODE_TERMINAL_SHELL: gitBash },
       }).pipe(Effect.provide(layerWithHostPlatform("win32")));
 
-      yield* manager.open(openInput({ env: { T3CODE_TERMINAL_SHELL: "" } }));
+      yield* manager.open(openInput({ env: { A4CODE_TERMINAL_SHELL: "" } }));
       yield* manager.open(openInput({ terminalId: "interactive" }));
 
       expect(ptyAdapter.spawnInputs.map((input) => input.shell)).toEqual(["pwsh.exe", gitBash]);
@@ -2682,7 +2682,7 @@ it.layer(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-real-shell-" });
+        const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "a4-real-shell-" });
         const nonExecutable = path.join(baseDir, "not-executable");
         yield* fs.writeFileString(nonExecutable, "#!/bin/sh\nexit 0\n");
         yield* fs.chmod(nonExecutable, 0o644);
@@ -2721,7 +2721,7 @@ it.layer(
               },
             },
             shellResolver: () => "/bin/sh",
-            env: { ...process.env, T3CODE_TERMINAL_SHELL: shell, PATH: searchPath },
+            env: { ...process.env, A4CODE_TERMINAL_SHELL: shell, PATH: searchPath },
           });
           const snapshot = yield* manager.open(openInput({ cwd: cwd ?? baseDir }));
           expect(spawnedShells).toEqual([expectedShell]);
@@ -2736,7 +2736,7 @@ it.layer(
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const cacheDir = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-terminal-acp-path-",
+        prefix: "a4-terminal-acp-path-",
       });
       const installBin = path.join(
         cacheDir,
@@ -2801,7 +2801,7 @@ it.layer(
       const { manager } = yield* createManager(5, {
         ptyAdapter,
         env: {
-          T3CODE_TERMINAL_SHELL: "C:\\missing\\custom-shell.exe",
+          A4CODE_TERMINAL_SHELL: "C:\\missing\\custom-shell.exe",
           ComSpec: "C:\\Windows\\System32\\cmd.exe",
           PATH: "C:\\Windows\\System32",
           SystemRoot: "C:\\Windows",
@@ -2965,7 +2965,7 @@ it.layer(
       runtimeEnv: { Term_Program: "", term_program_version: "custom-version" },
     },
   ] as const)(
-    "identifies as T3 Code unless the terminal env overrides it on $platform",
+    "identifies as a4code unless the terminal env overrides it on $platform",
     ({ platform, parentEnv, runtimeEnv }) =>
       Effect.gen(function* () {
         const originalEnv = { ...parentEnv };
@@ -2979,7 +2979,7 @@ it.layer(
 
         expect(ptyAdapter.spawnInputs).toHaveLength(2);
         for (const [index, expected] of [
-          { TERM_PROGRAM: "t3code", TERM_PROGRAM_VERSION: packageJson.version },
+          { TERM_PROGRAM: "a4code", TERM_PROGRAM_VERSION: packageJson.version },
           { TERM_PROGRAM: "", TERM_PROGRAM_VERSION: "custom-version" },
         ].entries()) {
           const spawnEnv = ptyAdapter.spawnInputs[index]!.env;
@@ -3003,8 +3003,8 @@ it.layer(
       const { manager, ptyAdapter } = yield* createManager(5, {
         env: {
           PORT: "5173",
-          T3CODE_PORT: "3773",
-          T3CODE_THREAD_ID: "server-thread",
+          A4CODE_PORT: "3773",
+          A4CODE_THREAD_ID: "server-thread",
           VITE_DEV_SERVER_URL: "http://localhost:5173",
           TEST_TERMINAL_KEEP: "keep-me",
           TMUX: "/tmp/tmux-1000/default,1234,0",
@@ -3017,7 +3017,7 @@ it.layer(
       yield* manager.open(
         openInput({
           terminalId: "explicit",
-          env: { TMUX_PANE: "%9", T3CODE_THREAD_ID: "client-thread" },
+          env: { TMUX_PANE: "%9", A4CODE_THREAD_ID: "client-thread" },
         }),
       );
       const spawnInput = ptyAdapter.spawnInputs[0];
@@ -3025,9 +3025,9 @@ it.layer(
       if (!spawnInput) return;
 
       expect(spawnInput.env.PORT).toBeUndefined();
-      expect(spawnInput.env.T3CODE_PORT).toBeUndefined();
-      expect(spawnInput.env.T3CODE_THREAD_ID).toBe("thread-1");
-      expect(ptyAdapter.spawnInputs[1]?.env.T3CODE_THREAD_ID).toBe("thread-1");
+      expect(spawnInput.env.A4CODE_PORT).toBeUndefined();
+      expect(spawnInput.env.A4CODE_THREAD_ID).toBe("thread-1");
+      expect(ptyAdapter.spawnInputs[1]?.env.A4CODE_THREAD_ID).toBe("thread-1");
       expect(spawnInput.env.VITE_DEV_SERVER_URL).toBeUndefined();
       expect(spawnInput.env.TEST_TERMINAL_KEEP).toBe("keep-me");
       expect(spawnInput.env.TMUX).toBeUndefined();
@@ -3040,12 +3040,12 @@ it.layer(
 
   it.effect("strips AppImage runtime env from terminal sessions", () =>
     Effect.gen(function* () {
-      const appDir = "/tmp/.mount_T3Codeabc123";
+      const appDir = "/tmp/.mount_A4Codeabc123";
       const { manager, ptyAdapter } = yield* createManager(5, {
         env: {
-          APPIMAGE: "/home/user/T3-Code.AppImage",
+          APPIMAGE: "/home/user/a4code.AppImage",
           APPDIR: appDir,
-          ARGV0: "/home/user/T3-Code.AppImage",
+          ARGV0: "/home/user/a4code.AppImage",
           OWD: "/home/user/project",
           PATH: `${appDir}/usr/bin:${appDir}:/usr/local/bin:/usr/bin:/bin`,
           LD_LIBRARY_PATH: `${appDir}/usr/lib:/home/user/.local/lib`,
@@ -3075,7 +3075,7 @@ it.layer(
     Effect.gen(function* () {
       const providerInstanceId = ProviderInstanceId.make("codex_work");
       const { manager, ptyAdapter } = yield* createManager(5, {
-        env: { T3CODE_SECRET: "server-only" },
+        env: { A4CODE_SECRET: "server-only" },
         resolveProviderInstanceEnvironment: (requestedId, env) =>
           Effect.succeed({
             ...env,
@@ -3091,7 +3091,7 @@ it.layer(
       expect(ptyAdapter.spawnInputs[0]?.env.PROVIDER_SECRET).toBe("secret-value");
       expect(ptyAdapter.spawnInputs[0]?.env.CODEX_HOME).toBe("/accounts/codex-work");
       expect(ptyAdapter.spawnInputs[0]?.env.CLIENT_FLAG).toBe("1");
-      expect(ptyAdapter.spawnInputs[0]?.env.T3CODE_SECRET).toBeUndefined();
+      expect(ptyAdapter.spawnInputs[0]?.env.A4CODE_SECRET).toBeUndefined();
       expect(snapshot).not.toHaveProperty("env");
       expect(snapshot).not.toHaveProperty("providerInstanceId");
     }),

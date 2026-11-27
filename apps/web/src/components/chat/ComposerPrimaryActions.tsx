@@ -28,7 +28,7 @@ import { SharedTooltipTrigger } from "../ui/shared-tooltip";
 import {
   alternateComposerDispatchAction,
   resolveComposerDispatchMode,
-} from "@t3tools/client-runtime/state/composer-dispatch";
+} from "@a4code/client-runtime/state/composer-dispatch";
 
 interface PendingActionState {
   questionIndex: number;
@@ -125,7 +125,7 @@ function useStopPhase(input: {
       setStopPhase("landed");
     else if (stopPhase === "landed" && canInterrupt) setStopPhase(null);
   }
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- timers that re-enable an unsettled Stop and end the landed click guard
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- timers that re-enable an unsettled Stop and end the landed click guard
   useEffect(() => {
     if (stopPhase === "pending") {
       const timeout = setTimeout(() => setStopPhase("timedOut"), STOP_PENDING_MAX_MS);

@@ -1,12 +1,12 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
-import { EnvironmentId, ProviderInstanceId, ProviderSessionId, ThreadId } from "@t3tools/contracts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
-import { ProviderAdapterV2RuntimePolicy } from "@t3tools/provider-core/server/ProviderAdapter";
-import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
+import { EnvironmentId, ProviderInstanceId, ProviderSessionId, ThreadId } from "@a4code/contracts";
+import * as HostProcess from "@a4code/shared/HostProcess";
+import * as McpProviderSessions from "@a4code/provider-core/server/McpProviderSessions";
+import * as IdAllocator from "@a4code/provider-core/server/IdAllocator";
+import { ProviderAdapterV2RuntimePolicy } from "@a4code/provider-core/server/ProviderAdapter";
+import * as ProviderEventLoggers from "@a4code/provider-core/server/ProviderEventLoggers";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import { FetchHttpClient } from "effect/http";
@@ -22,7 +22,7 @@ import * as ProviderHostLive from "../ProviderHostLive.ts";
 import { AntigravityDriver } from "./AntigravityDriver.ts";
 
 const dependencies = ServerConfig.layerTest(process.cwd(), {
-  prefix: "t3-antigravity-runtime-health-",
+  prefix: "a4-antigravity-runtime-health-",
 }).pipe(
   Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, FetchHttpClient.layer)),
   Layer.provideMerge(ServerSettings.layerTest()),
@@ -60,7 +60,7 @@ const makeHarness = Effect.fn("AntigravityRuntimeHealthTest.makeHarness")(functi
   const agent = yield* path.fromFileUrl(
     new URL("../../../scripts/acp-mock-agent.ts", import.meta.url),
   );
-  const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-antigravity-executable-" });
+  const root = yield* fs.makeTempDirectoryScoped({ prefix: "a4-antigravity-executable-" });
   const executable = path.join(root, "agy");
   const target = path.join(root, "runtime");
   const versionFile = path.join(root, "version");
@@ -72,10 +72,10 @@ const makeHarness = Effect.fn("AntigravityRuntimeHealthTest.makeHarness")(functi
           "#!/bin/sh",
           ...(threadLauncher
             ? [
-                `if [ -n "$T3CODE_THREAD_ID" ]; then export T3_ACP_AGENT_VERSION=1.5.12; exec ${shellQuote(node)} ${shellQuote(agent)} "$@"; fi`,
+                `if [ -n "$A4CODE_THREAD_ID" ]; then export A4_ACP_AGENT_VERSION=1.5.12; exec ${shellQuote(node)} ${shellQuote(agent)} "$@"; fi`,
               ]
             : []),
-          `export T3_ACP_AGENT_VERSION=${version === "variable" ? `$(cat ${shellQuote(versionFile)})` : shellQuote(version)}`,
+          `export A4_ACP_AGENT_VERSION=${version === "variable" ? `$(cat ${shellQuote(versionFile)})` : shellQuote(version)}`,
           `exec ${shellQuote(node)} ${shellQuote(agent)} "$@"`,
           "",
         ].join("\n"),
@@ -101,7 +101,7 @@ const makeHarness = Effect.fn("AntigravityRuntimeHealthTest.makeHarness")(functi
     },
     environment: [
       { name: "PATH", value: `${root}:${environment.PATH ?? ""}`, sensitive: false },
-      { name: "T3_ACP_ANTIGRAVITY", value: "1", sensitive: false },
+      { name: "A4_ACP_ANTIGRAVITY", value: "1", sensitive: false },
     ],
   }).pipe(Effect.provideService(AntigravityInstallation.AntigravityInstallation, installation));
   if (!instance.refreshModels) return yield* Effect.die("Antigravity model refresh is missing");

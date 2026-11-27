@@ -11,21 +11,8 @@ export function formatAppDisplayName(input: {
   return `${input.baseName} (${input.stageLabel})`;
 }
 
-export function resolveHostedAppChannelLabel(channel: string | null | undefined): string | null {
-  const normalized = channel?.trim().toLowerCase();
-  // oxlint-disable-next-line t3code/no-untranslated-copy -- release channel name, part of the product name
-  return normalized === "nightly" ? "Nightly" : normalized === "latest" ? "Latest" : null;
-}
-
-/** Stage label of a web build. vite.config.ts stamps it into index.html's title too. */
-export function resolveWebAppStageLabel(input: {
-  readonly hostedAppChannel: string | null | undefined;
-  readonly development: boolean;
-}): string {
-  return (
-    // oxlint-disable-next-line t3code/no-untranslated-copy -- release channel name, part of the product name
-    resolveHostedAppChannelLabel(input.hostedAppChannel) ?? (input.development ? "Dev" : "Beta")
-  );
+export function resolveWebAppStageLabel(input: { readonly development: boolean }): string {
+  return input.development ? "Dev" : "Latest";
 }
 
 export function resolveServerBackedAppStageLabel(input: {
@@ -34,7 +21,7 @@ export function resolveServerBackedAppStageLabel(input: {
 }): string {
   return input.primaryServerVersion &&
     NIGHTLY_SERVER_VERSION_PATTERN.test(input.primaryServerVersion)
-    ? // oxlint-disable-next-line t3code/no-untranslated-copy -- release channel name, part of the product name
+    ? // oxlint-disable-next-line a4code/no-untranslated-copy -- release channel name, part of the product name
       "Nightly"
     : input.fallbackStageLabel;
 }

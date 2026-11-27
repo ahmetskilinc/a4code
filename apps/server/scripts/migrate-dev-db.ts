@@ -4,7 +4,7 @@ import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as NodeOS from "node:os";
 import * as NodeURL from "node:url";
-import { resolveWorktreeT3Home } from "@t3tools/shared/devHome";
+import { resolveWorktreeA4Home } from "@a4code/shared/devHome";
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -17,16 +17,17 @@ import { Command, Flag } from "effect/cli";
 
 import * as ProjectionStore from "../src/orchestration-v2/ProjectionStore.ts";
 import { rebuildMessageSearch } from "../src/orchestration-v2/messageSearchIndex.ts";
+import { rewriteImportedThreadLinks } from "../src/persistence/importThreadLinks.ts";
 import { runMigrations } from "../src/persistence/Migrations.ts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
+import * as HostProcess from "@a4code/shared/HostProcess";
+import * as NodeSqliteClient from "@a4code/shared/nodeSqliteClient";
 
 export class MigrateDevDbNotInWorktreeError extends Schema.TaggedError<MigrateDevDbNotInWorktreeError>()(
   "MigrateDevDbNotInWorktreeError",
   {},
 ) {
   override get message(): string {
-    return "Not inside a linked git worktree. Pass --base-dir to target an isolated .t3 directory.";
+    return "Not inside a linked git worktree. Pass --base-dir to target an isolated .a4code directory.";
   }
 }
 
@@ -35,7 +36,7 @@ export class MigrateDevDbSharedHomeError extends Schema.TaggedError<MigrateDevDb
   {},
 ) {
   override get message(): string {
-    return "Refusing to rebuild the shared ~/.t3 database. Use an isolated --base-dir.";
+    return "Refusing to rebuild the shared ~/.a4code database. Use an isolated --base-dir.";
   }
 }
 
@@ -69,7 +70,7 @@ export class MigrateDevDbLegacySourceError extends Schema.TaggedError<MigrateDev
   },
 ) {
   override get message(): string {
-    return `Source database '${this.sourcePath}' holds ${this.legacyThreads} legacy threads the server has not imported into V2 yet, which this command cannot carry over. Start a server once on a T3 home holding a copy of it so it imports them, then pass the userdata/statev2.sqlite that server leaves behind as --source.`;
+    return `Source database '${this.sourcePath}' holds ${this.legacyThreads} legacy threads the server has not imported into V2 yet, which this command cannot carry over. Start a server once on a a4code home holding a copy of it so it imports them, then pass the userdata/statev2.sqlite that server leaves behind as --source.`;
   }
 }
 
@@ -81,7 +82,7 @@ export class MigrateDevDbServerRunningError extends Schema.TaggedError<MigrateDe
   },
 ) {
   override get message(): string {
-    return `Dev database at '${this.databasePath}' is open by a running server (pid ${this.pid} per server-runtime.json). Stop that server first; if that pid is not actually a T3 server (stale descriptor, reused pid), delete the server-runtime.json next to the database and retry.`;
+    return `Dev database at '${this.databasePath}' is open by a running server (pid ${this.pid} per server-runtime.json). Stop that server first; if that pid is not actually a a4code server (stale descriptor, reused pid), delete the server-runtime.json next to the database and retry.`;
   }
 }
 
@@ -125,6 +126,8 @@ export interface RunMigrateDevDbInput {
 export interface RunMigrateDevDbOptions {
   /** Test override for the directory writes must never target. */
   readonly sharedHome?: string | undefined;
+  readonly importHistory?: boolean;
+  readonly linkIdentity?: { readonly source: string; readonly destination: string };
 }
 
 interface KeptProject {
@@ -221,19 +224,60 @@ const CLEARED_TABLES: ReadonlyArray<string> = [
   "peer_environment_links",
 ];
 
+const HISTORY_TABLES = new Set([
+  "checkpoint_diff_blobs",
+  "effect_sql_migrations",
+  "orchestration_events",
+  "orchestration_v2_events",
+  "orchestration_v2_legacy_imports",
+  "orchestration_v2_projection_checkpoint_scopes",
+  "orchestration_v2_projection_checkpoints",
+  "orchestration_v2_projection_context_handoffs",
+  "orchestration_v2_projection_context_transfers",
+  "orchestration_v2_projection_messages",
+  "orchestration_v2_projection_metadata",
+  "orchestration_v2_projection_nodes",
+  "orchestration_v2_projection_plans",
+  "orchestration_v2_projection_provider_session_bindings",
+  "orchestration_v2_projection_provider_sessions",
+  "orchestration_v2_projection_provider_threads",
+  "orchestration_v2_projection_provider_turns",
+  "orchestration_v2_projection_run_attempts",
+  "orchestration_v2_projection_runs",
+  "orchestration_v2_projection_runtime_requests",
+  "orchestration_v2_projection_subagents",
+  "orchestration_v2_projection_thread_item_counts",
+  "orchestration_v2_projection_threads",
+  "orchestration_v2_projection_turn_item_counts",
+  "orchestration_v2_projection_turn_items",
+  "orchestration_v2_turn_item_positions",
+  "projection_projects",
+  "projection_state",
+  "projection_thread_activities",
+  "projection_thread_messages",
+  "projection_thread_proposed_plans",
+  "projection_thread_pull_requests",
+  "projection_thread_sessions",
+  "projection_threads",
+  "projection_turns",
+]);
+
 const PROVIDER_SESSIONS_TABLE = "orchestration_v2_projection_provider_sessions";
 const FTS5_SHADOW_SUFFIXES = ["_data", "_idx", "_content", "_docsize", "_config"];
 
 // Settled threads stay: they are most of real history, and the UI shows them.
-const rootIsVisible = (sql: SqlClient.SqlClient) => sql`
+const rootIsVisible = (sql: SqlClient.SqlClient, includeArchived = false) => sql`
   root.deleted_at IS NULL
   AND json_extract(root.payload_json, '$.deletedAt') IS NULL
-  AND json_extract(root.payload_json, '$.archivedAt') IS NULL`;
+  AND (${includeArchived ? 1 : 0} = 1 OR json_extract(root.payload_json, '$.archivedAt') IS NULL)`;
 
 // One read transaction keeps the copy, and its legacy-thread guard, consistent with concurrent
 // server writes. The server imports V1 threads at boot, and the copy keeps only threads with V2
 // rows, so unimported ones would vanish silently (see LegacyV1ThreadImporter.pendingThreadCount).
-const copySourceSlice = Effect.fn("copyDevDbSourceSlice")(function* (sourcePath: string) {
+const copySourceSlice = Effect.fn("copyDevDbSourceSlice")(function* (
+  sourcePath: string,
+  importHistory = false,
+) {
   const sql = yield* SqlClient.SqlClient;
   yield* sql`ATTACH DATABASE ${`${NodeURL.pathToFileURL(sourcePath).href}?mode=ro`} AS src`;
 
@@ -264,6 +308,13 @@ const copySourceSlice = Effect.fn("copyDevDbSourceSlice")(function* (sourcePath:
         SELECT m.name, f."table" AS parent FROM src.sqlite_master m, pragma_foreign_key_list(m.name, 'src') f
         WHERE m.type = 'table'`;
       const cleared = new Set(CLEARED_TABLES);
+      if (importHistory) {
+        for (const { name } of tables) {
+          if (!HISTORY_TABLES.has(name)) {
+            cleared.add(name);
+          }
+        }
+      }
       for (let grew = true; grew;) {
         grew = false;
         for (const { name, parent } of references) {
@@ -302,7 +353,7 @@ const copySourceSlice = Effect.fn("copyDevDbSourceSlice")(function* (sourcePath:
           SELECT family.thread_id FROM src.orchestration_v2_projection_threads family
           JOIN src.orchestration_v2_projection_threads root ON root.thread_id =
             COALESCE(json_extract(family.payload_json, '$.lineage.rootThreadId'), family.thread_id)
-          WHERE ${rootIsVisible(sql)}`;
+          WHERE ${rootIsVisible(sql, importHistory)}`;
       }
       for (const { name } of tables) {
         if (cleared.has(name) || virtualTables.includes(name)) continue;
@@ -391,7 +442,7 @@ export const dropResumableFamilies = Effect.fn("dropResumableDevDbFamilies")(fun
       Effect.map((info) => Option.map(info.ino, (ino) => `${info.dev}:${ino}`)),
       Effect.orElseSucceed(() => Option.none<string>()),
     );
-  const sharedHome = path.resolve(options.sharedHome ?? path.join(NodeOS.homedir(), ".t3"));
+  const sharedHome = path.resolve(options.sharedHome ?? path.join(NodeOS.homedir(), ".a4code"));
   const liveDatabase = path.join(sharedHome, "userdata", "statev2.sqlite");
   const [target, live] = yield* Effect.all([resolve(databasePath), resolve(liveDatabase)]);
   const targetIdentity = yield* identity(target);
@@ -456,7 +507,10 @@ export const dropResumableFamilies = Effect.fn("dropResumableDevDbFamilies")(fun
   );
 });
 
-const pruneSnapshot = Effect.fn("pruneDevDbSnapshot")(function* (input: RunMigrateDevDbInput) {
+const pruneSnapshot = Effect.fn("pruneDevDbSnapshot")(function* (
+  input: RunMigrateDevDbInput,
+  importHistory = false,
+) {
   const sql = yield* SqlClient.SqlClient;
 
   yield* sql`CREATE TEMP TABLE live_threads (thread_id TEXT PRIMARY KEY)`;
@@ -474,7 +528,7 @@ const pruneSnapshot = Effect.fn("pruneDevDbSnapshot")(function* (input: RunMigra
     SELECT f.root_id, root.project_id, MAX(f.updated_at) AS updated_at, COUNT(*) AS size
     FROM thread_families f
     JOIN orchestration_v2_projection_threads root ON root.thread_id = f.root_id
-    WHERE ${rootIsVisible(sql)}
+    WHERE ${rootIsVisible(sql, importHistory)}
     GROUP BY f.root_id, root.project_id
     HAVING SUM(f.thread_id IN (SELECT thread_id FROM live_threads)) = 0`;
 
@@ -553,6 +607,31 @@ const pruneSnapshot = Effect.fn("pruneDevDbSnapshot")(function* (input: RunMigra
         WHERE EXISTS (
           SELECT 1 FROM json_each(scripts_json) AS script
           WHERE json_extract(script.value, '$.runOnSettle') IS NOT NULL)`;
+      if (importHistory) {
+        yield* sql`UPDATE projection_projects SET scripts_json = (
+          SELECT json_group_array(json_set(script.value, '$.runOnWorktreeCreate', json('false')) ORDER BY script.key)
+          FROM json_each(scripts_json) AS script
+        ) WHERE EXISTS (
+          SELECT 1 FROM json_each(scripts_json) AS script WHERE json_extract(script.value, '$.runOnWorktreeCreate') = 1
+        )`;
+        for (const table of ["orchestration_events", "orchestration_v2_events"]) {
+          yield* sql`UPDATE ${sql(table)} SET payload_json = json_remove(payload_json, '$.watch')
+            WHERE event_type='thread.pull-request-link-updated' AND json_type(payload_json, '$.watch') IS NOT NULL`;
+          yield* sql`UPDATE ${sql(table)} SET payload_json=json_set(payload_json, '$.pullRequests', json((
+            SELECT json_group_array(json_remove(link.value, '$.watch') ORDER BY link.key)
+            FROM json_each(payload_json, '$.pullRequests') AS link)))
+            WHERE event_type LIKE 'thread.%' AND EXISTS (
+              SELECT 1 FROM json_each(payload_json,'$.pullRequests') AS link WHERE json_type(link.value, '$.watch') IS NOT NULL)`;
+        }
+        yield* sql`UPDATE orchestration_events SET payload_json=json_set(payload_json, '$.autoPull', json('false'))
+          WHERE aggregate_kind='project' AND json_extract(payload_json, '$.autoPull') = 1`;
+        yield* sql`UPDATE orchestration_events SET payload_json=json_set(payload_json, '$.scripts', json((
+          SELECT json_group_array(json_remove(json_set(script.value, '$.runOnWorktreeCreate', json('false')), '$.runOnSettle') ORDER BY script.key)
+          FROM json_each(payload_json, '$.scripts') AS script)))
+          WHERE aggregate_kind='project' AND EXISTS (
+            SELECT 1 FROM json_each(payload_json, '$.scripts') AS script
+            WHERE json_extract(script.value, '$.runOnSettle') = 1 OR json_extract(script.value, '$.runOnWorktreeCreate') = 1)`;
+      }
       for (const table of CLEARED_TABLES) {
         yield* sql`DELETE FROM ${sql(table)}`;
       }
@@ -613,7 +692,7 @@ export const runMigrateDevDb = Effect.fn("runMigrateDevDb")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const sharedHome = path.resolve(options.sharedHome ?? path.join(NodeOS.homedir(), ".t3"));
+  const sharedHome = path.resolve(options.sharedHome ?? path.join(NodeOS.homedir(), ".a4code"));
   const sourcePath = path.resolve(
     input.source ?? path.join(sharedHome, "userdata", "statev2.sqlite"),
   );
@@ -621,7 +700,7 @@ export const runMigrateDevDb = Effect.fn("runMigrateDevDb")(function* (
   const baseDir =
     input.baseDir !== undefined
       ? path.resolve(input.baseDir)
-      : yield* resolveWorktreeT3Home(process.cwd());
+      : yield* resolveWorktreeA4Home(process.cwd());
   if (baseDir === undefined) {
     return yield* new MigrateDevDbNotInWorktreeError();
   }
@@ -666,7 +745,7 @@ export const runMigrateDevDb = Effect.fn("runMigrateDevDb")(function* (
   yield* removeDatabaseFiles(snapshotPath);
   const { executedMigrations, pruned } = yield* Effect.gen(function* () {
     yield* Console.log(`Copying visible threads from ${sourcePath} (read-only)...`);
-    yield* copySourceSlice(sourcePath).pipe(
+    yield* copySourceSlice(sourcePath, options.importHistory).pipe(
       Effect.provide(NodeSqliteClient.layer({ filename: snapshotPath })),
       Effect.catchTags({
         SqlError: (cause) =>
@@ -684,16 +763,23 @@ export const runMigrateDevDb = Effect.fn("runMigrateDevDb")(function* (
       const sql = yield* SqlClient.SqlClient;
       yield* sql.unsafe("PRAGMA foreign_keys = ON").unprepared;
       yield* forgetPeerLinksPreviewHistory();
-      return yield* runMigrations();
+      const result = yield* runMigrations();
+      if (options.importHistory) {
+        yield* sql`UPDATE projection_projects SET auto_pull = 0`;
+        yield* rewriteImportedThreadLinks(options.linkIdentity);
+      }
+      return result;
     }).pipe(
       Effect.provide(NodeSqliteClient.layer({ filename: snapshotPath })),
       wrapPhase("migrate", snapshotPath),
     );
 
     yield* Console.log(
-      `Pruning to ${input.projects} projects, ${input.threadsPerProject} stopped threads each...`,
+      options.importHistory
+        ? "Copying settled thread families..."
+        : `Pruning to ${input.projects} projects, ${input.threadsPerProject} stopped threads each...`,
     );
-    const result = yield* pruneSnapshot(input).pipe(
+    const result = yield* pruneSnapshot(input, options.importHistory).pipe(
       Effect.provide(
         ProjectionStore.layer.pipe(
           Layer.provideMerge(NodeSqliteClient.layer({ filename: snapshotPath })),
@@ -756,11 +842,13 @@ export const migrateDevDbCommand = Command.make(
     ),
     baseDir: Flag.String("base-dir").pipe(
       Flag.optional,
-      Flag.withDescription("Isolated .t3 directory. Defaults to the current worktree's .t3."),
+      Flag.withDescription(
+        "Isolated .a4code directory. Defaults to the current worktree's .a4code.",
+      ),
     ),
     source: Flag.String("source").pipe(
       Flag.optional,
-      Flag.withDescription("Source database. Defaults to ~/.t3/userdata/statev2.sqlite."),
+      Flag.withDescription("Source database. Defaults to ~/.a4code/userdata/statev2.sqlite."),
     ),
     dropResumable: Flag.String("drop-resumable").pipe(
       Flag.optional,
@@ -798,7 +886,7 @@ export const migrateDevDbCommand = Command.make(
     }),
 ).pipe(
   Command.withDescription(
-    "Rebuild the worktree dev database from a pruned snapshot of the real ~/.t3 data, then run migrations.",
+    "Rebuild the worktree dev database from a pruned snapshot of the real ~/.a4code data, then run migrations.",
   ),
 );
 

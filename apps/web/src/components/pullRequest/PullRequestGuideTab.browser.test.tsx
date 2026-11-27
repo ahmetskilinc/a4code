@@ -3,7 +3,7 @@ import {
   ProjectId,
   type PullRequestRef,
   type PullRequestReviewGuide,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 

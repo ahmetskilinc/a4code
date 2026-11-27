@@ -8,10 +8,10 @@ import {
   isPrivateNetworkHost,
   isSharedAddressSpaceHost,
   isWildcardHost,
-} from "@t3tools/shared/hostClassification";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { QrCode } from "@t3tools/shared/qrCode";
-import { buildPairingAppLink } from "@t3tools/shared/remote";
+} from "@a4code/shared/hostClassification";
+import * as HostProcess from "@a4code/shared/HostProcess";
+import { QrCode } from "@a4code/shared/qrCode";
+import { buildPairingAppLink } from "@a4code/shared/remote";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import { HttpServer } from "effect/http";
@@ -251,7 +251,7 @@ export const renderTerminalQrCode = (value: string, margin = 2): string => {
 
 const formatHeadlessServeOutput = (accessInfo: HeadlessServeAccessInfo): string =>
   [
-    "T3 Code server is ready.",
+    "a4code server is ready.",
     `Connection string: ${accessInfo.connectionString}`,
     `Token: ${accessInfo.token}`,
     `Pairing URL: ${accessInfo.pairingUrl}`,
@@ -292,7 +292,7 @@ const issueHeadlessServeAccessInfo = Effect.fn("issueHeadlessServeAccessInfo")(f
 });
 
 /**
- * What `t3 serve` prints once it is ready. A terminal gets pairing details. The background
+ * What `a4code serve` prints once it is ready. A terminal gets pairing details. The background
  * service's output is its log file, so it gets the address and the command that pairs a device.
  */
 export const headlessServeOutput = Effect.fn("headlessServeOutput")(function* (options: {
@@ -302,9 +302,9 @@ export const headlessServeOutput = Effect.fn("headlessServeOutput")(function* (o
     return formatHeadlessServeOutput(yield* issueHeadlessServeAccessInfo());
   }
   return [
-    "T3 Code server is ready.",
+    "a4code server is ready.",
     `Connection string: ${yield* resolveServeConnectionString}`,
-    "Run `t3 pair` on this machine to connect a device.",
+    "Run `a4code pair` on this machine to connect a device.",
     "",
   ].join("\n");
 });

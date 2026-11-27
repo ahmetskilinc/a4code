@@ -1,4 +1,4 @@
-import { OrchestrationV2ThreadShellJson } from "@t3tools/contracts";
+import { OrchestrationV2ThreadShellJson } from "@a4code/contracts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 

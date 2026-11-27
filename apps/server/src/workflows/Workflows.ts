@@ -7,7 +7,7 @@ import {
   applyWorkflowRunsUpdate,
   type WorkflowRunsSnapshot,
   type WorkflowRunsUpdate,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as Context from "effect/Context";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -202,12 +202,12 @@ export class Workflows extends Context.Service<
      */
     readonly sweep: Effect.Effect<void>;
   }
->()("t3/workflows/Workflows") {}
+>()("a4code/workflows/Workflows") {}
 
 const refuse = Effect.fn("Workflows.disabled")(function* () {
   return yield* new WorkflowInputError({
     problem:
-      "This server defines no workflows yet. Add a file to the workflows folder of its T3 home.",
+      "This server defines no workflows yet. Add a file to the workflows folder of its a4code home.",
   });
 });
 
@@ -261,7 +261,7 @@ export const wholeLists = (updates: Stream.Stream<WorkflowRunsUpdate>) =>
   );
 
 export const OFF =
-  'Workflows are off on this server. Turn them on in its Settings → Labs → Workflows, or without a desktop, set "workflowsEnabled": true in userdata/settings.json in its T3 home (~/.t3 by default).';
+  'Workflows are off on this server. Turn them on in its Settings → Labs → Workflows, or without a desktop, set "workflowsEnabled": true in userdata/settings.json in its a4code home (~/.a4code by default).';
 
 const refuseOff = Effect.fn("Workflows.off")(function* () {
   return yield* new WorkflowInputError({ problem: OFF });

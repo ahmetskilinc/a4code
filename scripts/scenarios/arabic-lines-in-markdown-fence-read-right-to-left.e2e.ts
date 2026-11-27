@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 const ARABIC = "مرحبا بالعالم.";
 const ENGLISH = "Hello world.";
@@ -12,10 +12,10 @@ const MESSAGE = ["Draft:", "", "```md", ARABIC, "**ملاحظة**: هذا سطر
 test(
   "Arabic lines in a markdown fence read right to left beside English ones",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    const project = await t3.project("demo");
-    const thread = await t3.thread({ project, title: "Arabic fence", messages: [MESSAGE] });
-    await t3.open(thread);
+  async ({ a4code, app, browser, screen }) => {
+    const project = await a4code.project("demo");
+    const thread = await a4code.thread({ project, title: "Arabic fence", messages: [MESSAGE] });
+    await a4code.open(thread);
     // A message sent through the CLI shows collapsed under its sender.
     await screen.getByRole("button", /^Agent Draft/).tap();
     await screen.getByText(ENGLISH, { exact: false }).waitFor({ timeout: 120_000 });

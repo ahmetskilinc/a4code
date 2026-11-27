@@ -22,7 +22,7 @@ it.each([
     remainder: "\nOutput:\n\uD83D\n\uDE00\n\n## Cell 2 (markdown)\nLater cell",
   },
 ])("$name", async ({ source, outputs, remainder }) => {
-  const folder = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-notebook-budget-"));
+  const folder = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "a4-notebook-budget-"));
   try {
     const path = NodePath.join(folder, "output.ipynb");
     await NodeFSP.writeFile(

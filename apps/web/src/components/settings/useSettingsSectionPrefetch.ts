@@ -4,7 +4,6 @@ import { useContext } from "react";
 
 import { peerLinkEnvironment, usePeerLinkHosts } from "../../state/peerLinks";
 import { serverEnvironment } from "../../state/server";
-import { sourceControlEnvironment } from "../../state/sourceControl";
 import type { SettingsPath } from "./settingsSearch";
 import { useOptionalSettingsScope } from "./SettingsScopeContext";
 
@@ -17,14 +16,9 @@ export function useSettingsSectionPrefetch() {
   const router = useRouter();
   const registry = useContext(RegistryContext);
   const scope = useOptionalSettingsScope();
-  const environment = scope?.environment ?? null;
   const peerLinkHosts = usePeerLinkHosts();
   return (to: SettingsPath) => {
     void router.preloadRoute({ to });
-    if (to === "/settings/source-control" && environment?.connection.phase === "connected") {
-      const input = { environmentId: environment.environmentId, input: {} };
-      registry.mount(sourceControlEnvironment.discovery(input))();
-    }
     if (to === "/settings/scheduled-tasks") {
       for (const entry of scope?.environments ?? []) {
         if (entry.connection.phase !== "connected" || entry.serverConfig === null) continue;

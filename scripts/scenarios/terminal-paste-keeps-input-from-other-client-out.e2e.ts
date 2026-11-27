@@ -1,12 +1,12 @@
 /// <reference lib="dom" />
-import { DEFAULT_TERMINAL_ID, ThreadId } from "@t3tools/contracts";
+import { DEFAULT_TERMINAL_ID, ThreadId } from "@a4code/contracts";
 import { expect } from "e2e";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 
-import { T3_HOME } from "../e2e.config.ts";
-import { rpcClient, runPromise, test, WEB } from "./t3.ts";
+import { A4_HOME } from "../e2e.config.ts";
+import { rpcClient, runPromise, test, WEB } from "./a4code.ts";
 
 const TAIL = "end-of-first-paste";
 const OTHER_INPUT = "second-client-input";
@@ -42,9 +42,9 @@ interface PasteGate {
 test(
   "A second connection cannot insert input inside a web terminal paste",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    const cwd = await t3.project("demo", { "paste-probe.mjs": PROBE });
-    const thread = await t3.thread({
+  async ({ a4code, app, browser, screen }) => {
+    const cwd = await a4code.project("demo", { "paste-probe.mjs": PROBE });
+    const thread = await a4code.thread({
       project: cwd,
       title: "Shared terminal paste",
       messages: ["hello"],
@@ -61,7 +61,7 @@ test(
       );
     await runPromise(
       Effect.gen(function* () {
-        const client = yield* rpcClient(T3_HOME, origin);
+        const client = yield* rpcClient(A4_HOME, origin);
         yield* client["terminal.open"]({ threadId, terminalId, cwd });
       }).pipe(Effect.scoped),
     );
@@ -86,7 +86,7 @@ test(
       };
     }, TAIL);
     await browser.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
-    await t3.open(thread);
+    await a4code.open(thread);
     await screen.getByRole("button", "Toggle terminal drawer").tap();
     const terminal = screen.getByLabel("Terminal input");
     // The terminal surface can appear before its session can accept keystrokes.
@@ -128,7 +128,7 @@ test(
 
     await runPromise(
       Effect.gen(function* () {
-        const client = yield* rpcClient(T3_HOME, origin);
+        const client = yield* rpcClient(A4_HOME, origin);
         const write = yield* client["terminal.write"]({
           threadId,
           terminalId,

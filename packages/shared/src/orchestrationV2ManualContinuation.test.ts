@@ -6,7 +6,7 @@ import type {
   OrchestrationV2ThreadProjection,
   RunAttemptId,
   RunId,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 
 import { unsentManualContinuationSource } from "./orchestrationV2ManualContinuation.ts";
 

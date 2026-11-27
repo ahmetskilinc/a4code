@@ -1,6 +1,6 @@
-import { scopedProjectKey } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ProjectId, ThreadId, type PullRequestRef } from "@t3tools/contracts";
-import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
+import { scopedProjectKey } from "@a4code/client-runtime/environment";
+import { EnvironmentId, ProjectId, ThreadId, type PullRequestRef } from "@a4code/contracts";
+import { sourceControlClients } from "@a4code/client-runtime/source-control-clients";
 import { expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 

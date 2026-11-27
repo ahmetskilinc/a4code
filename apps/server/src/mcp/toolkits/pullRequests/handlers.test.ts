@@ -17,7 +17,7 @@ import {
   type ThreadPullRequestLink,
   type RuntimeMode,
   SourceControlProviderKind,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
@@ -27,7 +27,7 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import { McpSchema, type Tool } from "effect/ai";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
+import * as McpProviderSessions from "@a4code/provider-core/server/McpProviderSessions";
 
 import * as GitManager from "../../../git/GitManager.ts";
 import * as Orchestrator from "../../../orchestration-v2/Orchestrator.ts";
@@ -70,16 +70,16 @@ const invocation = (
 
 function makeProject(
   repositoryIdentity: OrchestrationProjectShell["repositoryIdentity"] = {
-    canonicalKey: "github.com/t3tools/t3code",
+    canonicalKey: "github.com/a4code/a4code",
     locator: {
       source: "git-remote",
       remoteName: "origin",
-      remoteUrl: "git@github.com:T3Tools/T3Code.git",
+      remoteUrl: "git@github.com:A4Code/A4Code.git",
     },
     provider: SourceControlProviderKind.make("github"),
-    displayName: "T3Tools/T3Code",
-    owner: "T3Tools",
-    name: "T3Code",
+    displayName: "A4Code/A4Code",
+    owner: "A4Code",
+    name: "A4Code",
   },
 ): OrchestrationProjectShell {
   return {
@@ -124,9 +124,9 @@ function makeLink(
   const { headBranch, baseBranch, ...rest } = overrides;
   return {
     host: "github.com",
-    repository: "t3tools/t3code",
+    repository: "a4code/a4code",
     number,
-    url: `https://github.com/t3tools/t3code/pull/${number}`,
+    url: `https://github.com/a4code/a4code/pull/${number}`,
     source: "manual",
     linkedAt: "2026-08-10T00:00:00.000Z",
     snapshot:
@@ -271,7 +271,7 @@ describe("pull request toolkit handlers", () => {
         .call("link_pull_request", { threadId: bareId, number: 123 })
         .pipe(Effect.flip);
       expect(error.message).toBe(
-        `Thread ${bareId} was not found. Did you mean \`mcp:${bareId}\`? Thread ids belong to one environment: for a thread on a linked one, find it with \`t3_environment_links\` and pass its \`environmentId\` to a tool that takes one.`,
+        `Thread ${bareId} was not found. Did you mean \`mcp:${bareId}\`? Thread ids belong to one environment: for a thread on a linked one, find it with \`a4_environment_links\` and pass its \`environmentId\` to a tool that takes one.`,
       );
       expect(error).toMatchObject({ _tag: "OrchestratorMcpFailure", code: "thread_not_found" });
       expect(yield* Ref.get(harness.commands)).toEqual([]);
@@ -282,13 +282,13 @@ describe("pull request toolkit handlers", () => {
     Effect.gen(function* () {
       const harness = yield* makeHarness();
       const result = yield* harness.call("link_pull_request", {
-        url: "https://github.com/T3Tools/T3Code/pull/123/files",
+        url: "https://github.com/A4Code/A4Code/pull/123/files",
       });
       expect(result).toEqual({
         host: "github.com",
-        repository: "t3tools/t3code",
+        repository: "a4code/a4code",
         number: 123,
-        url: "https://github.com/T3Tools/T3Code/pull/123/files",
+        url: "https://github.com/A4Code/A4Code/pull/123/files",
         alreadyLinked: false,
       });
       expect(yield* Ref.get(harness.commands)).toMatchObject([
@@ -296,7 +296,7 @@ describe("pull request toolkit handlers", () => {
           type: "thread.pull-request.link",
           threadId: THREAD_ID,
           host: "github.com",
-          repository: "t3tools/t3code",
+          repository: "a4code/a4code",
           number: 123,
           source: "agent",
         },
@@ -317,7 +317,7 @@ describe("pull request toolkit handlers", () => {
         },
       });
       const result = yield* harness.call("link_pull_request", {
-        url: "https://github.com/t3tools/t3code/pull/124",
+        url: "https://github.com/a4code/a4code/pull/124",
       });
       expect(result).toMatchObject({ number: 124, next: CHILD_PULL_REQUEST_REPORT_NEXT });
     }),
@@ -328,16 +328,16 @@ describe("pull request toolkit handlers", () => {
       for (const host of ["git.cafe", "staging.git.cafe"]) {
         for (const project of [makeProject(), makeProject(null)]) {
           for (const target of [
-            { host, repository: "PingDotGG/T3Code", number: 21353 },
-            { url: `https://${host}/PingDotGG/T3Code/pull/21353` },
-            { url: `https://${host}/PingDotGG/T3Code/pulls/21353` },
+            { host, repository: "A4Code/A4Code", number: 21353 },
+            { url: `https://${host}/A4Code/A4Code/pull/21353` },
+            { url: `https://${host}/A4Code/A4Code/pulls/21353` },
           ]) {
             const harness = yield* makeHarness({ project });
             const result = yield* harness.call("link_pull_request", target);
-            const url = `https://${host}/pingdotgg/t3code/pulls/21353`;
+            const url = `https://${host}/a4code/a4code/pulls/21353`;
             expect(result).toMatchObject({
               host,
-              repository: "pingdotgg/t3code",
+              repository: "a4code/a4code",
               number: 21353,
               url,
             });
@@ -345,7 +345,7 @@ describe("pull request toolkit handlers", () => {
               {
                 type: "thread.pull-request.link",
                 host,
-                repository: "pingdotgg/t3code",
+                repository: "a4code/a4code",
                 number: 21353,
                 url,
               },
@@ -445,7 +445,7 @@ describe("pull request toolkit handlers", () => {
           command.type === "thread.pull-request.link" ? "already linked" : null,
       });
       const result = yield* harness.call("link_pull_request", {
-        url: "https://github.com/t3tools/t3code/pull/123",
+        url: "https://github.com/a4code/a4code/pull/123",
       });
       expect(result.alreadyLinked).toBe(true);
     }),
@@ -461,17 +461,17 @@ describe("pull request toolkit handlers", () => {
             : null,
       });
       const linked = yield* harness.call("unlink_pull_request", {
-        repository: "t3tools/t3code",
+        repository: "a4code/a4code",
         number: 5,
       });
       expect(linked).toEqual({
         host: "github.com",
-        repository: "t3tools/t3code",
+        repository: "a4code/a4code",
         number: 5,
         wasLinked: true,
       });
       const missing = yield* harness.call("unlink_pull_request", {
-        url: "https://github.com/t3tools/t3code/pull/9",
+        url: "https://github.com/a4code/a4code/pull/9",
       });
       expect(missing.wasLinked).toBe(false);
       expect(yield* Ref.get(harness.commands)).toMatchObject([
@@ -486,7 +486,7 @@ describe("pull request toolkit handlers", () => {
         thread: makeThread([makeLink(9, { source: "stack-dismissed" })]),
       });
       const result = yield* harness.call("unlink_pull_request", {
-        repository: "t3tools/t3code",
+        repository: "a4code/a4code",
         number: 9,
       });
       expect(result.wasLinked).toBe(false);
@@ -499,13 +499,13 @@ describe("pull request toolkit handlers", () => {
       const harness = yield* makeHarness({
         thread: makeThread([makeLink(1), { ...makeLink(2), source: "stack-dismissed" }]),
       });
-      const url = (number: number) => `https://github.com/t3tools/t3code/pull/${number}`;
+      const url = (number: number) => `https://github.com/a4code/a4code/pull/${number}`;
       const result = yield* harness.call("link_pull_requests", {
         urls: [url(1), url(2), url(3), url(3), "https://example.com/not-a-pr"],
       });
       expect(result).toEqual({
-        linked: [{ host: "github.com", repository: "t3tools/t3code", numbers: [2, 3] }],
-        alreadyLinked: [{ host: "github.com", repository: "t3tools/t3code", numbers: [1] }],
+        linked: [{ host: "github.com", repository: "a4code/a4code", numbers: [2, 3] }],
+        alreadyLinked: [{ host: "github.com", repository: "a4code/a4code", numbers: [1] }],
         linkedCount: 3,
         invalidUrls: ["https://example.com/not-a-pr"],
       });
@@ -536,8 +536,8 @@ describe("pull request toolkit handlers", () => {
       });
       expect(result).toEqual({
         unlinked: [
-          { host: "github.com", repository: "t3tools/t3code", state: "merged", numbers: [1] },
-          { host: "github.com", repository: "t3tools/t3code", state: "closed", numbers: [3] },
+          { host: "github.com", repository: "a4code/a4code", state: "merged", numbers: [1] },
+          { host: "github.com", repository: "a4code/a4code", state: "closed", numbers: [3] },
         ],
         unlinkedCount: 2,
         remaining: 2,
@@ -554,7 +554,7 @@ describe("pull request toolkit handlers", () => {
       makeThread([
         makeLink(42, {
           host: "forge.example",
-          url: "http://forge.example:3000/t3tools/t3code/pulls/42",
+          url: "http://forge.example:3000/a4code/a4code/pulls/42",
         }),
       ]),
     );
@@ -576,9 +576,9 @@ describe("pull request toolkit handlers", () => {
       expect(result.pullRequests.map((entry) => entry.number)).toEqual([1, 2, 3, 10]);
       expect(result.pullRequests[2]).toEqual({
         host: "github.com",
-        repository: "t3tools/t3code",
+        repository: "a4code/a4code",
         number: 3,
-        url: "https://github.com/t3tools/t3code/pull/3",
+        url: "https://github.com/a4code/a4code/pull/3",
         source: "agent",
         watching: false,
         state: "open",
@@ -609,7 +609,7 @@ describe("listThreadPullRequests", () => {
       kind: "native" as const,
       id: "stack-1",
       number: 1,
-      url: "https://github.com/t3tools/t3code/stack/1",
+      url: "https://github.com/a4code/a4code/stack/1",
       base: "main",
       layers: [
         { number: 1, headBranch: "a", state: "open" as const },
@@ -742,7 +742,7 @@ describe("pull request guide tools", () => {
         const result = yield* harness.call("write_pull_request_guides", {
           pullRequests: [
             { url: "https://github.com/acme/web/pull/7" },
-            { repository: "t3tools/t3code", number: 12 },
+            { repository: "a4code/a4code", number: 12 },
             { url: "https://github.com/someone/else/pull/1" },
             { url: "https://github.com/someone/web/pull/3" },
           ],
@@ -751,7 +751,7 @@ describe("pull request guide tools", () => {
           result.guides.map((guide) => [guide.repository, guide.number, guide.outcome]),
         ).toEqual([
           ["acme/web", 7, "started"],
-          ["t3tools/t3code", 12, "started"],
+          ["a4code/a4code", 12, "started"],
           ["someone/else", 1, "failed"],
           ["someone/web", 3, "started"],
         ]);
@@ -772,8 +772,8 @@ describe("pull request guide tools", () => {
       const result = yield* harness.call("write_pull_request_guides", {
         pullRequests: [
           { url: "https://example.com/not-a-pull-request" },
-          { repository: "t3tools/t3code" },
-          { repository: "t3tools/t3code", number: 5 },
+          { repository: "a4code/a4code" },
+          { repository: "a4code/a4code", number: 5 },
         ],
       });
       expect(result.guides.map((guide) => guide.outcome)).toEqual(["failed", "failed", "started"]);
@@ -848,9 +848,9 @@ describe("source control tools", () => {
     worktreePath: "/workspace/worktree",
     branchPullRequest: {
       projectId: PROJECT_ID,
-      repository: "t3tools/t3code",
+      repository: "a4code/a4code",
       number: 42,
-      url: "https://github.com/t3tools/t3code/pull/42",
+      url: "https://github.com/a4code/a4code/pull/42",
     },
   };
   const detail = {
@@ -927,7 +927,7 @@ describe("source control tools", () => {
       expect(asked[1]).toEqual({
         projectId: PROJECT_ID,
         host: "github.com",
-        repository: "t3tools/t3code",
+        repository: "a4code/a4code",
         number: 42,
         allowStale: false,
       });
@@ -1025,7 +1025,7 @@ describe("source control tools", () => {
                 entries: [],
                 errors: [],
                 truncated: input.cursors === undefined,
-                nextCursors: input.cursors === undefined ? { "t3tools/t3code": "page-2" } : {},
+                nextCursors: input.cursors === undefined ? { "a4code/a4code": "page-2" } : {},
               }),
             ),
         },
@@ -1053,7 +1053,7 @@ describe("source control tools", () => {
       yield* harness.call("pull_request_list", { cursor: page.nextCursor! });
       expect(listed.map((input) => input.cursors)).toEqual([
         undefined,
-        { "t3tools/t3code": "page-2" },
+        { "a4code/a4code": "page-2" },
       ]);
       const invalid = yield* harness
         .call("pull_request_read", { cursor: "not-a-cursor" })
@@ -1252,7 +1252,7 @@ describe("source control tools", () => {
             ).pipe(
               Effect.as({
                 status: "created" as const,
-                url: "https://github.com/t3tools/t3code/pull/43",
+                url: "https://github.com/a4code/a4code/pull/43",
                 number: 43,
                 baseBranch: "main",
                 headBranch: "tools",
@@ -1278,7 +1278,7 @@ describe("source control tools", () => {
   describe("pull_request_create and the repository's push hooks", () => {
     const opened = (title: string) => ({
       status: "created" as const,
-      url: "https://github.com/t3tools/t3code/pull/43",
+      url: "https://github.com/a4code/a4code/pull/43",
       number: 43,
       baseBranch: "main",
       headBranch: "tools",
@@ -1811,7 +1811,7 @@ describe("source control tools", () => {
 
     describe("in a thread whose adapter shows the request to the person", () => {
       const UNCONFIRMED =
-        "T3 Code has no approval from the person for this repository's push hooks. Nothing was pushed and no PR was opened. Call again to ask.";
+        "a4code has no approval from the person for this repository's push hooks. Nothing was pushed and no PR was opened. Call again to ask.";
       const question = (branch = "tools") =>
         `Push ${branch} and run this repository's hook file .husky/pre-push (contents digest-1)?`;
       /** The thread's requests, kept for an adapter that passes on what the person answered. */

@@ -2,27 +2,27 @@ import { expect } from "e2e";
 
 import { SECOND_HOME, startSecondServer } from "./second-server.ts";
 import { run } from "./shell.ts";
-import { makeState, runPromise, test, WEB } from "./t3.ts";
+import { makeState, runPromise, test, WEB } from "./a4code.ts";
 
 test(
   "The first switch to another machine uses that checkout's project file workspace default",
   WEB,
-  async ({ t3, app, screen, browser }) => {
+  async ({ a4code, app, screen, browser }) => {
     const repository = {
       ".git/config": '[remote "origin"]\n\turl = https://github.com/scenario/demo.git\n',
     };
-    await t3.project("demo", repository);
+    await a4code.project("demo", repository);
     const second = makeState(SECOND_HOME);
     const server = startSecondServer(app.baseUrl ?? "");
     try {
       const { host, token } = await server.ready;
       const remoteProject = await second.state.project("demo", {
         ...repository,
-        "t3.json": JSON.stringify({ defaultThreadEnvMode: "worktree" }),
+        "a4code.json": JSON.stringify({ defaultThreadEnvMode: "worktree" }),
       });
       await runPromise(run("git", ["branch", "-m", "remote-base"], { cwd: remoteProject }));
 
-      await t3.open();
+      await a4code.open();
       const workspace = screen.getByRole("combobox", "Workspace", { exact: true });
       await workspace.getByText("Current checkout").waitFor();
       await screen.getByRole("combobox", "Branch: main", { exact: true }).first().waitFor();

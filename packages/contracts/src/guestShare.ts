@@ -5,13 +5,12 @@ import {
   GuestMessageId,
   GuestShareId,
   IsoDateTime,
-  ThreadId,
   TrimmedNonEmptyString,
   TrimmedString,
 } from "./baseSchemas.ts";
 
 /**
- * A guest share lets one unauthenticated browser watch a thread over T3 Connect and propose
+ * A guest share lets one unauthenticated browser watch a thread using a guest link and propose
  * messages the owner must send or dismiss. The thread projection holds this public state; the
  * credentials are derived from the share id with a server key and never stored.
  */
@@ -42,7 +41,7 @@ export type ThreadGuestMessage = typeof ThreadGuestMessage.Type;
 
 export const ThreadGuestShare = Schema.Struct({
   id: GuestShareId,
-  /** The T3 Connect tunnel hostname the link points at. Guest routes require it to still serve. */
+  /** The hostname recorded with the historical share. */
   host: TrimmedNonEmptyString,
   createdAt: IsoDateTime,
   expiresAt: IsoDateTime,
@@ -55,42 +54,6 @@ export type ThreadGuestShare = typeof ThreadGuestShare.Type;
 export const pendingGuestMessageCount = (share: ThreadGuestShare | null | undefined): number =>
   share?.messages.filter((message) => message.status === "pending").length ?? 0;
 
-export const GuestShareCreateInput = Schema.Struct({ threadId: ThreadId });
-export type GuestShareCreateInput = typeof GuestShareCreateInput.Type;
-
-export const GuestShareCreateResult = Schema.Struct({
-  url: TrimmedNonEmptyString,
-  share: ThreadGuestShare,
-});
-export type GuestShareCreateResult = typeof GuestShareCreateResult.Type;
-
-const GUEST_SHARE_CREATE_MESSAGES = {
-  disabled: "Guest links are off. Turn them on in Settings > Labs.",
-  connect_unavailable: "Guest links need a running T3 Connect tunnel.",
-  thread_unavailable: "This thread cannot be shared.",
-  read_failed: "Failed to read the shared thread.",
-  changed: "The guest link changed while it was being created.",
-} as const;
-
-export class GuestShareCreateError extends Schema.TaggedError<GuestShareCreateError>()(
-  "GuestShareCreateError",
-  {
-    reason: Schema.Literals([
-      "disabled",
-      "connect_unavailable",
-      "thread_unavailable",
-      "read_failed",
-      "changed",
-    ]),
-  },
-) {
-  override get message(): string {
-    return GUEST_SHARE_CREATE_MESSAGES[this.reason];
-  }
-}
-
-// The name lands in the agent's attribution line, so it must stay one plain line, and the owner
-// reads it, so direction overrides cannot make it look like another name.
 const NAME_BREAKING_CHARACTER = /[\p{Cc}\p{Zl}\p{Zp}\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/u;
 
 export const GuestRedeemRequest = Schema.Struct({
@@ -124,7 +87,7 @@ export const GUEST_SHARE_PARAM = "share";
  * One session cookie per share, so a guest keeps every link they joined on a host, and a page
  * for one share never acts with another share's session.
  */
-export const guestSessionCookieName = (shareId: string) => `t3_guest_${shareId}`;
+export const guestSessionCookieName = (shareId: string) => `a4_guest_${shareId}`;
 /** Serves one HTML render in the shared thread: `?share=<share id>&item=<turn item id>`. */
 export const GUEST_RENDER_ROUTE = `${GUEST_ROUTE_PREFIX}/render`;
 /** One item of the shared thread, as an expanded row loads it: `?share=<share id>&item=<id>`. */

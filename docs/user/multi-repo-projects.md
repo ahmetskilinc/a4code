@@ -1,6 +1,6 @@
 # Projects with several repositories
 
-A single T3 Code project can span multiple Git repositories so one thread can read and edit all of them. This supports:
+A single a4code project can span multiple Git repositories so one thread can read and edit all of them. This supports:
 
 - A plain folder containing multiple repositories (e.g. `shop/api` and `shop/web`)
 - A repository paired with external sibling repositories anywhere on disk
@@ -10,10 +10,10 @@ The project folder itself does not need to be a Git repository.
 
 ## Discovery and configuration
 
-T3 Code automatically discovers every Git repository inside the project folder—one level down, plus one level deeper inside non-repo folders (such as `src/` or `packages/`). Cloned or deleted repos update automatically; worktrees of other repos are ignored. View covered repos in **Settings → Projects → Repositories**.
+a4code automatically discovers every Git repository inside the project folder—one level down, plus one level deeper inside non-repo folders (such as `src/` or `packages/`). Cloned or deleted repos update automatically; worktrees of other repos are ignored. View covered repos in **Settings → Projects → Repositories**.
 
-- **Add external folders**: Use **Add folder** in **Settings → Projects → Repositories** (web/desktop), import entries from a `.code-workspace` file (web/desktop/mobile), or run `t3 project add <path> --track <folder>`. Added folders are per machine (up to 128 folders per project); removing one never deletes files.
-- **Ignore a repository**: Add relative paths to `t3.json` in the project folder (applies on every machine):
+- **Add external folders**: Use **Add folder** in **Settings → Projects → Repositories** (web/desktop), import entries from a `.code-workspace` file (web/desktop/mobile), or run `a4code project add <path> --track <folder>`. Added folders are per machine (up to 128 folders per project); removing one never deletes files.
+- **Ignore a repository**: Add relative paths to `a4code.json` in the project folder (applies on every machine):
 
 ```json
 {
@@ -39,7 +39,7 @@ T3 Code automatically discovers every Git repository inside the project folder�
 
 ### Custom worktree layout
 
-For custom workspace generation (e.g., per-thread build dirs or submodule setup), declare `worktreeLayout` in the project folder's `t3.json`:
+For custom workspace generation (e.g., per-thread build dirs or submodule setup), declare `worktreeLayout` in the project folder's `a4code.json`:
 
 ```json
 {
@@ -54,32 +54,32 @@ For custom workspace generation (e.g., per-thread build dirs or submodule setup)
 
 | Variable                   | Value                                         |
 | -------------------------- | --------------------------------------------- |
-| `T3_PROJECT_ROOT`          | The project folder.                           |
-| `T3_WORKTREE_ROOT`         | Empty folder to populate for this thread.     |
-| `T3_WORKTREE_PROJECT_PATH` | Target path for the project folder inside it. |
-| `T3_WORKTREE_BRANCH`       | The thread's branch name.                     |
-| `T3_WORKTREE_BASE`         | Base branch, or empty if none.                |
-| `T3_WORKTREE_REPOSITORIES` | Selected repositories, one path per line.     |
+| `A4_PROJECT_ROOT`          | The project folder.                           |
+| `A4_WORKTREE_ROOT`         | Empty folder to populate for this thread.     |
+| `A4_WORKTREE_PROJECT_PATH` | Target path for the project folder inside it. |
+| `A4_WORKTREE_BRANCH`       | The thread's branch name.                     |
+| `A4_WORKTREE_BASE`         | Base branch, or empty if none.                |
+| `A4_WORKTREE_REPOSITORIES` | Selected repositories, one path per line.     |
 
 Requirements for layout scripts:
 
-- Create linked worktrees on `T3_WORKTREE_BRANCH` via `git worktree add` (clones or other branches are rejected).
+- Create linked worktrees on `A4_WORKTREE_BRANCH` via `git worktree add` (clones or other branches are rejected).
 - `create` must be idempotent (if re-run when a folder is missing, check out the existing branch). Failed `create` runs roll back created checkouts.
-- `remove` (optional) runs before T3 Code cleans up and should handle partially missing folders and delete generated files.
+- `remove` (optional) runs before a4code cleans up and should handle partially missing folders and delete generated files.
 
 Example (`sh`) for a single repo that also initializes submodules:
 
 ```json
 {
   "worktreeLayout": {
-    "create": "(git worktree add \"$T3_WORKTREE_PROJECT_PATH\" \"$T3_WORKTREE_BRANCH\" 2>/dev/null || git worktree add -b \"$T3_WORKTREE_BRANCH\" \"$T3_WORKTREE_PROJECT_PATH\" ${T3_WORKTREE_BASE:-HEAD}) && git -C \"$T3_WORKTREE_PROJECT_PATH\" submodule update --init"
+    "create": "(git worktree add \"$A4_WORKTREE_PROJECT_PATH\" \"$A4_WORKTREE_BRANCH\" 2>/dev/null || git worktree add -b \"$A4_WORKTREE_BRANCH\" \"$A4_WORKTREE_PROJECT_PATH\" ${A4_WORKTREE_BASE:-HEAD}) && git -C \"$A4_WORKTREE_PROJECT_PATH\" submodule update --init"
   }
 }
 ```
 
 #### Command approval and security
 
-T3 Code prompts you to approve the exact `create` and `remove` command strings on web/desktop before running them (manage approvals in **Settings → Projects → Worktree layout**; requires `terminal:operate`). Approvals are stored per environment and invalidated if the command string in `t3.json` changes.
+a4code prompts you to approve the exact `create` and `remove` command strings on web/desktop before running them (manage approvals in **Settings → Projects → Worktree layout**; requires `terminal:operate`). Approvals are stored per environment and invalidated if the command string in `a4code.json` changes.
 
 - Unapproved commands block worktree creation from mobile, scheduled tasks, and agents.
 - Agents can never approve commands and must be in **Full access** to trigger `worktreeLayout` or worktree-creation setup scripts.
@@ -88,4 +88,4 @@ T3 Code prompts you to approve the exact `create` and `remove` command strings o
 ## Rewind and limits
 
 - **Rewind**: Restores every repository with an earlier snapshot. Plain-folder files outside repositories and repositories with no earlier snapshot keep their current contents (the rewind reports any skipped repos).
-- **Limits**: Git actions run one repository at a time; only the project folder's `t3.json` is read; the Diff pane repository picker and plain-folder base branch field are web/desktop only.
+- **Limits**: Git actions run one repository at a time; only the project folder's `a4code.json` is read; the Diff pane repository picker and plain-folder base branch field are web/desktop only.

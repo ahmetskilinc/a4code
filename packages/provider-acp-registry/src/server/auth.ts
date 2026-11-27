@@ -2,7 +2,7 @@ import {
   ProviderSetupError,
   type ProviderAuthMethod,
   type ProviderInstanceId,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import type { AcpRegistrySettings } from "../settings.ts";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as NodeUtil from "node:util";
@@ -19,12 +19,12 @@ import * as Schema from "effect/Schema";
 import type * as AcpSchema from "effect-acp/compat";
 import * as EffectAcpErrors from "effect-acp/errors";
 
-import * as PtyAdapter from "@t3tools/shared/PtyAdapter";
-import * as ProviderAuthFlow from "@t3tools/provider-core/server/providerAuthFlow";
+import * as PtyAdapter from "@a4code/shared/PtyAdapter";
+import * as ProviderAuthFlow from "@a4code/provider-core/server/providerAuthFlow";
 import { normalizeAcpRegistryAuthMethods, normalizeAcpRegistryWebUrl } from "./probe.ts";
 import * as AcpRegistrySupport from "./AcpRegistrySupport.ts";
 import * as AcpRegistryRuntimeCoordinator from "./AcpRegistryRuntimeCoordinator.ts";
-import * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
+import * as AcpSessionRuntime from "@a4code/provider-acp/server/AcpSessionRuntime";
 
 const isAcpRequestError = Schema.is(EffectAcpErrors.AcpRequestError);
 
@@ -115,7 +115,7 @@ export const makeAcpRegistryAuth = Effect.fn("makeAcpRegistryAuth")(function* (o
               fs: { readTextFile: false, writeTextFile: false },
               terminal: false,
             },
-            clientInfo: { name: "t3-code-provider-auth", version: "0.0.0" },
+            clientInfo: { name: "a4code-provider-auth", version: "0.0.0" },
           }).pipe(
             Layer.provide(
               Layer.mergeAll(
@@ -406,6 +406,14 @@ export const makeAcpRegistryAuth = Effect.fn("makeAcpRegistryAuth")(function* (o
     instanceId: options.instanceId,
     // ACP omits credential scope; assume an agent's instances share credentials in this environment.
     credentialBinding: { owner: "provider", key: `acp:${agentKey}` },
+    initialMethods: [
+      {
+        id: options.settings.authMethodId || "default",
+        name: "Sign in",
+        description: null,
+        type: "agent",
+      },
+    ],
     methods,
     ...(options.settings.authMethodId ? { defaultMethodId: options.settings.authMethodId } : {}),
     authenticate,

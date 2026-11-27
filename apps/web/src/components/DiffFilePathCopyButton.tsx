@@ -1,4 +1,4 @@
-import { formatFilePathForClipboard } from "@t3tools/client-runtime/media-actions";
+import { formatFilePathForClipboard } from "@a4code/client-runtime/media-actions";
 import { useGT } from "gt-react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useRef } from "react";

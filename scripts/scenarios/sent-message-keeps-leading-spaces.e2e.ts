@@ -2,17 +2,17 @@
 // The DOM lib types the function this scenario runs in the page.
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 const LINES = ["Plan", "   Step one", "   Step two", "        Detail a", "        Detail b"];
 
 test(
   "A sent message shows the spaces typed at the start of its lines",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    const project = await t3.project("demo");
-    const thread = await t3.thread({ project, title: "Outline", messages: ["Start"] });
-    await t3.open(thread);
+  async ({ a4code, app, browser, screen }) => {
+    const project = await a4code.project("demo");
+    const thread = await a4code.thread({ project, title: "Outline", messages: ["Start"] });
+    await a4code.open(thread);
 
     const composer = screen.getByRole("textbox");
     for (const [index, line] of LINES.entries()) {

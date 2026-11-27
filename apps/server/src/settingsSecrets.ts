@@ -14,15 +14,15 @@ import {
   type UsageLimitSourceId,
   isSecretReference,
   secretSettingsFields,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import * as Predicate from "effect/Predicate";
-import { acpRegistryClient } from "@t3tools/provider-acp-registry/client";
-import { cursorClient } from "@t3tools/provider-cursor/client";
-import { grokClient } from "@t3tools/provider-grok/client";
-import { kiroClient } from "@t3tools/provider-kiro/client";
-import { museClient } from "@t3tools/provider-muse/client";
-import { openCodeClient } from "@t3tools/provider-opencode/client";
-import { piClient } from "@t3tools/provider-pi/client";
+import { acpRegistryClient } from "@a4code/provider-acp-registry/client";
+import { cursorClient } from "@a4code/provider-cursor/client";
+import { grokClient } from "@a4code/provider-grok/client";
+import { kiroClient } from "@a4code/provider-kiro/client";
+import { museClient } from "@a4code/provider-muse/client";
+import { openCodeClient } from "@a4code/provider-opencode/client";
+import { piClient } from "@a4code/provider-pi/client";
 import {
   readSecretFieldValues,
   SOURCE_CONTROL_HOST_SECRET_FIELDS,

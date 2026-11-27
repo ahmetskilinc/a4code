@@ -11,7 +11,7 @@ export class DevRunnerStateDirInUseError extends Schema.TaggedError<DevRunnerSta
   { stateDir: Schema.String, owner: Schema.String },
 ) {
   override get message(): string {
-    return `Another dev runner already uses ${this.stateDir} (${this.owner}). Stop it, or pass --home-dir to use a separate T3 home.`;
+    return `Another dev runner already uses ${this.stateDir} (${this.owner}). Stop it, or pass --home-dir to use a separate a4code home.`;
   }
 }
 

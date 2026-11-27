@@ -48,7 +48,7 @@ it("applies theme CSS and drops every rule that would load a remote file", () =>
   // A later longhand hides the shorthand's text from CSSOM, and the browser still loads its url().
   applyThemeCss(`
     [data-theme-css-probe] { mask: v\\61r(--none, u\\72l(https://example.com/k)); mask-size: auto; }
-    [data-theme-css-probe] { list-style: env(t3-none, url(https://example.com/l)); list-style-type: disc; }
+    [data-theme-css-probe] { list-style: env(a4-none, url(https://example.com/l)); list-style-type: disc; }
     @keyframes hidden { to { background: var(--none, url(https://example.com/m)); background-color: red; } }
     [data-theme-css-probe] { border-image: var(--none, url(https://example.com/n)); border-image-slice: 1; }
     [data-theme-css-probe] { animation: hidden 1s forwards paused; animation-delay: -1s; }

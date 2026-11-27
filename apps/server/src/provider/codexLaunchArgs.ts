@@ -1,18 +1,18 @@
-import { tokenizeCliArgs } from "@t3tools/shared/cliArgs";
+import { tokenizeCliArgs } from "@a4code/shared/cliArgs";
 
-const T3CODE_CODEX_LAUNCH_ARGS_ENV = "T3CODE_CODEX_LAUNCH_ARGS";
+const A4CODE_CODEX_LAUNCH_ARGS_ENV = "A4CODE_CODEX_LAUNCH_ARGS";
 
 export const resolveCodexLaunchArgs = (
   launchArgs?: string,
   environment: NodeJS.ProcessEnv = process.env,
 ) => {
-  const override = environment[T3CODE_CODEX_LAUNCH_ARGS_ENV];
+  const override = environment[A4CODE_CODEX_LAUNCH_ARGS_ENV];
   return override?.trim() ? override : launchArgs?.trim() || "";
 };
 
 const codexLaunchArgv = (launchArgs?: string): ReadonlyArray<string> => tokenizeCliArgs(launchArgs);
 
-// T3 unsubscribes only when it unloads a thread; Codex's own unload delay would stack on that.
+// a4code unsubscribes only when it unloads a thread; Codex's own unload delay would stack on that.
 export const codexAppServerArgs = (launchArgs?: string) => [
   "app-server",
   "-c",

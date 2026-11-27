@@ -1,5 +1,5 @@
-import { threadIssueKeyOf, type ScopedThreadRef, type ThreadIssueLink } from "@t3tools/contracts";
-import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+import { threadIssueKeyOf, type ScopedThreadRef, type ThreadIssueLink } from "@a4code/contracts";
+import { scopedThreadKey } from "@a4code/client-runtime/environment";
 import { useGT } from "gt-react";
 import { MessageSquareIcon } from "lucide-react";
 import { useState, type MouseEvent } from "react";

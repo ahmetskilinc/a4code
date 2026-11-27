@@ -1,6 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
-import { DEFAULT_SERVER_SETTINGS, ProviderInstanceId } from "@t3tools/contracts";
+import { DEFAULT_SERVER_SETTINGS, ProviderInstanceId } from "@a4code/contracts";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -12,10 +12,10 @@ import * as HttpClient from "effect/http/HttpClient";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
-import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import * as TestProviderHost from "@t3tools/provider-testing/TestProviderHost";
+import * as ProviderLatestVersions from "@a4code/provider-core/server/ProviderLatestVersions";
+import * as IdAllocator from "@a4code/provider-core/server/IdAllocator";
+import * as McpProviderSessions from "@a4code/provider-core/server/McpProviderSessions";
+import * as TestProviderHost from "@a4code/provider-testing/TestProviderHost";
 import type { PiSettings } from "../settings.ts";
 import { PiDriver } from "./driver.ts";
 
@@ -123,140 +123,21 @@ const create = (config: Partial<PiSettings> = {}, enabled = true) =>
     config: { ...PiDriver.defaultConfig(), binaryPath: "custom-pi", ...config },
   });
 
-it.layer(layerTest)("PiDriver workspace discovery", (it) => {
-  it.effect("keeps each workspace's skills and commands separate from the machine catalog", () =>
-    Effect.gen(function* () {
-      const { spawner, launches } = yield* makePiSpawner();
-      const instance = yield* create({ launchArgs: '--approve --skill "extra skill"' }).pipe(
-        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-      );
-      yield* instance.snapshot.refresh;
-      assert.isDefined(instance.snapshotForCwd);
-      const [first, second] = yield* Effect.all(
-        [instance.snapshotForCwd!("/first"), instance.snapshotForCwd!("/second")],
-        { concurrency: "unbounded" },
-      );
-      assert.deepEqual(
-        first.skills.map((skill) => skill.name),
-        ["personal", "first"],
-      );
-      assert.deepEqual(
-        second.skills.map((skill) => skill.name),
-        ["personal", "second"],
-      );
-      assert.deepEqual(
-        first.slashCommands.map((command) => command.name),
-        ["compact", "prompt-first"],
-      );
-      const machine = yield* instance.snapshot.getSnapshot;
-      assert.deepEqual(
-        machine.skills.map((skill) => skill.name),
-        ["personal"],
-      );
-      assert.deepEqual(
-        machine.slashCommands.map((command) => command.name),
-        ["compact"],
-      );
-      assert.equal(first.instanceId, instance.instanceId);
-      assert.equal(first.displayName, "My Pi");
-      assert.equal(first.accentColor, "#abcdef");
-      assert.deepEqual(first.models, machine.models);
-      const workspaceLaunch = launches.find((launch) => launch.options.cwd === "/first");
-      assert.isDefined(workspaceLaunch);
-      assert.equal(workspaceLaunch!.command, "custom-pi");
-      assert.includeMembers(
-        [...workspaceLaunch!.args],
-        ["--approve", "--skill", "extra skill", "--no-session"],
-      );
-      assert.equal(workspaceLaunch!.options.env?.PI_CODING_AGENT_DIR, "/isolated-pi");
-      // Discovery processes are stopped as soon as they answer, so neither may start Pi's
-      // network refresh at launch.
-      assert.isFalse(launches.some((launch) => launch.options.cwd === "/machine"));
-      for (const isLaunch of [
-        (cwd: string | undefined) => cwd?.endsWith("/pi-status-probe") === true,
-        (cwd: string | undefined) => cwd === "/first",
-      ]) {
-        const discovery = launches.find(
-          (launch) => isLaunch(launch.options.cwd) && launch.args.includes("--mode"),
-        );
-        assert.deepEqual(
-          discovery?.args.filter((arg) => arg === "--offline"),
-          ["--offline"],
-        );
-      }
-    }),
-  );
-
-  it.effect("does not run a disabled provider's workspace probe", () =>
-    Effect.gen(function* () {
-      const instance = yield* create({}, false).pipe(
-        Effect.provideService(
-          ChildProcessSpawner.ChildProcessSpawner,
-          ChildProcessSpawner.make(() => Effect.die("Disabled Pi must not spawn")),
-        ),
-      );
-      assert.isDefined(instance.snapshotForCwd);
-      const workspace = yield* instance.snapshotForCwd!("/first");
-      assert.isFalse(workspace.enabled);
-      assert.deepEqual(workspace.skills, []);
-    }),
-  );
-
+it.layer(layerTest)("PiDriver", (it) => {
   it.effect.each([true, false])(
-    "limits discovered thinking defaults to the known active model, known=%s",
-    (known) =>
+    "uses local model settings without launching Pi (enabled=%s)",
+    (enabled) =>
       Effect.gen(function* () {
-        const { spawner } = yield* makePiSpawner({
-          state: {
-            thinkingLevel: "high",
-            ...(known ? { model: { provider: "test", id: "model" } } : {}),
-          },
-          models: [
-            { provider: "test", id: "model", reasoning: true },
-            { provider: "other", id: "model", reasoning: true },
-            { provider: "test", id: "other", reasoning: true },
-          ],
-        });
-        const instance = yield* create().pipe(
+        const { spawner, launches } = yield* makePiSpawner();
+        const instance = yield* create({ customModels: ["my-model"] }, enabled).pipe(
           Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
         );
-        yield* instance.snapshot.refresh;
-        const snapshot = yield* instance.snapshot.getSnapshot;
+        const state = yield* instance.snapshot.refresh;
+        assert.deepEqual(launches, []);
+        assert.isUndefined(instance.snapshotForCwd);
         assert.deepEqual(
-          snapshot.models.map((model) => [
-            model.slug,
-            (model.capabilities?.optionDescriptors ?? []).flatMap((descriptor) =>
-              descriptor.type === "select"
-                ? descriptor.options.filter((option) => option.isDefault).map((option) => option.id)
-                : [],
-            ),
-          ]),
-          [
-            ["default", []],
-            ["test/model", known ? ["high"] : []],
-            ["other/model", []],
-            ["test/other", []],
-          ],
-        );
-      }),
-  );
-
-  it.effect(
-    "fails command discovery instead of returning an empty successful workspace catalog",
-    () =>
-      Effect.gen(function* () {
-        const { spawner } = yield* makePiSpawner();
-        const instance = yield* create().pipe(
-          Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-        );
-        yield* instance.snapshot.refresh;
-        assert.isDefined(instance.snapshotForCwd);
-        const error = yield* Effect.flip(instance.snapshotForCwd!("/failed"));
-        assert.equal(error._tag, "ProviderDriverError");
-        assert.equal(error.instanceId, instance.instanceId);
-        assert.deepEqual(
-          (yield* instance.snapshot.getSnapshot).skills.map((skill) => skill.name),
-          ["personal"],
+          state.models.map((model) => model.slug),
+          ["default", "my-model"],
         );
       }),
   );

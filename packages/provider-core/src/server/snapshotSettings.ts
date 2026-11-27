@@ -1,4 +1,4 @@
-import type { ServerSettings, ServerSettingsError } from "@t3tools/contracts";
+import type { ServerSettingsError } from "@a4code/contracts";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
 import * as Stream from "effect/Stream";
@@ -8,16 +8,6 @@ import * as ProviderHost from "./ProviderHost.ts";
 export interface ProviderSnapshotSettings<Settings> {
   readonly provider: Settings;
   readonly enableProviderUpdateChecks: boolean;
-}
-
-function makeProviderSnapshotSettings<Settings>(
-  provider: Settings,
-  settings: ServerSettings,
-): ProviderSnapshotSettings<Settings> {
-  return {
-    provider,
-    enableProviderUpdateChecks: settings.enableProviderUpdateChecks,
-  };
 }
 
 export function haveProviderSnapshotSettingsChanged<Settings>(
@@ -38,9 +28,9 @@ export const makeProviderSnapshotSettingsSource = Effect.fn(
   ProviderHost.ProviderHost
 > {
   const { settings } = yield* ProviderHost.ProviderHost;
-  const mapSettings = (current: ServerSettings) => makeProviderSnapshotSettings(provider, current);
+  const snapshot = { provider, enableProviderUpdateChecks: false };
   return {
-    getSettings: settings.get.pipe(Effect.map(mapSettings)),
-    streamSettings: settings.changes.pipe(Stream.map(mapSettings)),
+    getSettings: settings.get.pipe(Effect.as(snapshot)),
+    streamSettings: settings.changes.pipe(Stream.map(() => snapshot)),
   };
 });

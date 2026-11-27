@@ -2,7 +2,7 @@ import type {
   EnvironmentId,
   ProviderInstanceId,
   ProviderRuntimeModeLimit,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { createContext } from "react";
 
 import { useEnvironmentQuery } from "./query";

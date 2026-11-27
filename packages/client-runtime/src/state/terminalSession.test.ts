@@ -7,7 +7,7 @@ import {
   terminalSequenceStateAfter,
   TerminalSessionSnapshot,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 
 import {
   applyTerminalAttachStreamEvent,

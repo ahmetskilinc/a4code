@@ -1,13 +1,13 @@
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 test(
   "Labs' Boring sidebar switches are read-only while a project is selected",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    await t3.project("demo");
-    await t3.open("/settings/labs");
+  async ({ a4code, app, browser, screen }) => {
+    await a4code.project("demo");
+    await a4code.open("/settings/labs");
 
     await screen.getByRole("switch", "Boring sidebar (group by project)").check();
     await expect(screen.getByRole("switch", "Two-line folder rows")).toBeVisible();

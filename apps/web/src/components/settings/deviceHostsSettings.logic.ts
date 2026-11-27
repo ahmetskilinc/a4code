@@ -1,4 +1,4 @@
-import type { EnvironmentId, SshDeviceHostConfig } from "@t3tools/contracts";
+import type { EnvironmentId, SshDeviceHostConfig } from "@a4code/contracts";
 import { msg } from "gt-react";
 
 import { m } from "../../i18n/messages";

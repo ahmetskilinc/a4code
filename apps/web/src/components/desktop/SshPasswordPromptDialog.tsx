@@ -1,6 +1,6 @@
-import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
-import { settlePromise } from "@t3tools/client-runtime/state/runtime";
-import type { DesktopSshPasswordPromptRequest } from "@t3tools/contracts";
+import { thrownErrorMessage } from "@a4code/client-runtime/errors";
+import { settlePromise } from "@a4code/client-runtime/state/runtime";
+import type { DesktopSshPasswordPromptRequest } from "@a4code/contracts";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
 import * as Cause from "effect/Cause";
 import { msg, T, useGT, Var } from "gt-react";
@@ -177,8 +177,8 @@ function ActiveSshPasswordPrompt({
               <code>
                 <Var>{target}</Var>
               </code>
-              . T3 Code passes your response to the local SSH process and keeps it in memory to
-              reuse for this host. T3 Code does not write it to disk.
+              . a4code passes your response to the local SSH process and keeps it in memory to
+              reuse for this host. a4code does not write it to disk.
             </T>
           </DialogDescription>
         </DialogHeader>

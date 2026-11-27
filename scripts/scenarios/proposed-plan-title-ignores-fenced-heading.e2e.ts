@@ -5,8 +5,8 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
-import { T3_HOME } from "../e2e.config.ts";
-import { makeState, rpcClient, runPromise, test, WEB } from "./t3.ts";
+import { A4_HOME } from "../e2e.config.ts";
+import { makeState, rpcClient, runPromise, test, WEB } from "./a4code.ts";
 
 const PLAN = "```md\n```\u00a0\n# Sample heading\n```\n\n# Release plan\n\nRun a smoke check.";
 const SettingsJson = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
@@ -38,13 +38,13 @@ for await (const line of createInterface({ input: process.stdin })) {
 test(
   "A proposed plan title skips sample headings inside code fences",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    const project = await t3.project("demo", { "plan-agent.mjs": ACP });
+  async ({ a4code, app, browser, screen }) => {
+    const project = await a4code.project("demo", { "plan-agent.mjs": ACP });
     const restoreSettings = await runPromise(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const settingsPath = path.join(T3_HOME, "userdata/settings.json");
+        const settingsPath = path.join(A4_HOME, "userdata/settings.json");
         const original = yield* fs.readFileString(settingsPath);
         const settings = yield* decodeSettings(original);
         const planAgent = {
@@ -72,7 +72,7 @@ test(
     try {
       await runPromise(
         Effect.gen(function* () {
-          const client = yield* rpcClient(T3_HOME, app.baseUrl ?? "");
+          const client = yield* rpcClient(A4_HOME, app.baseUrl ?? "");
           yield* client.subscribeServerConfig({}).pipe(
             Stream.filter((event) =>
               (event.type === "snapshot"
@@ -86,7 +86,7 @@ test(
           );
         }).pipe(Effect.scoped),
       );
-      const { cli } = makeState(T3_HOME);
+      const { cli } = makeState(A4_HOME);
       const started = await runPromise(
         cli([
           "thread",
@@ -104,7 +104,7 @@ test(
         ]),
       );
       const { threadId } = JSON.parse(started.stdout) as { threadId: string };
-      await t3.open({ threadId });
+      await a4code.open({ threadId });
       await screen.getByRole("button", "Plan actions").waitFor();
       await app.screenshot("proposed-plan-title");
       await expect(browser.locator("h3[data-thread-find-text]")).toHaveText("Release plan");

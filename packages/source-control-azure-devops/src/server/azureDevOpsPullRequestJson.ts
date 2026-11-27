@@ -1,7 +1,7 @@
 import {
   trimOptionalString as trimmed,
   normalizeRefName,
-} from "@t3tools/source-control-core/server/pullRequestUtils";
+} from "@a4code/source-control-core/server/pullRequestUtils";
 import * as Cause from "effect/Cause";
 import * as Exit from "effect/Exit";
 import * as Result from "effect/Result";
@@ -14,9 +14,9 @@ import type {
   PullRequestMergeMethod,
   PullRequestMergeability,
   PullRequestState,
-} from "@t3tools/contracts";
-import { TrimmedNonEmptyString } from "@t3tools/contracts";
-import { decodeJsonResult } from "@t3tools/shared/schemaJson";
+} from "@a4code/contracts";
+import { TrimmedNonEmptyString } from "@a4code/contracts";
+import { decodeJsonResult } from "@a4code/shared/schemaJson";
 
 import { azureDevOpsPullRequestWebUrl } from "./azureDevOpsPullRequests.ts";
 

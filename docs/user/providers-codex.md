@@ -1,12 +1,12 @@
 # Codex
 
-Use your ChatGPT plan or an existing Codex CLI login to run Codex in T3 Code.
+Use your ChatGPT plan or an existing Codex CLI login to run Codex in a4code.
 
 ## Connect with ChatGPT
 
-Connect during onboarding or in **Settings → Providers** (select your target environment first for remote machines). T3 Code manages the Codex runtime and signs you in via OpenAI.
+Connect during onboarding or in **Settings → Providers** (select your target environment first for remote machines). a4code manages the Codex runtime and signs you in via OpenAI.
 
-- Manage shared usage and credits through **Manage usage** in T3 Code.
+- Manage shared usage and credits through **Manage usage** in a4code.
 - **Remote sign-in**: If sign-in doesn't return automatically, paste the full `localhost` redirect URL into the sign-in panel.
 - **Speed options**: Fast and Ultrafast speeds are not available through ChatGPT sharing—[use an existing Codex login](#use-an-existing-codex-login) instead.
 - Disconnecting stops running threads while preserving history.
@@ -15,7 +15,7 @@ Connect during onboarding or in **Settings → Providers** (select your target e
 
 Run `codex login` on the environment's machine, then add a Codex instance in **Settings → Providers** via **Configure manually**. See [provider setup](./install.md#providers) for installation details.
 
-If provider status checks time out on a slower machine, set `T3CODE_CODEX_PROBE_TIMEOUT_MS=60000` in the server environment and restart. See [Provider check timeouts](./install.md#provider-check-timeouts).
+If provider status checks time out on a slower machine, set `A4CODE_CODEX_PROBE_TIMEOUT_MS=60000` in the server environment and restart. See [Provider check timeouts](./install.md#provider-check-timeouts).
 
 ## Use multiple accounts
 
@@ -49,4 +49,4 @@ To switch accounts mid-thread, pick another compatible Codex instance sharing th
 
 ## OpenAI Chrome extension
 
-Using your signed-in Chrome profile via [OpenAI's Chrome extension](https://learn.chatgpt.com/docs/chrome-extension) requires a browser connection for the Codex thread. For remote environments, forward the remote page's port or use a reachable URL—T3 Code's built-in preview browser uses its own separate session.
+Using your signed-in Chrome profile via [OpenAI's Chrome extension](https://learn.chatgpt.com/docs/chrome-extension) requires a browser connection for the Codex thread. For remote environments, forward the remote page's port or use a reachable URL—a4code's built-in preview browser uses its own separate session.

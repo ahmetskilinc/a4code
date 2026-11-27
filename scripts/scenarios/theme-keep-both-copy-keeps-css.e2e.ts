@@ -1,6 +1,6 @@
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 const themeJson = (css?: string) =>
   JSON.stringify({
@@ -18,9 +18,9 @@ const NYX_CSS =
 test(
   "Keep both on a theme import conflict keeps the imported theme's CSS",
   WEB,
-  async ({ t3, app, screen, browser }) => {
-    await t3.project("demo");
-    await t3.open("/settings/appearance");
+  async ({ a4code, app, screen, browser }) => {
+    await a4code.project("demo");
+    await a4code.open("/settings/appearance");
 
     const importTheme = async (json: string) => {
       await screen.getByRole("button", "Add theme", { exact: true }).tap();

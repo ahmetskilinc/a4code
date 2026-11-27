@@ -19,9 +19,9 @@ import {
 import {
   mergeToolCallState,
   parseSessionUpdateEvent,
-} from "@t3tools/provider-acp/server/runtimeModel";
-import { acpToolCallDiffPatch } from "@t3tools/provider-acp/server/adapter";
-import { acpChangedPathsOfToolCall } from "@t3tools/provider-acp/server/clientPolicy";
+} from "@a4code/provider-acp/server/runtimeModel";
+import { acpToolCallDiffPatch } from "@a4code/provider-acp/server/adapter";
+import { acpChangedPathsOfToolCall } from "@a4code/provider-acp/server/clientPolicy";
 
 const isSessionNotification = Schema.is(AcpWireSchema.SessionNotification);
 
@@ -793,7 +793,7 @@ describe("Antigravity served reads", () => {
       },
     }).update;
 
-  it("credits a read T3 served before the agent announced it", () => {
+  it("credits a read a4code served before the agent announced it", () => {
     const reads = makeAntigravityReadRepair();
     reads.attempted("/repo/a.ts", true);
     const announced = reads.repair({
@@ -859,15 +859,15 @@ describe("Antigravity served reads", () => {
     });
   });
 
-  it("drops agy's toolSummary from T3 MCP call arguments only", () => {
-    const t3Call = normalizeAntigravityToolCall(
+  it("drops agy's toolSummary from a4code MCP call arguments only", () => {
+    const a4Call = normalizeAntigravityToolCall(
       parseToolUpdate(
         normalizeAntigravitySessionUpdate({
           sessionId: "session-1",
           update: {
             sessionUpdate: "tool_call",
-            toolCallId: "call_t3_send",
-            title: "Run mcp_t3-code_send_to_user",
+            toolCallId: "call_a4_send",
+            title: "Run mcp_a4code_send_to_user",
             kind: "other",
             status: "in_progress",
             rawInput: { message: "Hello", toolSummary: "Send greeting" },
@@ -875,7 +875,7 @@ describe("Antigravity served reads", () => {
         }),
       ).toolCall,
     );
-    expect(t3Call.data.rawInput).toEqual({ message: "Hello" });
+    expect(a4Call.data.rawInput).toEqual({ message: "Hello" });
 
     const foreignCall = normalizeAntigravityToolCall(
       parseToolUpdate({

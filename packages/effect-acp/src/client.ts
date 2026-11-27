@@ -294,7 +294,7 @@ function normalizeContentBlock(content: AcpSchemaV2.ContentBlock): AcpSchema.Con
     case "resource":
       return content as AcpSchema.ContentBlock;
     default:
-      return { type: "_t3_unknown", originalType: content.type, raw: content };
+      return { type: "_a4_unknown", originalType: content.type, raw: content };
   }
 }
 
@@ -307,7 +307,7 @@ function normalizeToolCallContent(content: AcpSchemaV2.ToolCallContent): AcpSche
     return content as Extract<AcpSchemaV2.ToolCallContent, { readonly type: "terminal" }>;
   }
   if (content.type !== "diff") {
-    return { type: "_t3_unknown", originalType: content.type, raw: content };
+    return { type: "_a4_unknown", originalType: content.type, raw: content };
   }
 
   return content as Extract<AcpSchemaV2.ToolCallContent, { readonly type: "diff" }>;
@@ -503,7 +503,7 @@ function normalizeSessionUpdate(
       return {
         ...base,
         update: {
-          sessionUpdate: "_t3_unknown",
+          sessionUpdate: "_a4_unknown",
           originalSessionUpdate: update.sessionUpdate,
           raw: update,
         },
@@ -523,7 +523,7 @@ function normalizeV1SessionUpdate(
       update: Option.isSome(notice)
         ? notice.value
         : {
-            sessionUpdate: "_t3_unknown",
+            sessionUpdate: "_a4_unknown",
             originalSessionUpdate: "notice",
             raw: notification.update,
           },
@@ -697,7 +697,7 @@ function toV2InitializeRequest(
   const capabilities = request.clientCapabilities;
   return {
     protocolVersion: 2,
-    info: request.clientInfo ?? { name: "t3-code", version: "unknown" },
+    info: request.clientInfo ?? { name: "a4code", version: "unknown" },
     capabilities: {
       ...(capabilities?.auth?.terminal === true ? { auth: { terminal: {} } } : {}),
       ...(capabilities?.elicitation == null ? {} : { elicitation: capabilities.elicitation }),

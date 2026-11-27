@@ -163,10 +163,10 @@ describe("acpPermissionDisposition", () => {
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const workspace = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-acp-permission-workspace-",
+        prefix: "a4-acp-permission-workspace-",
       });
       const outside = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-acp-permission-outside-",
+        prefix: "a4-acp-permission-outside-",
       });
       yield* fileSystem.symlink(outside, path.join(workspace, "linked-directory"));
       yield* fileSystem.makeDirectory(path.join(workspace, "src"));
@@ -188,10 +188,10 @@ describe("acpPermissionDisposition", () => {
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const workspace = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-acp-permission-workspace-",
+        prefix: "a4-acp-permission-workspace-",
       });
       const outside = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-acp-permission-outside-",
+        prefix: "a4-acp-permission-outside-",
       });
       // Two different files on POSIX: `target` stays in the folder, `target ` leads out of it.
       yield* fileSystem.writeFileString(path.join(workspace, "target"), "");
@@ -282,7 +282,7 @@ describe("acpPermissionDisposition", () => {
       { locations: inside, rawInput: { path: " " } },
       { locations: inside, content: [{ type: "diff", newText: "" }] },
       { locations: inside, content: [{ type: "diff", changes: {} }] },
-      { locations: inside, content: [{ type: "_t3_unknown", originalType: "_patch", raw: {} }] },
+      { locations: inside, content: [{ type: "_a4_unknown", originalType: "_patch", raw: {} }] },
       { locations: inside, content: "diff" },
       { locations: { path: "src/a.ts" } },
       // A diff that carries a path beside its changes changes both.
@@ -352,10 +352,10 @@ describe("acpPermissionDisposition", () => {
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const workspace = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-acp-permission-workspace-",
+        prefix: "a4-acp-permission-workspace-",
       });
       const outside = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-acp-permission-outside-",
+        prefix: "a4-acp-permission-outside-",
       });
       const outsideFile = path.join(outside, "existing.ts");
       yield* fileSystem.writeFileString(outsideFile, "outside");
@@ -404,10 +404,10 @@ describe("acpPermissionDisposition", () => {
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const workspace = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-acp-permission-workspace-",
+        prefix: "a4-acp-permission-workspace-",
       });
       const workspaceLinkParent = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-acp-permission-link-parent-",
+        prefix: "a4-acp-permission-link-parent-",
       });
       const workspaceLink = path.join(workspaceLinkParent, "workspace-link");
       yield* fileSystem.makeDirectory(path.join(workspace, "src"), { recursive: true });

@@ -1,16 +1,16 @@
 /// <reference lib="dom" />
 import { expect } from "e2e";
 
-import { test, WEB } from "./t3.ts";
+import { test, WEB } from "./a4code.ts";
 
 test(
   "A repository lookup stays dismissed after going Back",
   WEB,
-  async ({ t3, app, browser, screen }) => {
-    const project = await t3.project("demo");
-    const thread = await t3.thread({ project, title: "Current work", messages: ["Start"] });
+  async ({ a4code, app, browser, screen }) => {
+    const project = await a4code.project("demo");
+    const thread = await a4code.thread({ project, title: "Current work", messages: ["Start"] });
 
-    await t3.open(thread);
+    await a4code.open(thread);
     await screen.getByText("Start", { exact: true }).waitFor({ timeout: 30_000 });
     await browser.evaluate(() => {
       const send = WebSocket.prototype.send;

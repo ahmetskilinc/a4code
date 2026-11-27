@@ -1,4 +1,4 @@
-import { ProviderDriverKind } from "@t3tools/contracts";
+import { ProviderDriverKind } from "@a4code/contracts";
 import { GrokSettings } from "../settings.ts";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
@@ -8,28 +8,25 @@ import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/http/HttpClient";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
-import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
-import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
-import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
+import * as ProviderLatestVersions from "@a4code/provider-core/server/ProviderLatestVersions";
+import * as ProviderHost from "@a4code/provider-core/server/ProviderHost";
+import * as ProviderEventLoggers from "@a4code/provider-core/server/ProviderEventLoggers";
 import { makeGrokTextGeneration } from "./textGeneration.ts";
 import { GrokAdapterV2Driver, type GrokAdapterV2DriverEnv } from "./adapter.ts";
-import { ProviderDriverError } from "@t3tools/provider-core/server/errors";
-import {
-  buildInitialGrokProviderSnapshot,
-  checkGrokProviderStatus,
-  enrichGrokSnapshot,
-} from "./status.ts";
+import { ProviderDriverError } from "@a4code/provider-core/server/errors";
+import { buildInitialGrokProviderSnapshot } from "./status.ts";
 import { grokUsageReader } from "./usage.ts";
-import { readGrokAccount } from "./usageLimits.ts";
-import { makeManagedServerProvider } from "@t3tools/provider-core/server/managedProvider";
+import {
+  makeManagedServerProvider,
+  readLocalCliStatus,
+} from "@a4code/provider-core/server/managedProvider";
 import {
   defaultProviderContinuationIdentity,
   type ProviderDriver,
   type ProviderInstance,
-} from "@t3tools/provider-core/server/driver";
-import { withInstanceIdentity } from "@t3tools/provider-core/server/instanceIdentity";
-import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
-import { discoverGrokSkills } from "./skills.ts";
+} from "@a4code/provider-core/server/driver";
+import { withInstanceIdentity } from "@a4code/provider-core/server/instanceIdentity";
+import { mergeProviderInstanceEnvironment } from "@a4code/provider-core/server/instanceEnvironment";
 import {
   homebrewOwnershipFromCommandPath,
   isNixStoreCommandPath,
@@ -40,12 +37,12 @@ import {
   resolveHomebrewProviderMaintenance,
   resolveMiseProviderMaintenance,
   resolveProviderMaintenanceCapabilitiesEffect,
-} from "@t3tools/provider-core/server/maintenanceResolver";
+} from "@a4code/provider-core/server/maintenanceResolver";
 import {
   haveProviderSnapshotSettingsChanged,
   makeProviderSnapshotSettingsSource,
   type ProviderSnapshotSettings,
-} from "@t3tools/provider-core/server/snapshotSettings";
+} from "@a4code/provider-core/server/snapshotSettings";
 const decodeGrokSettings = Schema.decodeSync(GrokSettings);
 
 const DRIVER_KIND = ProviderDriverKind.make("grok");
@@ -156,10 +153,7 @@ export const GrokDriver: ProviderDriver<GrokSettings, GrokDriverEnv, Path.Path> 
     enabled,
     config,
   }) {
-    const random = yield* SecureRandom.SecureRandom;
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-    const httpClient = yield* HttpClient.HttpClient;
-    const latestVersions = yield* ProviderLatestVersions.ProviderLatestVersions;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const host = yield* ProviderHost.ProviderHost;
@@ -208,56 +202,21 @@ export const GrokDriver: ProviderDriver<GrokSettings, GrokDriverEnv, Path.Path> 
     );
     const textGeneration = yield* makeGrokTextGeneration(effectiveConfig, processEnv);
 
-    const checkProvider = checkGrokProviderStatus(effectiveConfig, processEnv, cwd).pipe(
-      Effect.filterOrElse(
-        (snapshot) =>
-          !(
-            effectiveConfig.enabled &&
-            snapshot.installed &&
-            snapshot.auth.status === "authenticated"
-          ),
-        (snapshot) =>
-          readGrokAccount(processEnv).pipe(
-            Effect.map(({ email, usageLimits }) => ({
-              ...snapshot,
-              auth: email ? { ...snapshot.auth, email } : snapshot.auth,
-              usageLimits,
-            })),
-          ),
-      ),
+    const checkLocalProvider = buildInitialGrokProviderSnapshot(effectiveConfig).pipe(
       Effect.map(stampIdentity),
-      Effect.provideService(HttpClient.HttpClient, httpClient),
-      Effect.provideService(FileSystem.FileSystem, fileSystem),
-      Effect.provideService(Path.Path, path),
-      Effect.provideService(SecureRandom.SecureRandom, random),
-      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+      Effect.flatMap(
+        readLocalCliStatus({ binaryPath: effectiveConfig.binaryPath, environment: processEnv }),
+      ),
     );
-
     const snapshotSettings = yield* makeProviderSnapshotSettingsSource(effectiveConfig);
     const snapshot = yield* makeManagedServerProvider<ProviderSnapshotSettings<GrokSettings>>({
       resolveMaintenance,
       getSettings: snapshotSettings.getSettings,
       streamSettings: snapshotSettings.streamSettings,
       haveSettingsChanged: haveProviderSnapshotSettingsChanged,
-      // Each check starts the Grok CLI four times. A ready instance is rechecked on refresh or a
-      // settings change; only an unhealthy one keeps polling until it recovers.
-      refreshOnInterval: (snapshot) => snapshot.status !== "ready",
-      initialSnapshot: (settings) =>
-        buildInitialGrokProviderSnapshot(settings.provider).pipe(Effect.map(stampIdentity)),
-      checkProvider,
-      enrichSnapshot: ({ settings, snapshot: currentSnapshot, publishSnapshot }) =>
-        resolveMaintenance().pipe(
-          Effect.flatMap((maintenanceCapabilities) =>
-            enrichGrokSnapshot({
-              snapshot: currentSnapshot,
-              maintenanceCapabilities,
-              enableProviderUpdateChecks: settings.enableProviderUpdateChecks,
-              publishSnapshot,
-            }),
-          ),
-          Effect.provideService(HttpClient.HttpClient, httpClient),
-          Effect.provideService(ProviderLatestVersions.ProviderLatestVersions, latestVersions),
-        ),
+      initialSnapshot: () => checkLocalProvider,
+      checkProvider: checkLocalProvider,
+      refreshOnInterval: false,
     }).pipe(
       Effect.mapError(
         (cause) =>
@@ -269,24 +228,6 @@ export const GrokDriver: ProviderDriver<GrokSettings, GrokDriverEnv, Path.Path> 
           }),
       ),
     );
-    const snapshotForCwd = (workspaceCwd: string) =>
-      !effectiveConfig.enabled
-        ? snapshot.getSnapshot
-        : Effect.all([
-            snapshot.getSnapshot,
-            discoverGrokSkills(effectiveConfig, processEnv, workspaceCwd).pipe(
-              Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-              Effect.mapError(
-                (cause) =>
-                  new ProviderDriverError({
-                    driver: DRIVER_KIND,
-                    instanceId,
-                    detail: `Failed to discover Grok skills for '${workspaceCwd}'`,
-                    cause,
-                  }),
-              ),
-            ),
-          ]).pipe(Effect.map(([machineSnapshot, skills]) => ({ ...machineSnapshot, skills })));
 
     return {
       instanceId,
@@ -296,7 +237,6 @@ export const GrokDriver: ProviderDriver<GrokSettings, GrokDriverEnv, Path.Path> 
       accentColor,
       enabled,
       snapshot,
-      snapshotForCwd,
       orchestrationAdapter,
       textGeneration,
     } satisfies ProviderInstance;

@@ -10,16 +10,16 @@ import {
   type AcpRegistrySearchInput,
   type AcpRegistrySearchResult,
   type AcpRegistryDistribution as AcpRegistryDistributionKind,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import type { AcpRegistryDistributionPreference } from "../settings.ts";
 import type { AcpRegistrySettings } from "../settings.ts";
-import { cliArchiveTarCommand } from "@t3tools/shared/cliRelease";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import { cliArchiveTarCommand } from "@a4code/shared/cliRelease";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import {
   mergePathEntries,
   resolveSpawnCommand,
   SpawnExecutableResolution,
-} from "@t3tools/shared/shell";
+} from "@a4code/shared/shell";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
@@ -46,11 +46,9 @@ import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
-import { collectUint8StreamText } from "@t3tools/provider-core/server/collectStreamText";
-import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
-import type * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
-
-const ACP_REGISTRY_URL = "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json";
+import { collectUint8StreamText } from "@a4code/provider-core/server/collectStreamText";
+import * as ProviderHost from "@a4code/provider-core/server/ProviderHost";
+import type * as AcpSessionRuntime from "@a4code/provider-acp/server/AcpSessionRuntime";
 
 const MAX_REGISTRY_BYTES = 1024 * 1024;
 const MAX_ARCHIVE_BYTES = 1024 * 1024 * 1024;
@@ -545,7 +543,7 @@ export class AcpRegistryCatalog extends Context.Service<
       input: AcpRegistryManagedBinaryUninstallInput,
     ) => Effect.Effect<AcpRegistryManagedBinaryUninstallResult, AcpRegistryError>;
   }
->()("@t3tools/provider-acp-registry/server/AcpRegistrySupport/AcpRegistryCatalog") {}
+>()("@a4code/provider-acp-registry/server/AcpRegistrySupport/AcpRegistryCatalog") {}
 
 const layer = (options: AcpRegistryCatalogOptions) =>
   Layer.effect(AcpRegistryCatalog, makeAcpRegistryCatalog(options));
@@ -713,7 +711,7 @@ export const makeAcpRegistryCatalog = Effect.fn("AcpRegistryCatalog.make")(funct
     return yield* Effect.promise(async () => executableResolver(command, platform, environment));
   });
   const platformTarget = resolveAcpRegistryPlatformTarget(platform, architecture);
-  const registryUrl = input.registryUrl ?? ACP_REGISTRY_URL;
+  const registryUrl = input.registryUrl;
   const registryDirectory = path.join(input.cacheDir, "acp-registry");
   const registryCachePath = path.join(registryDirectory, "registry.json");
   const installsDirectory = input.toolsDir;
@@ -951,6 +949,11 @@ export const makeAcpRegistryCatalog = Effect.fn("AcpRegistryCatalog.make")(funct
     );
 
   const fetchRegistry = Effect.fn("AcpRegistryCatalog.fetchRegistry")(function* () {
+    if (registryUrl === undefined) {
+      return yield* readCachedRegistry.pipe(
+        Effect.map(Option.getOrElse((): AcpRegistryIndex => ({ version: "1", agents: [] }))),
+      );
+    }
     yield* assertHttpsUrl(registryUrl, "ACP Registry index URL must use HTTPS.");
     const response = yield* httpClient.execute(HttpClientRequest.get(registryUrl)).pipe(
       Effect.flatMap(HttpClientResponse.filterStatusOk),
@@ -1424,7 +1427,7 @@ export const makeAcpRegistryCatalog = Effect.fn("AcpRegistryCatalog.make")(funct
       if (!(yield* isSamePath(globalPrefix, managedPrefix))) {
         return yield* new AcpRegistryError({
           reason: "install_failed",
-          detail: `'${managerPath}' reported global prefix ${globalPrefix} instead of T3's managed prefix ${managedPrefix}. It may be a shim that ignores --prefix; put a real npm first on PATH.`,
+          detail: `'${managerPath}' reported global prefix ${globalPrefix} instead of a4code's managed prefix ${managedPrefix}. It may be a shim that ignores --prefix; put a real npm first on PATH.`,
         });
       }
       const packageRoot = path.join(globalRoot, ...packageIdentity.name.split("/"));
@@ -1529,7 +1532,12 @@ export const makeAcpRegistryCatalog = Effect.fn("AcpRegistryCatalog.make")(funct
       });
     }
     const receipt = yield* readPackageReceipt(agent, distribution, packageSpec, managerPath);
-    if (Option.isSome(receipt) && distribution === "npx") return receipt.value;
+    if (Option.isSome(receipt) && (distribution === "npx" || !registryUrl)) return receipt.value;
+    if (!registryUrl)
+      return yield* new AcpRegistryError({
+        reason: "install_failed",
+        detail: "Install this ACP agent locally and configure its executable.",
+      });
 
     const packageRoot = packageInstallRoot(agent, distribution);
     yield* fileSystem.makeDirectory(packageRoot, { recursive: true }).pipe(
@@ -1755,6 +1763,12 @@ export const makeAcpRegistryCatalog = Effect.fn("AcpRegistryCatalog.make")(funct
         ),
       );
     }
+
+    if (!registryUrl)
+      return yield* new AcpRegistryError({
+        reason: "install_failed",
+        detail: "Install this ACP agent locally and configure its executable.",
+      });
 
     yield* fileSystem.makeDirectory(path.dirname(installRoot), { recursive: true }).pipe(
       Effect.mapError(
@@ -1997,7 +2011,7 @@ export const makeAcpRegistryCatalog = Effect.fn("AcpRegistryCatalog.make")(funct
           license: agent.license ?? null,
           website: agent.website ?? null,
           repository: agent.repository ?? null,
-          icon: agent.icon ?? null,
+          icon: null,
           distribution: distribution.kind,
           integrity:
             distribution.kind === "binary" && distribution.binaryTarget?.sha256 !== undefined

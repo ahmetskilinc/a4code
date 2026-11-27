@@ -1,4 +1,4 @@
-import type { EnvironmentId, ThreadId, TurnItemId } from "@t3tools/contracts";
+import type { EnvironmentId, ThreadId, TurnItemId } from "@a4code/contracts";
 import {
   makeMcpAppHost,
   McpAppHostRefusal,
@@ -8,8 +8,8 @@ import {
   type McpAppDisplayMode,
   type McpAppHost,
   type McpAppHostContext,
-} from "@t3tools/client-runtime/mcp-apps";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+} from "@a4code/client-runtime/mcp-apps";
+import { squashAtomCommandFailure } from "@a4code/client-runtime/state/runtime";
 import {
   clampMcpAppHeight,
   MCP_APP_COLOR_SCHEME_PARAM,
@@ -17,8 +17,9 @@ import {
   MCP_APP_MAX_HEIGHT,
   mcpAppAllowAttribute,
   mcpAppFileName,
+  mcpAppRequestsNetwork,
   type McpAppReference,
-} from "@t3tools/shared/mcpApp";
+} from "@a4code/shared/mcpApp";
 import { msg, T, useGT, Var } from "gt-react";
 import { Minimize2Icon } from "lucide-react";
 import { useEffect, useRef, useState, type FocusEvent, type ToggleEvent } from "react";
@@ -55,11 +56,11 @@ const fullscreenSupported =
   typeof HTMLElement !== "undefined" && "popover" in HTMLElement.prototype;
 
 const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
-// Exclude activation left by input elsewhere in T3.
+// Exclude activation left by input elsewhere in a4code.
 const PAGE_ACTIVATION_MS = 5_000;
 
 // Frame input does not bubble here. An app can refocus itself, so focus
-// alone cannot exclude activation from input elsewhere in T3.
+// alone cannot exclude activation from input elsewhere in a4code.
 let lastPageInputAt = Number.NEGATIVE_INFINITY;
 if (typeof window !== "undefined") {
   const note = () => {
@@ -81,7 +82,7 @@ function saveBlob(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-export function McpAppFrame(props: {
+interface McpAppFrameProps {
   readonly environmentId: EnvironmentId;
   readonly threadId: ThreadId;
   readonly conversationThreadId: ThreadId;
@@ -91,7 +92,23 @@ export function McpAppFrame(props: {
   readonly onSendMessage: ((text: string) => Promise<void>) | undefined;
   readonly awaitingUser?: boolean;
   readonly onFullscreenChange?: (fullscreen: boolean) => void;
-}) {
+}
+
+export function McpAppFrame(props: McpAppFrameProps) {
+  const { app } = props;
+  const resourceKey = JSON.stringify([props.environmentId, app.attachmentId, app.csp]);
+  const [allowed, setAllowed] = useState<string | null>(null);
+  if (mcpAppRequestsNetwork(app.csp) && allowed !== resourceKey) {
+    return (
+      <Button size="sm" variant="outline" onClick={() => setAllowed(resourceKey)}>
+        <T>Load <Var>{app.server}</Var> with network access</T>
+      </Button>
+    );
+  }
+  return <LoadedMcpAppFrame key={resourceKey} {...props} />;
+}
+
+function LoadedMcpAppFrame(props: McpAppFrameProps) {
   const { app } = props;
   const gt = useGT();
   const theme = useHtmlRenderTheme();
@@ -251,7 +268,7 @@ export function McpAppFrame(props: {
         platform: isElectron ? "desktop" : "web",
         locale: navigator.language,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        userAgent: `t3-code/${APP_VERSION}`,
+        userAgent: `a4code/${APP_VERSION}`,
         deviceCapabilities: {
           touch: window.matchMedia("(pointer: coarse)").matches,
           hover: window.matchMedia("(hover: hover)").matches,
@@ -267,7 +284,7 @@ export function McpAppFrame(props: {
       flushSync(() => setDisplayMode("inline"));
       const approved = await requestConfirmDialog(message);
       if (approved === undefined) {
-        throw new McpAppHostRefusal({ message: "T3 could not ask for approval here." });
+        throw new McpAppHostRefusal({ message: "a4code could not ask for approval here." });
       }
       return approved;
     };
@@ -415,13 +432,13 @@ export function McpAppFrame(props: {
     };
   };
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- pushes theme, width, display mode and tool definition to the MCP app host in the iframe
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- pushes theme, width, display mode and tool definition to the MCP app host in the iframe
   useEffect(() => {
     hostRef.current?.updateHostContext();
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Context changes trigger a resend.
   }, [theme, width, displayMode, toolDefinition]);
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- sends the current tool call to the MCP app host, again for each new iframe document
+  // oxlint-disable-next-line a4code/no-unreasoned-state-sync -- sends the current tool call to the MCP app host, again for each new iframe document
   useEffect(() => {
     if (toolCall !== undefined) hostRef.current?.setToolCall(toolCall);
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Each new document needs the call.

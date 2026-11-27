@@ -3,20 +3,17 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
-import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
-import { providerProbeEnvironment } from "@t3tools/provider-core/server/snapshotProbe";
+import { mergeProviderInstanceEnvironment } from "@a4code/provider-core/server/instanceEnvironment";
+import { expandHomePath } from "@a4code/provider-core/server/pathExpansion";
 import {
   tokenCount,
   totalTokens,
   type ProviderUsageReader,
   type TranscriptUsageFormat,
   type UsageRecord,
-} from "@t3tools/provider-core/server/usage";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+} from "@a4code/provider-core/server/usage";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import type { MuseSettings } from "../settings.ts";
-import { makeMuseEnvironment } from "./sdk.ts";
-import * as MuseUsageHome from "./MuseUsageHome.ts";
 
 const Entry = Schema.Struct({
   schema_version: Schema.Literal(1),
@@ -115,35 +112,23 @@ export const museUsageFormat: TranscriptUsageFormat<unknown> = {
   parseProjected: parseRecord,
 };
 
-export const museUsageReader: ProviderUsageReader<
-  MuseSettings,
-  Path.Path | MuseUsageHome.MuseUsageHome
-> = {
+export const museUsageReader: ProviderUsageReader<MuseSettings, Path.Path> = {
   kind: "transcripts",
   provider: "muse",
   format: museUsageFormat,
-  directories: Effect.fn("museUsageReader.directories")(function* (
-    { config, environment },
-    { awaitRefresh },
-  ) {
+  directories: Effect.fn("museUsageReader.directories")(function* ({ environment }) {
     const path = yield* Path.Path;
     const home = yield* HostProcess.HomeDirectory;
-    const usageHome = yield* MuseUsageHome.MuseUsageHome;
-    const processEnvironment = yield* mergeProviderInstanceEnvironment(
+    const env = yield* mergeProviderInstanceEnvironment(
       Object.entries(environment).flatMap(([name, value]) =>
         value === undefined ? [] : [{ name, value, sensitive: false }],
       ),
       yield* HostProcess.Environment,
     );
-    const binaryPath = expandHomePath(config?.binaryPath ?? "muse", home);
-    const museHome = yield* usageHome.resolve({
-      binaryPath,
-      environment: providerProbeEnvironment(makeMuseEnvironment(processEnvironment)),
-      awaitRefresh,
-    });
-    if (Option.isNone(museHome)) return [{ dir: binaryPath, refreshing: true }];
-    return museHome.value
-      ? [{ dir: path.join(museHome.value, "sessions"), fileName: "session.jsonl" }]
-      : [];
+    const data = expandHomePath(
+      env.XDG_DATA_HOME?.trim() || path.join(home, ".local", "share"),
+      home,
+    );
+    return [{ dir: path.join(data, "muse", "sessions"), fileName: "session.jsonl" }];
   }),
 };

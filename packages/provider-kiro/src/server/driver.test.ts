@@ -1,12 +1,13 @@
+import { SpawnExecutableResolution } from "@a4code/shared/shell";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
-import { ProviderInstanceId } from "@t3tools/contracts";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
-import * as TestProviderHost from "@t3tools/provider-testing/TestProviderHost";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import { ProviderInstanceId } from "@a4code/contracts";
+import * as IdAllocator from "@a4code/provider-core/server/IdAllocator";
+import * as McpProviderSessions from "@a4code/provider-core/server/McpProviderSessions";
+import * as ProviderEventLoggers from "@a4code/provider-core/server/ProviderEventLoggers";
+import * as TestProviderHost from "@a4code/provider-testing/TestProviderHost";
+import * as HostProcess from "@a4code/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
@@ -118,9 +119,10 @@ function recordingSpawner(launches: Array<string>) {
 }
 
 it.layer(layerTest)("KiroDriver binary path", (it) => {
-  it.effect("probes a ~/ binary path from the home directory", () =>
+  it.effect("checks a home-relative executable without starting it", () =>
     Effect.gen(function* () {
       const path = yield* Path.Path;
+      const inspected: string[] = [];
       const launches: Array<string> = [];
       const instance = yield* KiroDriver.create({
         instanceId: ProviderInstanceId.make("kiro-home"),
@@ -132,12 +134,14 @@ it.layer(layerTest)("KiroDriver binary path", (it) => {
         Effect.provideService(HostProcess.HomeDirectory, "/test-home"),
         Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, recordingSpawner(launches)),
       );
-      const snapshot = yield* instance.snapshot.refresh;
-      assert.isNotEmpty(launches);
-      assert.deepEqual(
-        [...new Set(launches)],
-        [path.join("/test-home", ".local", "bin", "kiro-cli")],
+      const snapshot = yield* instance.snapshot.refresh.pipe(
+        Effect.provideService(SpawnExecutableResolution, (command) => {
+          inspected.push(command);
+          return command;
+        }),
       );
+      assert.deepEqual(launches, []);
+      assert.deepEqual(inspected, [path.join("/test-home", ".local", "bin", "kiro-cli")]);
       assert.isTrue(snapshot.installed);
     }),
   );

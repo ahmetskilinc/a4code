@@ -12,12 +12,12 @@ import {
   type ComposerContextRecord,
   EnvironmentId,
   type ServerProviderSkill,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import {
   COMPOSER_CONTEXT_CLIPBOARD_MIME,
   encodeComposerContextFragment,
-} from "@t3tools/shared/composerContextClipboard";
-import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
+} from "@a4code/shared/composerContextClipboard";
+import { formatComposerContextReference } from "@a4code/shared/composerContextReferences";
 import type { Editor } from "@tiptap/core";
 import { redoDepth, undoDepth } from "@tiptap/pm/history";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -40,7 +40,7 @@ import {
 vi.mock(import("../state/server"), async (original) => {
   const { Atom } = await import("effect/reactivity");
   const { compileResolvedKeybindingsConfig, DEFAULT_KEYBINDINGS } =
-    await import("@t3tools/shared/keybindings");
+    await import("@a4code/shared/keybindings");
   return {
     ...(await original()),
     primaryServerKeybindingsAtom: Atom.make(
@@ -460,7 +460,7 @@ it("keeps replacement behavior at a prose mention boundary", async () => {
 
 // CDP drives Chrome's own IME path, which skips deleting a range bounded by an uneditable chip.
 describe("an IME composition over a selection with a chip", () => {
-  const chip = "[Seed · 2](t3-context://v1/thread/thread_seed)";
+  const chip = "[Seed · 2](a4-context://v1/thread/thread_seed)";
   it.each([
     { range: "text and the chip after it", anchor: 1, head: 6, composed: `あ ${chip} RIGHT` },
     { range: "a chip and the text after it", anchor: 5, head: 7, composed: `LEFTあ${chip} RIGHT` },
@@ -674,7 +674,7 @@ it("keeps a pasted web link beside an imported thread chip", async () => {
   const editor = editorIn(screen.container);
   await act(async () => {
     const clipboardData = new DataTransfer();
-    const thread = "https://app.t3.codes/threads/env-1/thread-1";
+    const thread = "a4code://threads/env-1/thread-1";
     clipboardData.setData("text/plain", `${thread} and Setup guide`);
     clipboardData.setData(
       "text/html",
@@ -683,7 +683,7 @@ it("keeps a pasted web link beside an imported thread chip", async () => {
     editor.view.dom.dispatchEvent(new ClipboardEvent("paste", { clipboardData, cancelable: true }));
   });
   expect(serializeEditorDoc(editor.state.doc).value).toMatch(
-    /^\[Thread\]\(t3-context:\/\/v1\/thread\/[^)]+\) and \[Setup guide\]\(https:\/\/example\.com\/setup\)$/,
+    /^\[Thread\]\(a4-context:\/\/v1\/thread\/[^)]+\) and \[Setup guide\]\(https:\/\/example\.com\/setup\)$/,
   );
 });
 

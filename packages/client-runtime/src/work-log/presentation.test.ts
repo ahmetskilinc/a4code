@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { ThreadId, TurnItemId, type OrchestrationV2TurnItem } from "@t3tools/contracts";
+import { ThreadId, TurnItemId, type OrchestrationV2TurnItem } from "@a4code/contracts";
 import * as DateTime from "effect/DateTime";
-import { compactT3McpToolOutput } from "@t3tools/shared/toolOutput";
+import { compactA4McpToolOutput } from "@a4code/shared/toolOutput";
 
 import {
   resolveViewedImageAsset,
@@ -119,7 +119,7 @@ describe("resolveWorkEntryToolPresentation", () => {
       id: "clone",
       createdAt: "2026-09-19T00:00:00.000Z",
       tone: "tool",
-      label: "T3-code.t3_project_clone",
+      label: "a4code-code.a4_project_clone",
       toolLifecycleStatus: "inProgress",
       itemType: "dynamic_tool",
       toolData: { output: { isError: true } },
@@ -130,19 +130,19 @@ describe("resolveWorkEntryToolPresentation", () => {
     expect(workEntryDisplayIndicatesToolFailure(entry)).toBe(true);
     const childFailure = {
       ...entry,
-      label: "T3-code.task_status",
+      label: "a4code-code.task_status",
       toolLifecycleStatus: "completed" as const,
       toolData: { output: { taskId: "child", status: "failed", summary: "command not found" } },
     };
     expect(workEntryDisplayIndicatesToolFailure(childFailure)).toBe(false);
   });
   it.each([
-    "mcp__t3-code__preview_click",
-    "mcp__t3_code__preview_click",
-    "mcp__t3code__preview_click",
-    "T3-code.preview_click",
-    "t3-code · preview_click completed",
-    "t3_code/preview_click",
+    "mcp__a4code__preview_click",
+    "mcp__a4_code__preview_click",
+    "mcp__a4code__preview_click",
+    "a4code-code.preview_click",
+    "a4code · preview_click completed",
+    "a4_code/preview_click",
     "preview_click",
   ])("recognizes browser tool names across providers: %s", (label) => {
     expect(resolveWorkEntryToolPresentation({ label })).toEqual({
@@ -156,7 +156,7 @@ describe("resolveWorkEntryToolPresentation", () => {
       resolveWorkEntryToolPresentation({
         label: "Tool call complete",
         toolTitle: "Inspect the current page",
-        toolData: { server: "t3-code", tool: "preview_snapshot", result: { title: "Example" } },
+        toolData: { server: "a4code", tool: "preview_snapshot", result: { title: "Example" } },
       }),
     ).toEqual({ displayName: "Taking a snapshot of the preview page", icon: "browser" });
   });
@@ -164,9 +164,9 @@ describe("resolveWorkEntryToolPresentation", () => {
   it("names the reported outcome when it contradicts the row's verb", () => {
     const row = (tool: string, output: unknown) =>
       resolveWorkEntryToolPresentation({
-        label: `T3-code.${tool}`,
+        label: `a4code-code.${tool}`,
         toolLifecycleStatus: "completed",
-        toolData: { output: compactT3McpToolOutput(`t3-code.${tool}`, output) },
+        toolData: { output: compactA4McpToolOutput(`a4code.${tool}`, output) },
       })?.displayName;
     expect(row("pull_request_create", { number: 470, created: false })).toBe(
       "Found 1 open pull request",
@@ -184,7 +184,7 @@ describe("resolveWorkEntryToolPresentation", () => {
   });
 
   it("uses the summary's state only when the provider omitted a lifecycle status", () => {
-    const entry = { label: "T3-code.preview_click" };
+    const entry = { label: "a4code-code.preview_click" };
     expect(resolveWorkEntryToolPresentation(entry, "inProgress")?.displayName).toBe(
       "Clicking in the preview browser",
     );
@@ -207,7 +207,7 @@ describe("resolveWorkEntryToolPresentation", () => {
   ])("names a linked change request with its host's term (%s)", (url, target) => {
     expect(
       resolveWorkEntryToolPresentation({
-        label: "T3-code.link_pull_request",
+        label: "a4code-code.link_pull_request",
         toolLifecycleStatus: "completed",
         toolData: { arguments: { url } },
       })?.displayName,
@@ -217,8 +217,8 @@ describe("resolveWorkEntryToolPresentation", () => {
   it("does not brand unknown tools or another server's matching tool name", () => {
     for (const label of [
       "mcp__github__preview_click",
-      "t3-code.unknown_tool",
-      "t3-code.toString",
+      "a4code.unknown_tool",
+      "a4code.toString",
       "Search files",
     ]) {
       expect(resolveWorkEntryToolPresentation({ label })).toBeNull();

@@ -9,10 +9,9 @@ import type {
   SourceControlProviderDiscoveryItem,
   VcsDriverKind,
   VcsDiscoveryItem,
-} from "@t3tools/contracts";
+} from "@a4code/contracts";
 import { useSettingsScope } from "./SettingsScopeContext";
 import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
-import { useLiveRefresh } from "../../hooks/useLiveRefresh";
 import { cn } from "../../lib/utils";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
@@ -50,9 +49,9 @@ import {
 } from "./settingsLayout";
 import { useSearchableSetting, sourceControlHostSettingsSearchId } from "./settingsSearch";
 import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
-import { sourceControlInstallHintText } from "@t3tools/client-runtime/contract-labels";
-import { isSourceControlProviderOffered } from "@t3tools/client-runtime/operations/projects";
-import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
+import { sourceControlInstallHintText } from "@a4code/client-runtime/contract-labels";
+import { isSourceControlProviderOffered } from "@a4code/client-runtime/operations/projects";
+import { sourceControlClients } from "@a4code/client-runtime/source-control-clients";
 import { sourceControlIcon } from "~/sourceControlPresentation";
 import { SharedTooltipTrigger } from "../ui/shared-tooltip";
 
@@ -467,8 +466,9 @@ export function SourceControlSettingsPanel() {
     environment?.connection.phase === "connected" ? environment.environmentId : null;
   const aggregate = scope.environmentIds.length !== 1 && connectedEnvironments.length > 1;
   const environmentSuffix = aggregate && environment ? ` · ${environment.label}` : "";
+  const [scannedEnvironment, setScannedEnvironment] = useState<typeof environmentId>(null);
   const discovery = useEnvironmentQuery(
-    environmentId === null
+    environmentId === null || scannedEnvironment !== environmentId
       ? null
       : sourceControlEnvironment.discovery({
           environmentId,
@@ -481,20 +481,9 @@ export function SourceControlSettingsPanel() {
   const hasDiscoveryItems = hasVersionControlSystems || result.sourceControlProviders.length > 0;
   const isInitialScanPending = discovery.isPending && discovery.data === null;
   const handleScan = () => {
-    discovery.refresh();
+    if (scannedEnvironment === environmentId) discovery.refresh();
+    else setScannedEnvironment(environmentId);
   };
-  // A CLI login on the server host changes nothing the client reads, so returning to the window
-  // asks again. Discovery runs every hosting CLI, too costly for a timer nobody asked for.
-  useLiveRefresh(
-    () => {
-      if (!discovery.isPending) discovery.refresh();
-    },
-    {
-      enabled: environmentId !== null,
-      key: `source-control-discovery:${environmentId}`,
-      intervalMs: null,
-    },
-  );
   const offeredProviders = environment?.serverConfig?.settings.offeredSourceControlProviders;
   const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
     label: "save source control providers",
@@ -655,7 +644,7 @@ export function SourceControlSettingsPanel() {
           onScan={handleScan}
         />
       )}
-      {environmentId === null ? null : (
+      {environmentId === null || scannedEnvironment !== environmentId ? null : (
         <IssueTrackerSettings key={environmentId} environmentId={environmentId} />
       )}
 
